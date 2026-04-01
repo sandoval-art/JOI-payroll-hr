@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
-import { usePayrollStore } from "@/store/payrollStore";
+import { useEmployees, useAddEmployee, useAddEmployeesBulk, useRemoveEmployee, useActivePeriod, usePayrollRecords, recordToConfig } from "@/hooks/useSupabasePayroll";
 import { calcularNomina, type Employee, type Turno } from "@/types/payroll";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -16,13 +16,18 @@ import { useNavigate } from "react-router-dom";
 const fmt = (n: number) => n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 
 export default function Empleados() {
-  const { employees, payrollConfigs, addEmployee, addEmployees, removeEmployee } = usePayrollStore();
+  const { data: employees = [], isLoading } = useEmployees();
+  const { data: activePeriod } = useActivePeriod();
+  const { data: records = [] } = usePayrollRecords(activePeriod?.id);
+  const addEmployee = useAddEmployee();
+  const addEmployeesBulk = useAddEmployeesBulk();
+  const removeEmployee = useRemoveEmployee();
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
-  const [form, setForm] = useState<Omit<Employee, "id"> & { id: string }>({
+  const [form, setForm] = useState<Omit<Employee, "_uuid"> & { id: string }>({
     id: "",
     nombre: "",
     sueldoBase: 0,
@@ -46,10 +51,14 @@ export default function Empleados() {
       toast.error("Ya existe un empleado con ese ID");
       return;
     }
-    addEmployee(form);
-    toast.success("Empleado agregado correctamente");
-    setAddOpen(false);
-    setForm({ id: "", nombre: "", sueldoBase: 0, descuentoPorDia: 0, kpiMonto: 0, turno: "Lunes-Viernes" });
+    addEmployee.mutate(form, {
+      onSuccess: () => {
+        toast.success("Empleado agregado correctamente");
+        setAddOpen(false);
+        setForm({ id: "", nombre: "", sueldoBase: 0, descuentoPorDia: 0, kpiMonto: 0, turno: "Lunes-Viernes" });
+      },
+      onError: (err: any) => toast.error(err.message || "Error al agregar empleado"),
+    });
   };
 
   const handleCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,8 +83,10 @@ export default function Empleados() {
         }
       }
       if (emps.length) {
-        addEmployees(emps);
-        toast.success(`${emps.length} empleados importados`);
+        addEmployeesBulk.mutate(emps, {
+          onSuccess: () => toast.success(`${emps.length} empleados importados`),
+          onError: (err: any) => toast.error(err.message || "Error al importar"),
+        });
       } else {
         toast.error("No se encontraron registros válidos");
       }
@@ -83,6 +94,10 @@ export default function Empleados() {
     reader.readAsText(file);
     if (fileRef.current) fileRef.current.value = "";
   };
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center py-20 text-muted-foreground">Cargando...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -145,7 +160,9 @@ export default function Empleados() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button onClick={handleAdd}>Agregar</Button>
+                <Button onClick={handleAdd} disabled={addEmployee.isPending}>
+                  {addEmployee.isPending ? "Guardando..." : "Agregar"}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -179,15 +196,16 @@ export default function Empleados() {
                 </TableRow>
               ) : (
                 filtered.map((emp) => {
-                  const config = payrollConfigs[emp.id];
-                  const result = config ? calcularNomina(emp, config) : null;
+                  const rec = records.find((r: any) => r.employee_id === emp._uuid);
+                  const config = recordToConfig(rec, emp.id);
+                  const result = calcularNomina(emp, config);
                   return (
                     <TableRow key={emp.id} className="cursor-pointer" onClick={() => navigate(`/empleados/${emp.id}`)}>
                       <TableCell className="font-medium">{emp.id}</TableCell>
                       <TableCell>{emp.nombre}</TableCell>
                       <TableCell className="text-muted-foreground">{emp.turno}</TableCell>
                       <TableCell className="text-right">{fmt(emp.sueldoBase)}</TableCell>
-                      <TableCell className="text-right font-semibold">{result ? fmt(result.netoAPagar) : "—"}</TableCell>
+                      <TableCell className="text-right font-semibold">{fmt(result.netoAPagar)}</TableCell>
                       <TableCell>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
@@ -204,7 +222,12 @@ export default function Empleados() {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => { removeEmployee(emp.id); toast.success("Empleado eliminado"); }}>
+                              <AlertDialogAction onClick={() => {
+                                removeEmployee.mutate(emp.id, {
+                                  onSuccess: () => toast.success("Empleado eliminado"),
+                                  onError: (err: any) => toast.error(err.message),
+                                });
+                              }}>
                                 Eliminar
                               </AlertDialogAction>
                             </AlertDialogFooter>
