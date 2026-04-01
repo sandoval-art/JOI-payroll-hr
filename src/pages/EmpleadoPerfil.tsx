@@ -26,6 +26,8 @@ export default function EmpleadoPerfil() {
   const createPeriod = useCreatePeriod();
   const { data: records = [] } = usePayrollRecords(activePeriod?.id);
   const upsertRecord = useUpsertPayrollRecord();
+  const { data: clients = [] } = useClients();
+  const queryClient = useQueryClient();
 
   // Auto-create period if none exists
   useEffect(() => {
