@@ -1,5 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEmployees, useUpdateEmployee, useActivePeriod, usePayrollRecords, useUpsertPayrollRecord, useCreatePeriod, getCurrentPeriodDates, recordToConfig } from "@/hooks/useSupabasePayroll";
+import { useClients } from "@/hooks/useInvoices";
+import { supabase } from "@/integrations/supabase/client";
 import { calcularNomina, type Turno } from "@/types/payroll";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
