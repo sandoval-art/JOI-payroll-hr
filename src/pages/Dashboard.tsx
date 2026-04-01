@@ -1,31 +1,47 @@
-import { usePayrollStore } from "@/store/payrollStore";
+import { useEmployees, useActivePeriod, usePayrollRecords, useCreatePeriod, getCurrentPeriodDates, formatPeriodLabel, recordToConfig } from "@/hooks/useSupabasePayroll";
 import { calcularNomina } from "@/types/payroll";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, DollarSign, TrendingUp, Calculator } from "lucide-react";
+import { useEffect } from "react";
 
 export default function Dashboard() {
-  const { employees, payrollConfigs, currentPeriodo } = usePayrollStore();
+  const { data: employees = [], isLoading: loadingEmps } = useEmployees();
+  const { data: activePeriod, isLoading: loadingPeriod } = useActivePeriod();
+  const createPeriod = useCreatePeriod();
+  const { data: records = [] } = usePayrollRecords(activePeriod?.id);
+
+  // Auto-create period if none exists
+  useEffect(() => {
+    if (!loadingPeriod && !activePeriod && !createPeriod.isPending) {
+      createPeriod.mutate(getCurrentPeriodDates());
+    }
+  }, [loadingPeriod, activePeriod]);
+
+  const periodLabel = formatPeriodLabel(activePeriod);
 
   const totalNomina = employees.reduce((sum, emp) => {
-    const config = payrollConfigs[emp.id];
-    if (!config) return sum;
-    const result = calcularNomina(emp, config);
-    return sum + result.netoAPagar;
+    const rec = records.find((r: any) => r.employee_id === emp._uuid);
+    const config = recordToConfig(rec, emp.id);
+    return sum + calcularNomina(emp, config).netoAPagar;
   }, 0);
 
   const promedioSalarial = employees.length
     ? employees.reduce((s, e) => s + e.sueldoBase, 0) / employees.length
     : 0;
 
+  const fmt = (n: number) =>
+    n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+
   const cards = [
     { title: "Total Empleados", value: employees.length, icon: Users, format: false },
     { title: "Nómina Quincenal", value: totalNomina, icon: DollarSign, format: true },
     { title: "Promedio Salarial", value: promedioSalarial, icon: TrendingUp, format: true },
-    { title: "Periodo Actual", value: currentPeriodo, icon: Calculator, format: false },
+    { title: "Periodo Actual", value: periodLabel, icon: Calculator, format: false },
   ];
 
-  const fmt = (n: number) =>
-    n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+  if (loadingEmps) {
+    return <div className="flex items-center justify-center py-20 text-muted-foreground">Cargando...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -49,7 +65,7 @@ export default function Dashboard() {
       {employees.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Resumen Quincenal — {currentPeriodo}</CardTitle>
+            <CardTitle className="text-lg">Resumen Quincenal — {periodLabel}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-auto">
@@ -64,16 +80,15 @@ export default function Dashboard() {
                 </thead>
                 <tbody>
                   {employees.map((emp) => {
-                    const config = payrollConfigs[emp.id];
-                    const result = config ? calcularNomina(emp, config) : null;
+                    const rec = records.find((r: any) => r.employee_id === emp._uuid);
+                    const config = recordToConfig(rec, emp.id);
+                    const result = calcularNomina(emp, config);
                     return (
                       <tr key={emp.id} className="border-b last:border-0">
                         <td className="p-2">{emp.id}</td>
                         <td className="p-2">{emp.nombre}</td>
                         <td className="p-2 text-right">{fmt(emp.sueldoBase)}</td>
-                        <td className="p-2 text-right font-semibold">
-                          {result ? fmt(result.netoAPagar) : "—"}
-                        </td>
+                        <td className="p-2 text-right font-semibold">{fmt(result.netoAPagar)}</td>
                       </tr>
                     );
                   })}

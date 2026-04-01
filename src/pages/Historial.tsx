@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { usePayrollStore } from "@/store/payrollStore";
+import { useEmployees, useActivePeriod, usePayrollRecords, useClosePeriod, useCreatePeriod, useHistoryRecords, getCurrentPeriodDates, formatPeriodLabel, recordToConfig } from "@/hooks/useSupabasePayroll";
 import { calcularNomina, type PayrollRecord } from "@/types/payroll";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,16 +12,35 @@ import jsPDF from "jspdf";
 
 const fmt = (n: number) => n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 
-function generatePDF(record: PayrollRecord) {
+interface HistoryDisplayRecord {
+  id: string;
+  periodLabel: string;
+  employeeName: string;
+  employeeId: string;
+  netPay: number;
+  closedDate: string;
+  sueldoBase: number;
+  config: {
+    diasFaltados: number;
+    diasExtra: number;
+    kpiAplicado: boolean;
+    primaDominical: boolean;
+    diaFestivo: boolean;
+    bonosAdicionales: number;
+  };
+  result: any;
+}
+
+function generatePDF(record: HistoryDisplayRecord) {
   const doc = new jsPDF();
   const r = record.result;
 
   doc.setFontSize(18);
   doc.text("Recibo de Nómina", 20, 20);
   doc.setFontSize(11);
-  doc.text(`Periodo: ${record.periodo}`, 20, 30);
-  doc.text(`Fecha de cierre: ${record.fechaCierre}`, 20, 37);
-  doc.text(`Empleado: ${record.empleadoNombre} (${record.empleadoId})`, 20, 47);
+  doc.text(`Periodo: ${record.periodLabel}`, 20, 30);
+  doc.text(`Fecha de cierre: ${record.closedDate}`, 20, 37);
+  doc.text(`Empleado: ${record.employeeName} (${record.employeeId})`, 20, 47);
   doc.text(`Sueldo Base Mensual: ${fmt(record.sueldoBase)}`, 20, 57);
 
   let y = 70;
@@ -65,41 +84,72 @@ function generatePDF(record: PayrollRecord) {
   doc.text("NETO A PAGAR", 20, y);
   doc.text(fmt(r.netoAPagar), 170, y, { align: "right" });
 
-  doc.save(`nomina_${record.empleadoId}_${record.periodo.replace(/ /g, "_")}.pdf`);
+  doc.save(`nomina_${record.employeeId}_${record.periodLabel.replace(/ /g, "_")}.pdf`);
 }
 
 export default function Historial() {
-  const { employees, payrollConfigs, history, addHistoryRecords, currentPeriodo, resetPayrollConfigs } = usePayrollStore();
+  const { data: employees = [] } = useEmployees();
+  const { data: activePeriod } = useActivePeriod();
+  const { data: activeRecords = [] } = usePayrollRecords(activePeriod?.id);
+  const { data: historyData = [], isLoading } = useHistoryRecords();
+  const closePeriod = useClosePeriod();
+  const createPeriod = useCreatePeriod();
   const [search, setSearch] = useState("");
 
+  const periodLabel = formatPeriodLabel(activePeriod);
+
   const handleCerrarQuincena = () => {
-    const records: PayrollRecord[] = employees.map((emp) => {
-      const config = payrollConfigs[emp.id] || {
-        empleadoId: emp.id, diasFaltados: 0, kpiAplicado: false,
-        diasExtra: 0, primaDominical: false, diaFestivo: false, bonosAdicionales: 0,
-      };
-      const result = calcularNomina(emp, config);
-      return {
-        id: `${emp.id}-${Date.now()}`,
-        periodo: currentPeriodo,
-        fechaCierre: new Date().toLocaleDateString("es-MX"),
-        empleadoId: emp.id,
-        empleadoNombre: emp.nombre,
-        config,
-        result,
-        sueldoBase: emp.sueldoBase,
-      };
+    if (!activePeriod) return;
+
+    // First, ensure all employees have records with calculated_net_pay
+    closePeriod.mutate(activePeriod.id, {
+      onSuccess: () => {
+        // Create next period
+        createPeriod.mutate(getCurrentPeriodDates());
+        toast.success(`Quincena "${periodLabel}" cerrada con ${employees.length} registros`);
+      },
+      onError: (err: any) => toast.error(err.message || "Error al cerrar quincena"),
     });
-    addHistoryRecords(records);
-    resetPayrollConfigs();
-    toast.success(`Quincena "${currentPeriodo}" cerrada con ${records.length} registros`);
   };
 
-  const filtered = history.filter(
+  // Transform history data for display
+  const historyRecords: HistoryDisplayRecord[] = historyData.map((rec: any) => {
+    const emp = {
+      id: rec.employees.employee_id,
+      nombre: rec.employees.full_name,
+      sueldoBase: Number(rec.employees.monthly_base_salary) || 0,
+      descuentoPorDia: Number(rec.employees.daily_discount_rate) || 0,
+      kpiMonto: Number(rec.employees.kpi_bonus_amount) || 0,
+      turno: "Lunes-Viernes" as const,
+    };
+    const config = recordToConfig(rec, emp.id);
+    const result = calcularNomina(emp, config);
+
+    return {
+      id: rec.id,
+      periodLabel: formatPeriodLabel(rec.payroll_periods),
+      employeeName: rec.employees.full_name,
+      employeeId: rec.employees.employee_id,
+      netPay: result.netoAPagar,
+      closedDate: new Date(rec.updated_at).toLocaleDateString("es-MX"),
+      sueldoBase: emp.sueldoBase,
+      config: {
+        diasFaltados: rec.days_absent || 0,
+        diasExtra: rec.extra_days_count || 0,
+        kpiAplicado: rec.kpi_achieved || false,
+        primaDominical: rec.sunday_premium_applied || false,
+        diaFestivo: rec.holiday_worked || false,
+        bonosAdicionales: Number(rec.additional_bonuses) || 0,
+      },
+      result,
+    };
+  });
+
+  const filtered = historyRecords.filter(
     (r) =>
-      r.periodo.toLowerCase().includes(search.toLowerCase()) ||
-      r.empleadoNombre.toLowerCase().includes(search.toLowerCase()) ||
-      r.empleadoId.toLowerCase().includes(search.toLowerCase())
+      r.periodLabel.toLowerCase().includes(search.toLowerCase()) ||
+      r.employeeName.toLowerCase().includes(search.toLowerCase()) ||
+      r.employeeId.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -108,7 +158,7 @@ export default function Historial() {
         <h2 className="text-2xl font-bold">Historial de Nómina</h2>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button disabled={employees.length === 0}>
+            <Button disabled={employees.length === 0 || !activePeriod || closePeriod.isPending}>
               <Lock className="mr-2 h-4 w-4" /> Cerrar Quincena
             </Button>
           </AlertDialogTrigger>
@@ -116,7 +166,7 @@ export default function Historial() {
             <AlertDialogHeader>
               <AlertDialogTitle>¿Cerrar quincena actual?</AlertDialogTitle>
               <AlertDialogDescription>
-                Se guardará un snapshot de la nómina de {employees.length} empleados para el periodo "{currentPeriodo}".
+                Se guardará un snapshot de la nómina de {employees.length} empleados para el periodo "{periodLabel}".
                 Las incidencias se resetearán para la siguiente quincena.
               </AlertDialogDescription>
             </AlertDialogHeader>
@@ -149,16 +199,16 @@ export default function Historial() {
               {filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    No hay registros en el historial
+                    {isLoading ? "Cargando..." : "No hay registros en el historial"}
                   </TableCell>
                 </TableRow>
               ) : (
                 filtered.map((rec) => (
                   <TableRow key={rec.id}>
-                    <TableCell className="font-medium">{rec.periodo}</TableCell>
-                    <TableCell>{rec.empleadoNombre} ({rec.empleadoId})</TableCell>
-                    <TableCell className="text-muted-foreground">{rec.fechaCierre}</TableCell>
-                    <TableCell className="text-right font-semibold">{fmt(rec.result.netoAPagar)}</TableCell>
+                    <TableCell className="font-medium">{rec.periodLabel}</TableCell>
+                    <TableCell>{rec.employeeName} ({rec.employeeId})</TableCell>
+                    <TableCell className="text-muted-foreground">{rec.closedDate}</TableCell>
+                    <TableCell className="text-right font-semibold">{fmt(rec.netPay)}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" onClick={() => generatePDF(rec)}>
                         <Download className="h-4 w-4" />

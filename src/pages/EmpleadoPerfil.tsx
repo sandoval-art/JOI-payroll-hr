@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { usePayrollStore } from "@/store/payrollStore";
+import { useEmployees, useUpdateEmployee, useActivePeriod, usePayrollRecords, useUpsertPayrollRecord, useCreatePeriod, getCurrentPeriodDates, recordToConfig } from "@/hooks/useSupabasePayroll";
 import { calcularNomina, type Turno } from "@/types/payroll";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,15 +10,33 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 const fmt = (n: number) => n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 
 export default function EmpleadoPerfil() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { employees, updateEmployee, payrollConfigs, updatePayrollConfig } = usePayrollStore();
+  const { data: employees = [], isLoading } = useEmployees();
+  const updateEmployee = useUpdateEmployee();
+  const { data: activePeriod } = useActivePeriod();
+  const createPeriod = useCreatePeriod();
+  const { data: records = [] } = usePayrollRecords(activePeriod?.id);
+  const upsertRecord = useUpsertPayrollRecord();
+
+  // Auto-create period if none exists
+  useEffect(() => {
+    if (!isLoading && !activePeriod && !createPeriod.isPending) {
+      createPeriod.mutate(getCurrentPeriodDates());
+    }
+  }, [isLoading, activePeriod]);
 
   const emp = employees.find((e) => e.id === id);
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center py-20 text-muted-foreground">Cargando...</div>;
+  }
+
   if (!emp) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -30,19 +48,46 @@ export default function EmpleadoPerfil() {
     );
   }
 
-  const config = payrollConfigs[emp.id] || {
-    empleadoId: emp.id, diasFaltados: 0, kpiAplicado: false,
-    diasExtra: 0, primaDominical: false, diaFestivo: false, bonosAdicionales: 0,
-  };
+  const currentRecord = records.find((r: any) => r.employee_id === emp._uuid);
+  const config = recordToConfig(currentRecord, emp.id);
   const result = calcularNomina(emp, config);
 
   const saveField = (field: string, value: any) => {
-    updateEmployee(emp.id, { [field]: value });
-    toast.success("Dato guardado");
+    updateEmployee.mutate(
+      { employeeId: emp.id, data: { [field]: value } },
+      { onSuccess: () => toast.success("Dato guardado") }
+    );
   };
 
   const saveConfig = (field: string, value: any) => {
-    updatePayrollConfig(emp.id, { [field]: value });
+    if (!activePeriod || !emp._uuid) return;
+    // Map frontend field names to DB columns
+    const fieldMap: Record<string, string> = {
+      diasFaltados: "days_absent",
+      kpiAplicado: "kpi_achieved",
+      diasExtra: "extra_days_count",
+      primaDominical: "sunday_premium_applied",
+      diaFestivo: "holiday_worked",
+      bonosAdicionales: "additional_bonuses",
+    };
+    const dbField = fieldMap[field];
+    if (!dbField) return;
+
+    // Build the updated config to calculate net pay
+    const updatedConfig = { ...config, [field]: value };
+    const updatedResult = calcularNomina(emp, updatedConfig);
+
+    upsertRecord.mutate({
+      employee_id: emp._uuid,
+      period_id: activePeriod.id,
+      days_absent: updatedConfig.diasFaltados,
+      extra_days_count: updatedConfig.diasExtra,
+      kpi_achieved: updatedConfig.kpiAplicado,
+      sunday_premium_applied: updatedConfig.primaDominical,
+      holiday_worked: updatedConfig.diaFestivo,
+      additional_bonuses: updatedConfig.bonosAdicionales,
+      calculated_net_pay: updatedResult.netoAPagar,
+    });
   };
 
   return (
@@ -62,7 +107,6 @@ export default function EmpleadoPerfil() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Configuración Salarial */}
         <Card>
           <CardHeader><CardTitle className="text-lg">Configuración Salarial</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -98,7 +142,6 @@ export default function EmpleadoPerfil() {
           </CardContent>
         </Card>
 
-        {/* Control de Asistencia y Extras */}
         <Card>
           <CardHeader><CardTitle className="text-lg">Incidencias Quincenales</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -108,9 +151,7 @@ export default function EmpleadoPerfil() {
             </div>
             <div className="flex items-center gap-3">
               <Checkbox id="kpi" checked={config.kpiAplicado} onCheckedChange={(v) => saveConfig("kpiAplicado", !!v)} />
-              <Label htmlFor="kpi" className="cursor-pointer">
-                KPI logrado (+{fmt(emp.kpiMonto)})
-              </Label>
+              <Label htmlFor="kpi" className="cursor-pointer">KPI logrado (+{fmt(emp.kpiMonto)})</Label>
             </div>
             <div className="grid gap-2">
               <Label>Días Extra</Label>
@@ -125,15 +166,11 @@ export default function EmpleadoPerfil() {
             </div>
             <div className="flex items-center gap-3">
               <Checkbox id="prima" checked={config.primaDominical} onCheckedChange={(v) => saveConfig("primaDominical", !!v)} />
-              <Label htmlFor="prima" className="cursor-pointer">
-                Prima Dominical (25% del sueldo diario)
-              </Label>
+              <Label htmlFor="prima" className="cursor-pointer">Prima Dominical (25% del sueldo diario)</Label>
             </div>
             <div className="flex items-center gap-3">
               <Checkbox id="festivo" checked={config.diaFestivo} onCheckedChange={(v) => saveConfig("diaFestivo", !!v)} />
-              <Label htmlFor="festivo" className="cursor-pointer">
-                Día Festivo (triple del sueldo diario)
-              </Label>
+              <Label htmlFor="festivo" className="cursor-pointer">Día Festivo (triple del sueldo diario)</Label>
             </div>
             <div className="grid gap-2">
               <Label>Bonos Adicionales</Label>
@@ -143,7 +180,6 @@ export default function EmpleadoPerfil() {
         </Card>
       </div>
 
-      {/* Desglose */}
       <Card>
         <CardHeader><CardTitle className="text-lg">Desglose Quincenal</CardTitle></CardHeader>
         <CardContent>
