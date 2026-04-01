@@ -14,7 +14,126 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      employees: {
+        Row: {
+          created_at: string | null
+          daily_discount_rate: number | null
+          employee_id: string
+          full_name: string
+          id: string
+          is_active: boolean | null
+          kpi_bonus_amount: number | null
+          monthly_base_salary: number | null
+          shift_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          daily_discount_rate?: number | null
+          employee_id: string
+          full_name: string
+          id?: string
+          is_active?: boolean | null
+          kpi_bonus_amount?: number | null
+          monthly_base_salary?: number | null
+          shift_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          daily_discount_rate?: number | null
+          employee_id?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean | null
+          kpi_bonus_amount?: number | null
+          monthly_base_salary?: number | null
+          shift_type?: string | null
+        }
+        Relationships: []
+      }
+      payroll_periods: {
+        Row: {
+          created_at: string | null
+          end_date: string
+          id: string
+          period_type: string
+          start_date: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_date: string
+          id?: string
+          period_type: string
+          start_date: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_date?: string
+          id?: string
+          period_type?: string
+          start_date?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
+      payroll_records: {
+        Row: {
+          additional_bonuses: number | null
+          calculated_net_pay: number | null
+          days_absent: number | null
+          employee_id: string
+          extra_days_count: number | null
+          holiday_worked: boolean | null
+          id: string
+          kpi_achieved: boolean | null
+          period_id: string
+          sunday_premium_applied: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          additional_bonuses?: number | null
+          calculated_net_pay?: number | null
+          days_absent?: number | null
+          employee_id: string
+          extra_days_count?: number | null
+          holiday_worked?: boolean | null
+          id?: string
+          kpi_achieved?: boolean | null
+          period_id: string
+          sunday_premium_applied?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          additional_bonuses?: number | null
+          calculated_net_pay?: number | null
+          days_absent?: number | null
+          employee_id?: string
+          extra_days_count?: number | null
+          holiday_worked?: boolean | null
+          id?: string
+          kpi_achieved?: boolean | null
+          period_id?: string
+          sunday_premium_applied?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_records_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
