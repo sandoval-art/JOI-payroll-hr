@@ -1,5 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEmployees, useUpdateEmployee, useActivePeriod, usePayrollRecords, useUpsertPayrollRecord, useCreatePeriod, getCurrentPeriodDates, recordToConfig } from "@/hooks/useSupabasePayroll";
+import { useClients } from "@/hooks/useInvoices";
+import { supabase } from "@/integrations/supabase/client";
 import { calcularNomina, type Turno } from "@/types/payroll";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 const fmt = (n: number) => n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 
@@ -23,6 +26,8 @@ export default function EmpleadoPerfil() {
   const createPeriod = useCreatePeriod();
   const { data: records = [] } = usePayrollRecords(activePeriod?.id);
   const upsertRecord = useUpsertPayrollRecord();
+  const { data: clients = [] } = useClients();
+  const queryClient = useQueryClient();
 
   // Auto-create period if none exists
   useEffect(() => {
@@ -131,6 +136,26 @@ export default function EmpleadoPerfil() {
                   <SelectItem value="Lunes-Viernes">Lunes-Viernes</SelectItem>
                   <SelectItem value="Viernes-Domingo">Viernes-Domingo</SelectItem>
                   <SelectItem value="Viernes-Lunes">Viernes-Lunes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Cliente Asignado</Label>
+              <Select
+                value={(emp as any)._clientId || "none"}
+                onValueChange={async (v) => {
+                  const clientId = v === "none" ? null : v;
+                  await supabase.from("employees").update({ client_id: clientId }).eq("employee_id", emp.id);
+                  queryClient.invalidateQueries({ queryKey: ["employees"] });
+                  toast.success("Cliente asignado");
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Sin cliente" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin cliente</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

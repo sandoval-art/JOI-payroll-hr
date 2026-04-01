@@ -9,6 +9,9 @@ import Dashboard from "@/pages/Dashboard";
 import Empleados from "@/pages/Empleados";
 import EmpleadoPerfil from "@/pages/EmpleadoPerfil";
 import Historial from "@/pages/Historial";
+import Facturas from "@/pages/Facturas";
+import FacturaNueva from "@/pages/FacturaNueva";
+import FacturaDetalle from "@/pages/FacturaDetalle";
 import Auth from "@/pages/Auth";
 import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/NotFound";
@@ -70,6 +73,9 @@ const App = () => (
                     <Route path="/empleados" element={<Empleados />} />
                     <Route path="/empleados/:id" element={<EmpleadoPerfil />} />
                     <Route path="/historial" element={<Historial />} />
+                    <Route path="/facturas" element={<Facturas />} />
+                    <Route path="/facturas/nueva" element={<FacturaNueva />} />
+                    <Route path="/facturas/:id" element={<FacturaDetalle />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </AppLayout>

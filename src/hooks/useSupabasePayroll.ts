@@ -18,7 +18,7 @@ const shiftFromDb: Record<string, Turno> = {
 };
 
 // Map DB row to frontend Employee
-function mapEmployee(row: any): Employee {
+function mapEmployee(row: any): Employee & { _clientId?: string } {
   return {
     id: row.employee_id,
     nombre: row.full_name,
@@ -26,7 +26,8 @@ function mapEmployee(row: any): Employee {
     descuentoPorDia: Number(row.daily_discount_rate) || 0,
     kpiMonto: Number(row.kpi_bonus_amount) || 0,
     turno: shiftFromDb[row.shift_type] || "Lunes-Viernes",
-    _uuid: row.id, // internal DB uuid
+    _uuid: row.id,
+    _clientId: row.client_id || undefined,
   };
 }
 

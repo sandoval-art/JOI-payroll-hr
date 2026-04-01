@@ -14,8 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      clients: {
+        Row: {
+          bill_to_address: string | null
+          bill_to_name: string | null
+          created_at: string | null
+          id: string
+          name: string
+          prefix: string
+        }
+        Insert: {
+          bill_to_address?: string | null
+          bill_to_name?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          prefix: string
+        }
+        Update: {
+          bill_to_address?: string | null
+          bill_to_name?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          prefix?: string
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
+          client_id: string | null
           created_at: string | null
           daily_discount_rate: number | null
           employee_id: string
@@ -27,6 +55,7 @@ export type Database = {
           shift_type: string | null
         }
         Insert: {
+          client_id?: string | null
           created_at?: string | null
           daily_discount_rate?: number | null
           employee_id: string
@@ -38,6 +67,7 @@ export type Database = {
           shift_type?: string | null
         }
         Update: {
+          client_id?: string | null
           created_at?: string | null
           daily_discount_rate?: number | null
           employee_id?: string
@@ -48,7 +78,100 @@ export type Database = {
           monthly_base_salary?: number | null
           shift_type?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "employees_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_lines: {
+        Row: {
+          agent_name: string
+          days_worked: number | null
+          id: string
+          invoice_id: string
+          spiffs: number | null
+          total: number | null
+          total_price: number | null
+          unit_price: number | null
+        }
+        Insert: {
+          agent_name: string
+          days_worked?: number | null
+          id?: string
+          invoice_id: string
+          spiffs?: number | null
+          total?: number | null
+          total_price?: number | null
+          unit_price?: number | null
+        }
+        Update: {
+          agent_name?: string
+          days_worked?: number | null
+          id?: string
+          invoice_id?: string
+          spiffs?: number | null
+          total?: number | null
+          total_price?: number | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_lines_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          client_id: string
+          created_at: string | null
+          due_date: string
+          id: string
+          invoice_number: string
+          status: string
+          week_end: string
+          week_number: number
+          week_start: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string | null
+          due_date: string
+          id?: string
+          invoice_number: string
+          status?: string
+          week_end: string
+          week_number: number
+          week_start: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string | null
+          due_date?: string
+          id?: string
+          invoice_number?: string
+          status?: string
+          week_end?: string
+          week_number?: number
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payroll_periods: {
         Row: {

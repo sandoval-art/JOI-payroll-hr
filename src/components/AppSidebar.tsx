@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, History, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, History, LogOut, FileText } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -19,6 +19,7 @@ const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Empleados", url: "/empleados", icon: Users },
   { title: "Historial de Nómina", url: "/historial", icon: History },
+  { title: "Facturas (USD)", url: "/facturas", icon: FileText },
 ];
 
 export function AppSidebar() {
