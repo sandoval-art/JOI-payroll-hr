@@ -1,5 +1,6 @@
-import { LayoutDashboard, Users, History } from "lucide-react";
+import { LayoutDashboard, Users, History, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Sidebar,
   SidebarContent,
@@ -10,6 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
 
@@ -21,6 +23,7 @@ const items = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
+  const { signOut, user } = useAuth();
   const collapsed = state === "collapsed";
 
   return (
@@ -67,6 +70,19 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="p-2">
+        {!collapsed && user && (
+          <p className="text-xs text-sidebar-foreground/50 px-2 mb-1 truncate">{user.email}</p>
+        )}
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={signOut} className="hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
+              <LogOut className="mr-2 h-4 w-4" />
+              {!collapsed && <span>Cerrar Sesión</span>}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }
