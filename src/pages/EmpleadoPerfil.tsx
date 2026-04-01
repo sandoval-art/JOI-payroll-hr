@@ -139,6 +139,26 @@ export default function EmpleadoPerfil() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="grid gap-2">
+              <Label>Cliente Asignado</Label>
+              <Select
+                value={(emp as any)._clientId || "none"}
+                onValueChange={async (v) => {
+                  const clientId = v === "none" ? null : v;
+                  await supabase.from("employees").update({ client_id: clientId }).eq("employee_id", emp.id);
+                  queryClient.invalidateQueries({ queryKey: ["employees"] });
+                  toast.success("Cliente asignado");
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Sin cliente" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin cliente</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Separator />
             <div className="p-3 rounded-lg bg-muted">
               <p className="text-sm text-muted-foreground">Sueldo Diario</p>

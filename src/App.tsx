@@ -73,6 +73,9 @@ const App = () => (
                     <Route path="/empleados" element={<Empleados />} />
                     <Route path="/empleados/:id" element={<EmpleadoPerfil />} />
                     <Route path="/historial" element={<Historial />} />
+                    <Route path="/facturas" element={<Facturas />} />
+                    <Route path="/facturas/nueva" element={<FacturaNueva />} />
+                    <Route path="/facturas/:id" element={<FacturaDetalle />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </AppLayout>
