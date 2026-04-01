@@ -7,6 +7,7 @@ export interface Employee {
   descuentoPorDia: number;
   kpiMonto: number;
   turno: Turno;
+  _uuid?: string; // Supabase internal UUID
 }
 
 export interface PayrollConfig {
