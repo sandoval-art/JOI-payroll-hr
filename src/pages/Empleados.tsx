@@ -90,6 +90,19 @@ export default function Empleados() {
         <h2 className="text-2xl font-bold">Gestión de Empleados</h2>
         <div className="flex gap-2">
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCSV} />
+          <Button variant="outline" onClick={() => {
+            const header = "ID,Nombre,SueldoBase,DescuentoPorDia,KPI";
+            const example = "EMP001,Juan Pérez,15000,500,1000";
+            const blob = new Blob([header + "\n" + example + "\n"], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "plantilla_empleados.csv";
+            a.click();
+            URL.revokeObjectURL(url);
+          }}>
+            <Download className="mr-2 h-4 w-4" /> Plantilla CSV
+          </Button>
           <Button variant="outline" onClick={() => fileRef.current?.click()}>
             <Upload className="mr-2 h-4 w-4" /> Cargar CSV
           </Button>
