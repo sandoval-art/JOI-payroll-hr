@@ -28,32 +28,32 @@ import {
 
 const adminItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Empleados", url: "/empleados", icon: Users },
-  { title: "Historial de Nómina", url: "/historial", icon: History },
-  { title: "Facturas (USD)", url: "/facturas", icon: FileText },
+  { title: "Employees", url: "/empleados", icon: Users },
+  { title: "Payroll History", url: "/historial", icon: History },
+  { title: "Invoices (USD)", url: "/facturas", icon: FileText },
 ];
 
 const hrItems = [
-  { title: "Asistencia", url: "/asistencia", icon: Clock },
-  { title: "Desempeño", url: "/desempeno", icon: BarChart3 },
-  { title: "Solicitudes", url: "/solicitudes", icon: CalendarDays },
-  { title: "Mi Reloj", url: "/reloj", icon: Timer },
-  { title: "Mi EOD", url: "/eod", icon: ClipboardCheck },
+  { title: "Attendance", url: "/asistencia", icon: Clock },
+  { title: "Performance", url: "/desempeno", icon: BarChart3 },
+  { title: "Time Off Requests", url: "/solicitudes", icon: CalendarDays },
+  { title: "My Timeclock", url: "/reloj", icon: Timer },
+  { title: "My EOD", url: "/eod", icon: ClipboardCheck },
 ];
 
 const managerItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Asistencia", url: "/asistencia", icon: Clock },
-  { title: "Desempeño", url: "/desempeno", icon: BarChart3 },
-  { title: "Solicitudes", url: "/solicitudes", icon: CalendarDays },
-  { title: "Mi Reloj", url: "/reloj", icon: Timer },
-  { title: "Mi EOD", url: "/eod", icon: ClipboardCheck },
+  { title: "Attendance", url: "/asistencia", icon: Clock },
+  { title: "Performance", url: "/desempeno", icon: BarChart3 },
+  { title: "Time Off Requests", url: "/solicitudes", icon: CalendarDays },
+  { title: "My Timeclock", url: "/reloj", icon: Timer },
+  { title: "My EOD", url: "/eod", icon: ClipboardCheck },
 ];
 
 const employeeItems = [
-  { title: "Mi Reloj", url: "/reloj", icon: Timer },
-  { title: "Mi EOD", url: "/eod", icon: ClipboardCheck },
-  { title: "Mis Solicitudes", url: "/solicitudes", icon: CalendarDays },
+  { title: "My Timeclock", url: "/reloj", icon: Timer },
+  { title: "My EOD", url: "/eod", icon: ClipboardCheck },
+  { title: "My Requests", url: "/solicitudes", icon: CalendarDays },
 ];
 
 export function AppSidebar() {
@@ -78,25 +78,25 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="p-4">
         {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
-              <span className="text-sidebar-primary-foreground font-bold text-sm">JH</span>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-sidebar-primary flex items-center justify-center">
+              <span className="text-sidebar-primary-foreground font-bold text-sm">JOI</span>
             </div>
             <div>
-              <h2 className="text-sm font-bold text-sidebar-foreground">JOI HR</h2>
-              <p className="text-xs text-sidebar-foreground/60">Sistema Administrativo</p>
+              <h2 className="text-sm font-bold tracking-tight text-sidebar-foreground">JOI Payroll</h2>
+              <p className="text-[11px] uppercase tracking-widest text-sidebar-foreground/40 font-medium">HR Management</p>
             </div>
           </div>
         )}
         {collapsed && (
-          <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center mx-auto">
-            <span className="text-sidebar-primary-foreground font-bold text-sm">J</span>
+          <div className="h-9 w-9 rounded-xl bg-sidebar-primary flex items-center justify-center mx-auto">
+            <span className="text-sidebar-primary-foreground font-bold text-xs">JOI</span>
           </div>
         )}
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50">Menú</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[11px] uppercase tracking-widest text-sidebar-foreground/30 font-medium">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
@@ -106,7 +106,7 @@ export function AppSidebar() {
                       to={item.url}
                       end={item.url === "/"}
                       className="hover:bg-sidebar-accent"
-                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
                     >
                       <item.icon className="mr-2 h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
@@ -119,7 +119,7 @@ export function AppSidebar() {
         </SidebarGroup>
         {showHRSection && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-sidebar-foreground/50">Recursos Humanos</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[11px] uppercase tracking-widest text-sidebar-foreground/30 font-medium">Human Resources</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {hrItems.map((item) => (
@@ -129,7 +129,7 @@ export function AppSidebar() {
                         to={item.url}
                         end={item.url === "/"}
                         className="hover:bg-sidebar-accent"
-                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                        activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
                       >
                         <item.icon className="mr-2 h-4 w-4" />
                         {!collapsed && <span>{item.title}</span>}
@@ -150,7 +150,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton onClick={signOut} className="hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
-              {!collapsed && <span>Cerrar Sesión</span>}
+              {!collapsed && <span>Sign Out</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
