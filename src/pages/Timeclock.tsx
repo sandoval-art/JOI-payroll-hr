@@ -13,7 +13,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Clock, LogIn, LogOut, AlertCircle } from "lucide-react";
+import {
+  Clock,
+  LogIn,
+  LogOut,
+  AlertCircle,
+  Coffee,
+  UtensilsCrossed,
+  CheckCircle2,
+} from "lucide-react";
 
 interface TimeClockEntry {
   id: string;
@@ -24,6 +32,15 @@ interface TimeClockEntry {
   total_hours: number | null;
   is_late: boolean;
   late_minutes: number | null;
+  lunch_start: string | null;
+  lunch_end: string | null;
+  break1_start: string | null;
+  break1_end: string | null;
+  break2_start: string | null;
+  break2_end: string | null;
+  shift_end_expected: string | null;
+  auto_clocked_out: boolean;
+  eod_completed: boolean;
   created_at: string;
 }
 
@@ -31,10 +48,10 @@ interface ShiftSettings {
   id: string;
   campaign_id: string;
   shift_name: string;
-  start_time: string;
-  end_time: string;
+  start_time: string; // "HH:MM:SS"
+  end_time: string;   // "HH:MM:SS"
   grace_minutes: number;
-  days_of_week: string[];
+  days_of_week: number[];
 }
 
 interface Employee {
@@ -43,20 +60,62 @@ interface Employee {
   campaign_id: string;
 }
 
+// Cap durations (in minutes)
+const LUNCH_CAP_MIN = 60;
+const SHORT_BREAK_CAP_MIN = 15;
+
+type BreakKind = "lunch" | "break1" | "break2";
+
+function getActiveBreak(entry: TimeClockEntry | null): BreakKind | null {
+  if (!entry) return null;
+  if (entry.lunch_start && !entry.lunch_end) return "lunch";
+  if (entry.break1_start && !entry.break1_end) return "break1";
+  if (entry.break2_start && !entry.break2_end) return "break2";
+  return null;
+}
+
+function diffMinutes(startIso: string, end: Date): number {
+  return (end.getTime() - new Date(startIso).getTime()) / 60000;
+}
+
+function durationMinutes(startIso: string | null, endIso: string | null): number {
+  if (!startIso || !endIso) return 0;
+  return (new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000;
+}
+
+function fmtMinSec(totalMs: number): string {
+  if (totalMs < 0) totalMs = 0;
+  const totalSec = Math.floor(totalMs / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}m ${s.toString().padStart(2, "0")}s`;
+}
+
+function buildShiftEndExpected(now: Date, shift: ShiftSettings | null): string | null {
+  if (!shift?.end_time || !shift?.start_time) return null;
+  const [endH, endM] = shift.end_time.split(":").map(Number);
+  const [startH, startM] = shift.start_time.split(":").map(Number);
+  const end = new Date(now);
+  end.setHours(endH, endM, 0, 0);
+  // Overnight shift: if end <= start, push end to next day
+  const startMinutes = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+  if (endMinutes <= startMinutes) {
+    end.setDate(end.getDate() + 1);
+  }
+  return end.toISOString();
+}
+
 export default function Timeclock() {
   const { employeeId, loading: authLoading } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
   const queryClient = useQueryClient();
 
-  // Update clock every second
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch employee data
   const { data: employee } = useQuery({
     queryKey: ["employee", employeeId],
     queryFn: async () => {
@@ -72,7 +131,6 @@ export default function Timeclock() {
     enabled: !!employeeId,
   });
 
-  // Fetch today's time clock entry
   const { data: todayEntry } = useQuery({
     queryKey: ["timeclock-today", employeeId],
     queryFn: async () => {
@@ -91,7 +149,6 @@ export default function Timeclock() {
     refetchInterval: 30000,
   });
 
-  // Fetch shift settings
   const { data: shiftSettings } = useQuery({
     queryKey: ["shift-settings", employee?.campaign_id],
     queryFn: async () => {
@@ -100,14 +157,13 @@ export default function Timeclock() {
         .from("shift_settings")
         .select("*")
         .eq("campaign_id", employee.campaign_id)
-        .single();
+        .maybeSingle();
       if (error && error.code !== "PGRST116") throw error;
-      return data as ShiftSettings | null;
+      return (data || null) as ShiftSettings | null;
     },
     enabled: !!employee?.campaign_id,
   });
 
-  // Fetch this week's entries
   const { data: weekEntries = [] } = useQuery({
     queryKey: ["timeclock-week", employeeId],
     queryFn: async () => {
@@ -130,130 +186,151 @@ export default function Timeclock() {
     refetchInterval: 30000,
   });
 
-  // Clock in mutation
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["timeclock-today"] });
+    queryClient.invalidateQueries({ queryKey: ["timeclock-week"] });
+  };
+
+  // Clock In
   const clockInMutation = useMutation({
     mutationFn: async () => {
-      if (!employeeId || !employee?.campaign_id) throw new Error("Missing information");
-
+      if (!employeeId || !employee?.campaign_id) throw new Error("Missing employee/campaign");
       const now = new Date();
       const today = now.toISOString().split("T")[0];
-      const clockInTime = now.toISOString();
 
-      // Check if already clocked in
       const { data: existing } = await supabase
         .from("time_clock")
         .select("id")
         .eq("employee_id", employeeId)
         .eq("date", today)
         .maybeSingle();
-
       if (existing) throw new Error("Already clocked in today");
 
-      // Calculate if late
       let isLate = false;
       let lateMinutes = 0;
-
       if (shiftSettings) {
         const [shiftHour, shiftMinute] = shiftSettings.start_time.split(":").map(Number);
-        const shiftStart = new Date();
+        const shiftStart = new Date(now);
         shiftStart.setHours(shiftHour, shiftMinute, 0, 0);
-        const lateTime = new Date(shiftStart.getTime() + shiftSettings.grace_minutes * 60000);
-
+        const lateTime = new Date(shiftStart.getTime() + (shiftSettings.grace_minutes || 0) * 60000);
         if (now > lateTime) {
           isLate = true;
           lateMinutes = Math.floor((now.getTime() - lateTime.getTime()) / 60000);
         }
       }
 
+      const shiftEndExpected = buildShiftEndExpected(now, shiftSettings || null);
+
       const { data, error } = await supabase
         .from("time_clock")
         .insert({
           employee_id: employeeId,
-          clock_in: clockInTime,
+          clock_in: now.toISOString(),
           date: today,
           is_late: isLate,
           late_minutes: isLate ? lateMinutes : null,
+          shift_end_expected: shiftEndExpected,
         })
         .select()
         .single();
-
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["timeclock-today"] });
-      queryClient.invalidateQueries({ queryKey: ["timeclock-week"] });
-    },
+    onSuccess: invalidate,
   });
 
-  // Clock out mutation
+  // Generic break start/end mutations
+  const updateEntry = async (patch: Record<string, unknown>) => {
+    if (!todayEntry?.id) throw new Error("No active entry");
+    const { data, error } = await supabase
+      .from("time_clock")
+      .update(patch)
+      .eq("id", todayEntry.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  };
+
+  const startBreakMutation = useMutation({
+    mutationFn: async (kind: BreakKind) => {
+      if (!todayEntry) throw new Error("Not clocked in");
+      if (todayEntry.clock_out) throw new Error("Already clocked out");
+      if (getActiveBreak(todayEntry)) throw new Error("Already on a break");
+      const now = new Date().toISOString();
+      const col = kind === "lunch" ? "lunch_start" : kind === "break1" ? "break1_start" : "break2_start";
+      const startedCol = kind === "lunch" ? todayEntry.lunch_start : kind === "break1" ? todayEntry.break1_start : todayEntry.break2_start;
+      if (startedCol) throw new Error(`${kind} was already taken today`);
+      return updateEntry({ [col]: now });
+    },
+    onSuccess: invalidate,
+  });
+
+  const endBreakMutation = useMutation({
+    mutationFn: async (kind: BreakKind) => {
+      if (!todayEntry) throw new Error("Not clocked in");
+      const col = kind === "lunch" ? "lunch_end" : kind === "break1" ? "break1_end" : "break2_end";
+      return updateEntry({ [col]: new Date().toISOString() });
+    },
+    onSuccess: invalidate,
+  });
+
+  // Clock Out
   const clockOutMutation = useMutation({
     mutationFn: async () => {
-      if (!todayEntry?.id) throw new Error("No hay entrada registrada");
+      if (!todayEntry) throw new Error("Not clocked in");
+      if (getActiveBreak(todayEntry)) throw new Error("End your current break before clocking out");
+      // Phase C will gate on eod_completed; for now we let it through.
 
       const now = new Date();
-      const clockOutTime = now.toISOString();
+      const clockIn = new Date(todayEntry.clock_in);
+      const grossMinutes = (now.getTime() - clockIn.getTime()) / 60000;
 
-      const clockInDate = new Date(todayEntry.clock_in);
-      const totalHours = (now.getTime() - clockInDate.getTime()) / (1000 * 60 * 60);
+      // Deduct lunch (unpaid). Paid breaks 1 & 2 are NOT deducted.
+      const lunchMinutes = durationMinutes(todayEntry.lunch_start, todayEntry.lunch_end);
+      const netMinutes = Math.max(0, grossMinutes - lunchMinutes);
+      const totalHours = parseFloat((netMinutes / 60).toFixed(2));
 
-      const { data, error } = await supabase
-        .from("time_clock")
-        .update({
-          clock_out: clockOutTime,
-          total_hours: parseFloat(totalHours.toFixed(2)),
-        })
-        .eq("id", todayEntry.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+      return updateEntry({
+        clock_out: now.toISOString(),
+        total_hours: totalHours,
+      });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["timeclock-today"] });
-      queryClient.invalidateQueries({ queryKey: ["timeclock-week"] });
-    },
+    onSuccess: invalidate,
   });
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString("en-US", {
+  const formatTime = (date: Date) =>
+    date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
       hour12: true,
     });
-  };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("en-US", {
+  const formatDate = (date: Date) =>
+    date.toLocaleDateString("en-US", {
       weekday: "long",
       year: "numeric",
       month: "long",
       day: "numeric",
     });
-  };
 
-  const formatTimeFromString = (timeStr: string) => {
-    const date = new Date(timeStr);
-    return date.toLocaleTimeString("en-US", {
+  const formatTimeFromString = (timeStr: string) =>
+    new Date(timeStr).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
-      second: "2-digit",
       hour12: true,
     });
-  };
 
   const calculateElapsedTime = (clockInStr: string) => {
-    const clockIn = new Date(clockInStr);
-    const elapsed = currentTime.getTime() - clockIn.getTime();
-    const hours = Math.floor(elapsed / (1000 * 60 * 60));
-    const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((elapsed % (1000 * 60)) / 1000);
+    const elapsed = currentTime.getTime() - new Date(clockInStr).getTime();
+    const hours = Math.floor(elapsed / 3600000);
+    const minutes = Math.floor((elapsed % 3600000) / 60000);
+    const seconds = Math.floor((elapsed % 60000) / 1000);
     return `${hours}h ${minutes}m ${seconds}s`;
   };
 
-  const weekTotalHours = weekEntries.reduce((sum, entry) => sum + (entry.total_hours || 0), 0);
+  const weekTotalHours = weekEntries.reduce((sum, e) => sum + (e.total_hours || 0), 0);
 
   if (authLoading) {
     return (
@@ -280,20 +357,63 @@ export default function Timeclock() {
   }
 
   const isClockedIn = !!todayEntry && !todayEntry.clock_out;
+  const activeBreak = getActiveBreak(todayEntry || null);
+
+  // Active-break live counter
+  const activeBreakStartIso =
+    activeBreak === "lunch"
+      ? todayEntry?.lunch_start
+      : activeBreak === "break1"
+      ? todayEntry?.break1_start
+      : activeBreak === "break2"
+      ? todayEntry?.break2_start
+      : null;
+
+  const activeBreakCapMin = activeBreak === "lunch" ? LUNCH_CAP_MIN : SHORT_BREAK_CAP_MIN;
+  const activeBreakElapsedMin = activeBreakStartIso ? diffMinutes(activeBreakStartIso, currentTime) : 0;
+  const activeBreakRemainingMs =
+    activeBreakStartIso
+      ? new Date(activeBreakStartIso).getTime() + activeBreakCapMin * 60000 - currentTime.getTime()
+      : 0;
+  const overCap = activeBreakRemainingMs < 0;
+
+  // Past breaks summary (when clocked in but not on break)
+  const lunchTaken = !!(todayEntry?.lunch_start && todayEntry?.lunch_end);
+  const lunchInProgress = !!(todayEntry?.lunch_start && !todayEntry?.lunch_end);
+  const lunchUsedMin = todayEntry?.lunch_start
+    ? lunchInProgress
+      ? diffMinutes(todayEntry.lunch_start, currentTime)
+      : durationMinutes(todayEntry.lunch_start, todayEntry.lunch_end)
+    : 0;
+
+  const break1Taken = !!(todayEntry?.break1_start && todayEntry?.break1_end);
+  const break1InProgress = !!(todayEntry?.break1_start && !todayEntry?.break1_end);
+  const break1UsedMin = todayEntry?.break1_start
+    ? break1InProgress
+      ? diffMinutes(todayEntry.break1_start, currentTime)
+      : durationMinutes(todayEntry.break1_start, todayEntry.break1_end)
+    : 0;
+
+  const break2Taken = !!(todayEntry?.break2_start && todayEntry?.break2_end);
+  const break2InProgress = !!(todayEntry?.break2_start && !todayEntry?.break2_end);
+  const break2UsedMin = todayEntry?.break2_start
+    ? break2InProgress
+      ? diffMinutes(todayEntry.break2_start, currentTime)
+      : durationMinutes(todayEntry.break2_start, todayEntry.break2_end)
+    : 0;
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Timeclock</h2>
 
-      {/* Current Status Card */}
       <Card>
         <CardHeader>
           <CardTitle>Current Status</CardTitle>
         </CardHeader>
         <CardContent className="space-y-8">
-          {/* Current Time */}
+          {/* Big clock */}
           <div className="text-center">
-            <div className="text-5xl font-bold font-mono text-blue-600 mb-2">
+            <div className="text-5xl font-bold font-mono text-primary mb-2">
               {formatTime(currentTime)}
             </div>
             <div className="text-lg text-muted-foreground capitalize">
@@ -301,25 +421,51 @@ export default function Timeclock() {
             </div>
           </div>
 
-          {/* Clock Status */}
-          {isClockedIn ? (
+          {/* NOT CLOCKED IN */}
+          {!isClockedIn && !todayEntry?.clock_out && (
+            <Button
+              size="lg"
+              className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white text-lg"
+              onClick={() => clockInMutation.mutate()}
+              disabled={clockInMutation.isPending}
+            >
+              <LogIn className="mr-2 h-5 w-5" />
+              {clockInMutation.isPending ? "Processing..." : "Clock In"}
+            </Button>
+          )}
+
+          {/* ALREADY CLOCKED OUT FOR THE DAY */}
+          {todayEntry?.clock_out && (
+            <div className="rounded-lg bg-muted p-6 text-center">
+              <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600 mb-2" />
+              <p className="font-semibold">You've completed your shift today.</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {formatTimeFromString(todayEntry.clock_in)} → {formatTimeFromString(todayEntry.clock_out)} ·{" "}
+                {todayEntry.total_hours?.toFixed(2)} hours
+                {todayEntry.auto_clocked_out && " · auto-closed"}
+              </p>
+            </div>
+          )}
+
+          {/* CLOCKED IN */}
+          {isClockedIn && todayEntry && (
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <div className="text-center p-4 bg-muted rounded-lg">
                   <div className="text-sm text-muted-foreground mb-1">Clock In</div>
                   <div className="text-2xl font-bold">
-                    {formatTimeFromString(todayEntry!.clock_in)}
+                    {formatTimeFromString(todayEntry.clock_in)}
                   </div>
                 </div>
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <div className="text-sm text-muted-foreground mb-1">Elapsed Time</div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {calculateElapsedTime(todayEntry!.clock_in)}
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <div className="text-sm text-muted-foreground mb-1">Elapsed</div>
+                  <div className="text-2xl font-bold text-primary">
+                    {calculateElapsedTime(todayEntry.clock_in)}
                   </div>
                 </div>
               </div>
 
-              {todayEntry?.is_late && (
+              {todayEntry.is_late && (
                 <div className="p-4 bg-red-50 rounded-lg border border-red-200">
                   <div className="flex items-center gap-2 text-red-700">
                     <AlertCircle className="h-5 w-5" />
@@ -330,30 +476,119 @@ export default function Timeclock() {
                 </div>
               )}
 
-              <Button
-                size="lg"
-                className="w-full h-12 bg-red-600 hover:bg-red-700 text-white text-lg"
-                onClick={() => clockOutMutation.mutate()}
-                disabled={clockOutMutation.isPending}
-              >
-                <LogOut className="mr-2 h-5 w-5" />
-                {clockOutMutation.isPending ? "Processing..." : "Clock Out"}
-              </Button>
-            </div>
-          ) : (
-            <div>
-              <Button
-                size="lg"
-                className="w-full h-12 bg-green-600 hover:bg-green-700 text-white text-lg"
-                onClick={() => clockInMutation.mutate()}
-                disabled={clockInMutation.isPending}
-              >
-                <LogIn className="mr-2 h-5 w-5" />
-                {clockInMutation.isPending ? "Processing..." : "Clock In"}
-              </Button>
+              {/* ON BREAK */}
+              {activeBreak && activeBreakStartIso && (
+                <div
+                  className={`rounded-lg p-5 border ${
+                    overCap
+                      ? "bg-red-50 border-red-200"
+                      : "bg-amber-50 border-amber-200"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    {activeBreak === "lunch" ? (
+                      <UtensilsCrossed className="h-5 w-5 text-amber-700" />
+                    ) : (
+                      <Coffee className="h-5 w-5 text-amber-700" />
+                    )}
+                    <div>
+                      <div className="font-semibold text-amber-900">
+                        {activeBreak === "lunch"
+                          ? "On Lunch (60 min cap)"
+                          : `On ${activeBreak === "break1" ? "Break 1" : "Break 2"} (15 min cap)`}
+                      </div>
+                      <div className="text-sm text-amber-800">
+                        Started at {formatTimeFromString(activeBreakStartIso)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Elapsed
+                      </div>
+                      <div className="text-xl font-bold font-mono">
+                        {fmtMinSec(currentTime.getTime() - new Date(activeBreakStartIso).getTime())}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                        {overCap ? "Over Cap" : "Remaining"}
+                      </div>
+                      <div
+                        className={`text-xl font-bold font-mono ${
+                          overCap ? "text-red-700" : "text-emerald-700"
+                        }`}
+                      >
+                        {fmtMinSec(Math.abs(activeBreakRemainingMs))}
+                      </div>
+                    </div>
+                  </div>
+                  {overCap && (
+                    <div className="text-sm text-red-700 mb-3">
+                      You've exceeded the {activeBreakCapMin}-min cap by {Math.floor((activeBreakElapsedMin - activeBreakCapMin))}m.
+                      End the break now — extra time may be deducted.
+                    </div>
+                  )}
+                  <Button
+                    size="lg"
+                    className="w-full h-11"
+                    onClick={() => endBreakMutation.mutate(activeBreak)}
+                    disabled={endBreakMutation.isPending}
+                  >
+                    End {activeBreak === "lunch" ? "Lunch" : activeBreak === "break1" ? "Break 1" : "Break 2"}
+                  </Button>
+                </div>
+              )}
+
+              {/* WORKING (NOT ON BREAK) — break + clock-out actions */}
+              {!activeBreak && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <Button
+                      variant="outline"
+                      className="h-12"
+                      onClick={() => startBreakMutation.mutate("lunch")}
+                      disabled={lunchTaken || startBreakMutation.isPending}
+                    >
+                      <UtensilsCrossed className="mr-2 h-4 w-4" />
+                      {lunchTaken ? `Lunch ${lunchUsedMin.toFixed(0)}m` : "Start Lunch"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-12"
+                      onClick={() => startBreakMutation.mutate("break1")}
+                      disabled={break1Taken || startBreakMutation.isPending}
+                    >
+                      <Coffee className="mr-2 h-4 w-4" />
+                      {break1Taken ? `Break 1 ${break1UsedMin.toFixed(0)}m` : "Start Break 1"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-12"
+                      onClick={() => startBreakMutation.mutate("break2")}
+                      disabled={break2Taken || startBreakMutation.isPending}
+                    >
+                      <Coffee className="mr-2 h-4 w-4" />
+                      {break2Taken ? `Break 2 ${break2UsedMin.toFixed(0)}m` : "Start Break 2"}
+                    </Button>
+                  </div>
+
+                  <Button
+                    size="lg"
+                    className="w-full h-12 bg-red-600 hover:bg-red-700 text-white text-lg"
+                    onClick={() => clockOutMutation.mutate()}
+                    disabled={clockOutMutation.isPending}
+                  >
+                    <LogOut className="mr-2 h-5 w-5" />
+                    {clockOutMutation.isPending ? "Processing..." : "Clock Out"}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
+          {/* Error surfacing */}
           {clockInMutation.error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
               {(clockInMutation.error as Error).message}
@@ -362,6 +597,16 @@ export default function Timeclock() {
           {clockOutMutation.error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
               {(clockOutMutation.error as Error).message}
+            </div>
+          )}
+          {startBreakMutation.error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+              {(startBreakMutation.error as Error).message}
+            </div>
+          )}
+          {endBreakMutation.error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+              {(endBreakMutation.error as Error).message}
             </div>
           )}
         </CardContent>
@@ -383,48 +628,75 @@ export default function Timeclock() {
                   <TableHeader>Date</TableHeader>
                   <TableHeader>Clock In</TableHeader>
                   <TableHeader>Clock Out</TableHeader>
-                  <TableHeader className="text-right">Hours Worked</TableHeader>
+                  <TableHeader>Lunch</TableHeader>
+                  <TableHeader>Breaks</TableHeader>
+                  <TableHeader className="text-right">Hours</TableHeader>
                   <TableHeader>Status</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {weekEntries.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
                       No records this week
                     </TableCell>
                   </TableRow>
                 ) : (
-                  weekEntries.map((entry) => (
-                    <TableRow key={entry.id} className={entry.is_late ? "bg-red-50" : ""}>
-                      <TableCell>
-                        {new Date(entry.date).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </TableCell>
-                      <TableCell>{formatTimeFromString(entry.clock_in)}</TableCell>
-                      <TableCell>
-                        {entry.clock_out
-                          ? formatTimeFromString(entry.clock_out)
-                          : "-"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {entry.total_hours ? entry.total_hours.toFixed(2) : "-"}
-                      </TableCell>
-                      <TableCell>
-                        {entry.is_late ? (
-                          <Badge variant="destructive">
-                            Late {entry.late_minutes}m
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-green-50">
-                            On Time
-                          </Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  weekEntries.map((entry) => {
+                    const lunchMin = durationMinutes(entry.lunch_start, entry.lunch_end);
+                    const b1 = durationMinutes(entry.break1_start, entry.break1_end);
+                    const b2 = durationMinutes(entry.break2_start, entry.break2_end);
+                    return (
+                      <TableRow key={entry.id} className={entry.is_late ? "bg-red-50" : ""}>
+                        <TableCell>
+                          {new Date(entry.date).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </TableCell>
+                        <TableCell>{formatTimeFromString(entry.clock_in)}</TableCell>
+                        <TableCell>
+                          {entry.clock_out ? formatTimeFromString(entry.clock_out) : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {lunchMin > 0 ? (
+                            <span className={lunchMin > LUNCH_CAP_MIN ? "text-red-600 font-semibold" : ""}>
+                              {lunchMin.toFixed(0)}m
+                            </span>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {b1 > 0 || b2 > 0 ? (
+                            <span>
+                              {b1 > 0 ? `${b1.toFixed(0)}m` : "-"} / {b2 > 0 ? `${b2.toFixed(0)}m` : "-"}
+                            </span>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {entry.total_hours ? entry.total_hours.toFixed(2) : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {entry.auto_clocked_out ? (
+                            <Badge variant="outline" className="bg-amber-50 text-amber-800">
+                              Auto
+                            </Badge>
+                          ) : entry.is_late ? (
+                            <Badge variant="destructive">Late {entry.late_minutes}m</Badge>
+                          ) : entry.clock_out ? (
+                            <Badge variant="outline" className="bg-emerald-50">
+                              On Time
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">Open</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -434,9 +706,7 @@ export default function Timeclock() {
             <div className="mt-4 pt-4 border-t">
               <div className="flex justify-between items-center">
                 <span className="font-semibold">Weekly Total Hours:</span>
-                <span className="text-lg font-bold">
-                  {weekTotalHours.toFixed(2)} hours
-                </span>
+                <span className="text-lg font-bold">{weekTotalHours.toFixed(2)} hours</span>
               </div>
             </div>
           )}

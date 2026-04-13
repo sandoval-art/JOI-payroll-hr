@@ -75,15 +75,15 @@ export default function Dashboard() {
   const getCutoffColor = (urgency: string) => {
     switch (urgency) {
       case "normal":
-        return "bg-blue-50 border-blue-200";
+        return "bg-primary/5";
       case "soon":
-        return "bg-yellow-50 border-yellow-200";
+        return "bg-yellow-50";
       case "urgent":
-        return "bg-red-50 border-red-200";
+        return "bg-red-50";
       case "overdue":
-        return "bg-red-900 border-red-900";
+        return "bg-red-900";
       default:
-        return "bg-gray-50 border-gray-200";
+        return "bg-muted";
     }
   };
 
@@ -216,11 +216,14 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Dashboard</h2>
+      <div>
+        <h2 className="text-4xl font-bold tracking-tight">Dashboard</h2>
+        <p className="text-muted-foreground mt-1">Payroll overview and management</p>
+      </div>
 
       {/* ========== PAYROLL CUTOFF BANNER ========== */}
       {cutoffInfo && (
-        <div className={`border rounded-lg p-4 ${getCutoffColor(displayCutoffUrgency || "")}`}>
+        <div className={`rounded-xl p-5 ${getCutoffColor(displayCutoffUrgency || "")}`}>
           <div className={`${getCutoffTextColor(displayCutoffUrgency || "")} space-y-2`}>
             <div className="flex items-center justify-between">
               <div>
@@ -351,7 +354,7 @@ export default function Dashboard() {
         <Card>
           <Collapsible open={!tcwCollapsed} onOpenChange={(open) => setTcwCollapsed(!open)}>
             <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-gray-50">
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">TCW Alerts</CardTitle>
                   {tcwCollapsed ? (
@@ -378,7 +381,7 @@ export default function Dashboard() {
                     return (
                       <div
                         key={idx}
-                        className="flex items-center justify-between p-3 border rounded-md"
+                        className="flex items-center justify-between p-4 rounded-xl bg-muted/50"
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
@@ -431,22 +434,22 @@ export default function Dashboard() {
               <div className="overflow-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-2 font-medium">Agent Name</th>
-                      <th className="text-left p-2 font-medium">Matched Employee</th>
-                      <th className="text-right p-2 font-medium">Amount</th>
+                    <tr className="bg-muted">
+                      <th className="text-left p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Agent Name</th>
+                      <th className="text-left p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Matched Employee</th>
+                      <th className="text-right p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Amount</th>
                     </tr>
                   </thead>
                   <tbody>
                     {spiffPreviewData.map((item, idx) => (
                       <tr
                         key={idx}
-                        className={`border-b last:border-0 ${
-                          !item.matchedEmployee ? "bg-yellow-50" : ""
+                        className={`hover:bg-muted/50 transition-colors ${
+                          !item.matchedEmployee ? "bg-yellow-50/50" : ""
                         }`}
                       >
-                        <td className="p-2">{item.agentName}</td>
-                        <td className="p-2">
+                        <td className="p-3">{item.agentName}</td>
+                        <td className="p-3">
                           {item.matchedEmployee ? (
                             <span className="text-green-700">{item.matchedEmployee}</span>
                           ) : (
@@ -456,7 +459,7 @@ export default function Dashboard() {
                             </span>
                           )}
                         </td>
-                        <td className="p-2 text-right font-semibold">{fmt(item.amount)}</td>
+                        <td className="p-3 text-right font-semibold">{fmt(item.amount)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -491,11 +494,11 @@ export default function Dashboard() {
             <div className="overflow-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2 font-medium text-muted-foreground">ID</th>
-                    <th className="text-left p-2 font-medium text-muted-foreground">Name</th>
-                    <th className="text-right p-2 font-medium text-muted-foreground">Base Salary</th>
-                    <th className="text-right p-2 font-medium text-muted-foreground">Biweekly Net</th>
+                  <tr className="bg-muted">
+                    <th className="text-left p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">ID</th>
+                    <th className="text-left p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Name</th>
+                    <th className="text-right p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Base Salary</th>
+                    <th className="text-right p-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Biweekly Net</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -504,11 +507,11 @@ export default function Dashboard() {
                     const config = recordToConfig(rec, emp.id);
                     const result = calcularNomina(emp, config);
                     return (
-                      <tr key={emp.id} className="border-b last:border-0">
-                        <td className="p-2">{emp.id}</td>
-                        <td className="p-2">{emp.nombre}</td>
-                        <td className="p-2 text-right">{fmt(emp.sueldoBase)}</td>
-                        <td className="p-2 text-right font-semibold">{fmt(result.netoAPagar)}</td>
+                      <tr key={emp.id} className="hover:bg-muted/50 transition-colors">
+                        <td className="p-3">{emp.id}</td>
+                        <td className="p-3">{emp.nombre}</td>
+                        <td className="p-3 text-right">{fmt(emp.sueldoBase)}</td>
+                        <td className="p-3 text-right font-semibold">{fmt(result.netoAPagar)}</td>
                       </tr>
                     );
                   })}
