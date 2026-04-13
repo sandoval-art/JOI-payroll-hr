@@ -15,6 +15,11 @@ import FacturaDetalle from "@/pages/FacturaDetalle";
 import Auth from "@/pages/Auth";
 import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/NotFound";
+import Timeclock from "@/pages/Timeclock";
+import EODForm from "@/pages/EODForm";
+import TimeOff from "@/pages/TimeOff";
+import Attendance from "@/pages/Attendance";
+import Performance from "@/pages/Performance";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +81,11 @@ const App = () => (
                     <Route path="/facturas" element={<Facturas />} />
                     <Route path="/facturas/nueva" element={<FacturaNueva />} />
                     <Route path="/facturas/:id" element={<FacturaDetalle />} />
+                    <Route path="/reloj" element={<Timeclock />} />
+                    <Route path="/eod" element={<EODForm />} />
+                    <Route path="/solicitudes" element={<TimeOff />} />
+                    <Route path="/asistencia" element={<Attendance />} />
+                    <Route path="/desempeno" element={<Performance />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </AppLayout>
