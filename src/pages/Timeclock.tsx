@@ -57,7 +57,6 @@ interface ShiftSettings {
 interface Employee {
   id: string;
   client_id: string;
-  campaign_id: string;
 }
 
 // Cap durations (in minutes)
@@ -122,7 +121,7 @@ export default function Timeclock() {
       if (!employeeId) return null;
       const { data, error } = await supabase
         .from("employees")
-        .select("id, client_id, campaign_id")
+        .select("id, client_id")
         .eq("id", employeeId)
         .single();
       if (error) throw error;
@@ -150,18 +149,18 @@ export default function Timeclock() {
   });
 
   const { data: shiftSettings } = useQuery({
-    queryKey: ["shift-settings", employee?.campaign_id],
+    queryKey: ["shift-settings", employee?.client_id],
     queryFn: async () => {
-      if (!employee?.campaign_id) return null;
+      if (!employee?.client_id) return null;
       const { data, error } = await supabase
         .from("shift_settings")
         .select("*")
-        .eq("campaign_id", employee.campaign_id)
+        .eq("campaign_id", employee.client_id)
         .maybeSingle();
       if (error && error.code !== "PGRST116") throw error;
       return (data || null) as ShiftSettings | null;
     },
-    enabled: !!employee?.campaign_id,
+    enabled: !!employee?.client_id,
   });
 
   const { data: weekEntries = [] } = useQuery({
@@ -194,7 +193,7 @@ export default function Timeclock() {
   // Clock In
   const clockInMutation = useMutation({
     mutationFn: async () => {
-      if (!employeeId || !employee?.campaign_id) throw new Error("Missing employee/campaign");
+      if (!employeeId || !employee?.client_id) throw new Error("Missing employee/campaign");
       const now = new Date();
       const today = now.toISOString().split("T")[0];
 
