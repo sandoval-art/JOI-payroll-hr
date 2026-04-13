@@ -54,9 +54,9 @@ export default function Auth() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 h-12 w-12 rounded-xl bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-lg">NP</span>
+            <span className="text-primary-foreground font-bold text-lg">JOI</span>
           </div>
-          <CardTitle className="text-2xl">
+          <CardTitle className="text-2xl tracking-tight">
             {showReset ? "Reset Password" : isLogin ? "Sign In" : "Create Account"}
           </CardTitle>
           <CardDescription>

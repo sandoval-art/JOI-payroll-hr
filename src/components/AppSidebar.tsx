@@ -78,25 +78,31 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="p-4">
         {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
-              <span className="text-sidebar-primary-foreground font-bold text-sm">JH</span>
-            </div>
+          <div className="flex items-center gap-3">
+            <img
+              src="/joi-logo.svg"
+              alt="JOI"
+              className="h-10 w-auto select-none"
+              draggable={false}
+            />
             <div>
-              <h2 className="text-sm font-bold text-sidebar-foreground">JOI HR</h2>
-              <p className="text-xs text-sidebar-foreground/60">Admin System</p>
+              <h2 className="text-sm font-bold tracking-tight text-sidebar-foreground">Payroll & HR</h2>
+              <p className="text-[11px] uppercase tracking-widest text-sidebar-foreground/40 font-medium">Management</p>
             </div>
           </div>
         )}
         {collapsed && (
-          <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center mx-auto">
-            <span className="text-sidebar-primary-foreground font-bold text-sm">J</span>
-          </div>
+          <img
+            src="/joi-favicon.svg"
+            alt="JOI"
+            className="h-8 w-8 mx-auto select-none"
+            draggable={false}
+          />
         )}
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50">Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[11px] uppercase tracking-widest text-sidebar-foreground/30 font-medium">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
@@ -106,7 +112,7 @@ export function AppSidebar() {
                       to={item.url}
                       end={item.url === "/"}
                       className="hover:bg-sidebar-accent"
-                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
                     >
                       <item.icon className="mr-2 h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
@@ -119,7 +125,7 @@ export function AppSidebar() {
         </SidebarGroup>
         {showHRSection && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-sidebar-foreground/50">Human Resources</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-[11px] uppercase tracking-widest text-sidebar-foreground/30 font-medium">Human Resources</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {hrItems.map((item) => (
@@ -129,7 +135,7 @@ export function AppSidebar() {
                         to={item.url}
                         end={item.url === "/"}
                         className="hover:bg-sidebar-accent"
-                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                        activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
                       >
                         <item.icon className="mr-2 h-4 w-4" />
                         {!collapsed && <span>{item.title}</span>}
