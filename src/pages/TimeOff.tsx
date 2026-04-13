@@ -29,10 +29,10 @@ interface TimeOffRequest {
 }
 
 const reasonMap: { [key: string]: string } = {
-  vacation: "Vacaciones",
-  sick: "Enfermedad",
+  vacation: "Vacation",
+  sick: "Sick",
   personal: "Personal",
-  other: "Otro",
+  other: "Other",
 };
 
 const statusBadgeColor = (status: string) => {
@@ -51,11 +51,11 @@ const statusBadgeColor = (status: string) => {
 const statusLabel = (status: string) => {
   switch (status) {
     case "pending":
-      return "Pendiente";
+      return "Pending";
     case "approved":
-      return "Aprobado";
+      return "Approved";
     case "denied":
-      return "Rechazado";
+      return "Denied";
     default:
       return status;
   }
@@ -124,7 +124,7 @@ export default function TimeOff() {
   const submitRequestMutation = useMutation({
     mutationFn: async () => {
       if (!employeeId || !formData.startDate || !formData.endDate) {
-        throw new Error("Faltan campos requeridos");
+        throw new Error("Required fields missing");
       }
 
       const { data, error } = await supabase
@@ -196,11 +196,11 @@ export default function TimeOff() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Solicitudes de Tiempo Libre</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Time Off Requests</h1>
         <p className="text-muted-foreground mt-2">
           {isEmployee
-            ? "Solicita y gestiona tu tiempo libre"
-            : "Revisa y aprueba solicitudes de tiempo libre"}
+            ? "Request and manage your time off"
+            : "Review and approve time off requests"}
         </p>
       </div>
 
@@ -208,13 +208,13 @@ export default function TimeOff() {
       {(isEmployee || (isManagerOrAdmin && employeeId)) && (
         <Card>
           <CardHeader>
-            <CardTitle>Nueva Solicitud de Tiempo Libre</CardTitle>
+            <CardTitle>New Time Off Request</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="startDate">Fecha de Inicio</Label>
+                  <Label htmlFor="startDate">Start Date</Label>
                   <Input
                     id="startDate"
                     type="date"
@@ -225,7 +225,7 @@ export default function TimeOff() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="endDate">Fecha de Fin</Label>
+                  <Label htmlFor="endDate">End Date</Label>
                   <Input
                     id="endDate"
                     type="date"
@@ -238,25 +238,25 @@ export default function TimeOff() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="reason">Motivo</Label>
+                <Label htmlFor="reason">Reason</Label>
                 <Select value={formData.reason} onValueChange={(value) => setFormData({ ...formData, reason: value })}>
                   <SelectTrigger id="reason">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="vacation">Vacaciones</SelectItem>
-                    <SelectItem value="sick">Enfermedad</SelectItem>
+                    <SelectItem value="vacation">Vacation</SelectItem>
+                    <SelectItem value="sick">Sick</SelectItem>
                     <SelectItem value="personal">Personal</SelectItem>
-                    <SelectItem value="other">Otro</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="notes">Notas (opcional)</Label>
+                <Label htmlFor="notes">Notes (optional)</Label>
                 <Textarea
                   id="notes"
-                  placeholder="Información adicional..."
+                  placeholder="Additional information..."
                   value={formData.notes}
                   onChange={(e) =>
                     setFormData({ ...formData, notes: e.target.value })
@@ -270,7 +270,7 @@ export default function TimeOff() {
                 disabled={submitRequestMutation.isPending || !formData.startDate || !formData.endDate}
                 className="w-full"
               >
-                Enviar Solicitud
+                Submit Request
               </Button>
             </div>
           </CardContent>
@@ -281,22 +281,22 @@ export default function TimeOff() {
       {isEmployee && (
         <Card>
           <CardHeader>
-            <CardTitle>Mis Solicitudes</CardTitle>
+            <CardTitle>My Requests</CardTitle>
           </CardHeader>
           <CardContent>
             {myRequests.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
-                No tienes solicitudes de tiempo libre
+                No time off requests
               </p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Fechas</TableHead>
-                      <TableHead>Motivo</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Fecha Solicitud</TableHead>
+                      <TableHead>Dates</TableHead>
+                      <TableHead>Reason</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Requested On</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -305,8 +305,8 @@ export default function TimeOff() {
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
                             <CalendarDays className="w-4 h-4" />
-                            {new Date(request.start_date).toLocaleDateString("es-ES")} -{" "}
-                            {new Date(request.end_date).toLocaleDateString("es-ES")}
+                            {new Date(request.start_date).toLocaleDateString("en-US")} -{" "}
+                            {new Date(request.end_date).toLocaleDateString("en-US")}
                           </div>
                         </TableCell>
                         <TableCell>{reasonMap[request.reason] || request.reason}</TableCell>
@@ -316,7 +316,7 @@ export default function TimeOff() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {new Date(request.created_at).toLocaleDateString("es-ES")}
+                          {new Date(request.created_at).toLocaleDateString("en-US")}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -333,12 +333,12 @@ export default function TimeOff() {
         <>
           <Card>
             <CardHeader>
-              <CardTitle>Solicitudes Pendientes</CardTitle>
+              <CardTitle>Pending Requests</CardTitle>
             </CardHeader>
             <CardContent>
               {pendingRequests.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
-                  No hay solicitudes pendientes
+                  No pending requests
                 </p>
               ) : (
                 <div className="space-y-4">
@@ -349,11 +349,11 @@ export default function TimeOff() {
                           <div className="flex justify-between items-start">
                             <div>
                               <p className="font-semibold">
-                                {request.employees?.full_name || "Empleado desconocido"}
+                                {request.employees?.full_name || "Unknown employee"}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                {new Date(request.start_date).toLocaleDateString("es-ES")} -{" "}
-                                {new Date(request.end_date).toLocaleDateString("es-ES")}
+                                {new Date(request.start_date).toLocaleDateString("en-US")} -{" "}
+                                {new Date(request.end_date).toLocaleDateString("en-US")}
                               </p>
                             </div>
                             <Badge variant="secondary">
@@ -368,7 +368,7 @@ export default function TimeOff() {
                           )}
 
                           <p className="text-xs text-muted-foreground">
-                            Solicitado: {new Date(request.created_at).toLocaleDateString("es-ES")}
+                            Requested: {new Date(request.created_at).toLocaleDateString("en-US")}
                           </p>
 
                           <div className="flex gap-2 pt-2">
@@ -379,7 +379,7 @@ export default function TimeOff() {
                               size="sm"
                             >
                               <Check className="w-4 h-4 mr-2" />
-                              Aprobar
+                              Approve
                             </Button>
                             <Button
                               onClick={() => denyMutation.mutate(request.id)}
@@ -389,7 +389,7 @@ export default function TimeOff() {
                               size="sm"
                             >
                               <X className="w-4 h-4 mr-2" />
-                              Rechazar
+                              Deny
                             </Button>
                           </div>
                         </div>
@@ -404,37 +404,37 @@ export default function TimeOff() {
           {/* Manager/Admin view - history */}
           <Card>
             <CardHeader>
-              <CardTitle>Historial de Solicitudes</CardTitle>
+              <CardTitle>Request History</CardTitle>
             </CardHeader>
             <CardContent>
               {reviewedRequests.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
-                  No hay solicitudes revisadas
+                  No reviewed requests
                 </p>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Empleado</TableHead>
-                        <TableHead>Fechas</TableHead>
-                        <TableHead>Motivo</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>Revisado por</TableHead>
-                        <TableHead>Fecha Revisión</TableHead>
+                        <TableHead>Employee</TableHead>
+                        <TableHead>Dates</TableHead>
+                        <TableHead>Reason</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Reviewed by</TableHead>
+                        <TableHead>Review Date</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {reviewedRequests.map((request) => (
                         <TableRow key={request.id}>
                           <TableCell className="font-medium">
-                            {request.employees?.full_name || "Desconocido"}
+                            {request.employees?.full_name || "Unknown"}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <CalendarDays className="w-4 h-4" />
-                              {new Date(request.start_date).toLocaleDateString("es-ES")} -{" "}
-                              {new Date(request.end_date).toLocaleDateString("es-ES")}
+                              {new Date(request.start_date).toLocaleDateString("en-US")} -{" "}
+                              {new Date(request.end_date).toLocaleDateString("en-US")}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -456,7 +456,7 @@ export default function TimeOff() {
                           </TableCell>
                           <TableCell className="text-sm">
                             {request.reviewed_at
-                              ? new Date(request.reviewed_at).toLocaleDateString("es-ES")
+                              ? new Date(request.reviewed_at).toLocaleDateString("en-US")
                               : "-"}
                           </TableCell>
                         </TableRow>

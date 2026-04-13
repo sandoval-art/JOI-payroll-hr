@@ -24,14 +24,14 @@ const CAMPAIGNS = [
   { id: "hfb", name: "HFB" },
 ];
 
-const SPANISH_DAYS = [
-  "Domingo",
-  "Lunes",
-  "Martes",
-  "Miércoles",
-  "Jueves",
-  "Viernes",
-  "Sábado",
+const ENGLISH_DAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
 ];
 
 interface EODLog {
@@ -195,19 +195,19 @@ export default function Performance() {
 
   // Format date with day of week
   const dateObj = new Date(selectedDate);
-  const dayOfWeek = SPANISH_DAYS[dateObj.getDay()];
-  const formattedDate = `${dayOfWeek}, ${dateObj.toLocaleDateString("es-ES")}`;
+  const dayOfWeek = ENGLISH_DAYS[dateObj.getDay()];
+  const formattedDate = `${dayOfWeek}, ${dateObj.toLocaleDateString("en-US")}`;
 
   // Check access
   if (user && user.role === "employee") {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Desempeño</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Performance</h1>
         </div>
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
-            <p className="text-center text-red-800">No tienes acceso a esta página.</p>
+            <p className="text-center text-red-800">You don't have access to this page.</p>
           </CardContent>
         </Card>
       </div>
@@ -217,9 +217,9 @@ export default function Performance() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Desempeño</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Performance</h1>
         <p className="text-muted-foreground mt-2">
-          Revisa los reportes de fin de día por campaña
+          Review end-of-day reports by campaign
         </p>
       </div>
 
@@ -228,7 +228,7 @@ export default function Performance() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Selector de Fecha
+            Date Picker
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -253,37 +253,37 @@ export default function Performance() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600">
-              Reportes Enviados
+              Reports Submitted
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{totalSubmissions}</div>
-            <p className="text-xs text-gray-500 mt-1">para {formattedDate}</p>
+            <p className="text-xs text-gray-500 mt-1">for {formattedDate}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600">
-              Empleados Activos
+              Active Employees
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{activeEmployees}</div>
-            <p className="text-xs text-gray-500 mt-1">en total</p>
+            <p className="text-xs text-gray-500 mt-1">total</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600">
-              Tasa de Cumplimiento
+              Compliance Rate
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{complianceRate}%</div>
             <p className="text-xs text-gray-500 mt-1">
-              {totalSubmissions} de {activeEmployees}
+              {totalSubmissions} of {activeEmployees}
             </p>
           </CardContent>
         </Card>
@@ -292,7 +292,7 @@ export default function Performance() {
       {/* Performance Table with Tabs */}
       <Card>
         <CardHeader>
-          <CardTitle>Reporte de Desempeño</CardTitle>
+          <CardTitle>Performance Report</CardTitle>
         </CardHeader>
         <CardContent>
           <Tabs
@@ -314,7 +314,7 @@ export default function Performance() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gray-50">
-                        <TableHead className="font-semibold">Nombre</TableHead>
+                        <TableHead className="font-semibold">Name</TableHead>
                         {currentKPIs.map((kpi) => (
                           <TableHead
                             key={kpi.field_name}
@@ -323,9 +323,9 @@ export default function Performance() {
                             {kpi.field_label}
                           </TableHead>
                         ))}
-                        <TableHead className="font-semibold">Notas</TableHead>
+                        <TableHead className="font-semibold">Notes</TableHead>
                         <TableHead className="text-center font-semibold">
-                          Hora de Envío
+                          Submitted At
                         </TableHead>
                       </TableRow>
                     </TableHeader>
@@ -336,7 +336,7 @@ export default function Performance() {
                             colSpan={currentKPIs.length + 3}
                             className="text-center py-8 text-gray-500"
                           >
-                            No hay datos para mostrar
+                            No data to display
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -358,7 +358,7 @@ export default function Performance() {
                                   {emp.full_name}
                                   {isGrayed && (
                                     <Badge variant="secondary">
-                                      Sin reporte
+                                      No report
                                     </Badge>
                                   )}
                                 </div>
@@ -408,7 +408,7 @@ export default function Performance() {
                               <TableCell className="text-center text-sm text-gray-500">
                                 {submitted
                                   ? new Date(submitted.created_at).toLocaleTimeString(
-                                      "es-ES",
+                                      "en-US",
                                       {
                                         hour: "2-digit",
                                         minute: "2-digit",

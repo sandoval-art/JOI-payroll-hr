@@ -34,7 +34,7 @@ export default function ResetPassword() {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Contraseña actualizada correctamente");
+      toast.success("Password updated successfully");
       navigate("/");
     }
   };
@@ -44,9 +44,9 @@ export default function ResetPassword() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center">
-            <p className="text-muted-foreground">Enlace de restablecimiento inválido o expirado.</p>
+            <p className="text-muted-foreground">Reset link is invalid or expired.</p>
             <Button className="mt-4" onClick={() => navigate("/auth")}>
-              Ir a Iniciar Sesión
+              Go to Sign In
             </Button>
           </CardContent>
         </Card>
@@ -58,13 +58,13 @@ export default function ResetPassword() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Nueva Contraseña</CardTitle>
-          <CardDescription>Ingresa tu nueva contraseña</CardDescription>
+          <CardTitle className="text-2xl">New Password</CardTitle>
+          <CardDescription>Enter your new password</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="password">Nueva contraseña</Label>
+              <Label htmlFor="password">New password</Label>
               <Input
                 id="password"
                 type="password"
@@ -76,7 +76,7 @@ export default function ResetPassword() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Actualizando..." : "Actualizar Contraseña"}
+              {loading ? "Updating..." : "Update Password"}
             </Button>
           </form>
         </CardContent>

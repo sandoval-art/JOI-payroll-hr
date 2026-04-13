@@ -62,13 +62,13 @@ export default function Dashboard() {
     : 0;
 
   const fmt = (n: number) =>
-    n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+    n.toLocaleString("en-US", { style: "currency", currency: "MXN" });
 
   const cards = [
-    { title: "Total Empleados", value: employees.length, icon: Users, format: false },
-    { title: "Nómina Quincenal", value: totalNomina, icon: DollarSign, format: true },
-    { title: "Promedio Salarial", value: promedioSalarial, icon: TrendingUp, format: true },
-    { title: "Periodo Actual", value: periodLabel, icon: Calculator, format: false },
+    { title: "Total Employees", value: employees.length, icon: Users, format: false },
+    { title: "Biweekly Payroll", value: totalNomina, icon: DollarSign, format: true },
+    { title: "Average Salary", value: promedioSalarial, icon: TrendingUp, format: true },
+    { title: "Current Period", value: periodLabel, icon: Calculator, format: false },
   ];
 
   // ========== Payroll Cutoff Handlers ==========
@@ -208,7 +208,7 @@ export default function Dashboard() {
   };
 
   if (loadingEmps) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Cargando...</div>;
+    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
   }
 
   const displayCutoffDate = overriddenCutoff || cutoffInfo?.suggestedCutoff;
@@ -224,29 +224,29 @@ export default function Dashboard() {
           <div className={`${getCutoffTextColor(displayCutoffUrgency || "")} space-y-2`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-semibold text-sm">Periodo Actual</p>
+                <p className="font-semibold text-sm">Current Period</p>
                 <p className="text-xs opacity-90">{cutoffInfo.periodLabel}</p>
               </div>
               <div>
-                <p className="font-semibold text-sm">Fecha de Pago</p>
+                <p className="font-semibold text-sm">Pay Date</p>
                 <p className="text-xs opacity-90">{formatDateES(cutoffInfo.payday)}</p>
               </div>
               <div>
-                <p className="font-semibold text-sm">Corte Sugerido</p>
+                <p className="font-semibold text-sm">Suggested Cutoff</p>
                 <p className="text-xs opacity-90">
                   {formatDateES(displayCutoffDate || cutoffInfo.suggestedCutoff)}
-                  {overriddenCutoff && " (fecha ajustada)"}
+                  {overriddenCutoff && " (date adjusted)"}
                 </p>
               </div>
               <div>
-                <p className="font-semibold text-sm">Días Restantes</p>
-                <p className="text-xs opacity-90">{cutoffInfo.daysUntilCutoff} días</p>
+                <p className="font-semibold text-sm">Days Remaining</p>
+                <p className="text-xs opacity-90">{cutoffInfo.daysUntilCutoff} days</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setCutoffOverrideOpen(true)}
                   className={`p-1.5 rounded hover:opacity-80 transition ${getCutoffTextColor(displayCutoffUrgency || "")}`}
-                  title="Ajustar fecha de corte"
+                  title="Adjust cutoff date"
                 >
                   <Pencil className="h-4 w-4" />
                 </button>
@@ -255,7 +255,7 @@ export default function Dashboard() {
                     onClick={handleResetCutoff}
                     className={`text-xs underline hover:opacity-80 transition ${getCutoffTextColor(displayCutoffUrgency || "")}`}
                   >
-                    Reiniciar
+                    Reset
                   </button>
                 )}
               </div>
@@ -268,7 +268,7 @@ export default function Dashboard() {
       <Dialog open={cutoffOverrideOpen} onOpenChange={setCutoffOverrideOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ajustar Fecha de Corte</DialogTitle>
+            <DialogTitle>Adjust Cutoff Date</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <Input
@@ -279,10 +279,10 @@ export default function Dashboard() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCutoffOverrideOpen(false)}>
-              Cancelar
+              Cancel
             </Button>
             <Button onClick={handleCutoffOverride}>
-              Guardar
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -313,7 +313,7 @@ export default function Dashboard() {
           className="gap-2"
         >
           <Upload className="h-4 w-4" />
-          Subir Timesheet TCW
+          Upload TCW Timesheet
           {tcwAlertCount > 0 && (
             <Badge variant="destructive" className="ml-2">
               {tcwAlertCount}
@@ -334,7 +334,7 @@ export default function Dashboard() {
           className="gap-2"
         >
           <Upload className="h-4 w-4" />
-          Subir Spiffs
+          Upload Spiffs
         </Button>
         <input
           ref={spiffFileInputRef}
@@ -353,7 +353,7 @@ export default function Dashboard() {
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-gray-50">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Alertas TCW</CardTitle>
+                  <CardTitle className="text-base">TCW Alerts</CardTitle>
                   {tcwCollapsed ? (
                     <ChevronDown className="h-4 w-4" />
                   ) : (
@@ -385,18 +385,18 @@ export default function Dashboard() {
                             <span className="font-medium text-sm">{alert.name}</span>
                             <Badge variant={badgeColor} className="text-xs">
                               {alert.status === "critical"
-                                ? "Crítico"
+                                ? "Critical"
                                 : alert.status === "warning"
-                                ? "Advertencia"
+                                ? "Warning"
                                 : alert.status === "new"
-                                ? "Nuevo"
+                                ? "New"
                                 : "OK"}
                             </Badge>
                           </div>
                           <div className="text-xs text-muted-foreground space-y-1">
-                            <p>Horas totales: {alert.totalHours.toFixed(1)}</p>
+                            <p>Total hours: {alert.totalHours.toFixed(1)}</p>
                             {alert.hoursDeficit > 0 && (
-                              <p className="text-red-600">Déficit: {alert.hoursDeficit.toFixed(1)} horas</p>
+                              <p className="text-red-600">Deficit: {alert.hoursDeficit.toFixed(1)} hours</p>
                             )}
                           </div>
                         </div>
@@ -405,7 +405,7 @@ export default function Dashboard() {
                             href={`/employees/${alert.matchedEmployee}`}
                             className="text-xs text-blue-600 hover:underline ml-4"
                           >
-                            Ver Perfil
+                            View Profile
                           </a>
                         )}
                       </div>
@@ -422,19 +422,19 @@ export default function Dashboard() {
       <Dialog open={spiffPreviewOpen} onOpenChange={setSpiffPreviewOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Vista Previa - {spiffCampaignName}</DialogTitle>
+            <DialogTitle>Preview - {spiffCampaignName}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {spiffPreviewData.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No hay datos para mostrar</p>
+              <p className="text-sm text-muted-foreground">No data to display</p>
             ) : (
               <div className="overflow-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left p-2 font-medium">Nombre Agente</th>
-                      <th className="text-left p-2 font-medium">Empleado Coincidente</th>
-                      <th className="text-right p-2 font-medium">Monto</th>
+                      <th className="text-left p-2 font-medium">Agent Name</th>
+                      <th className="text-left p-2 font-medium">Matched Employee</th>
+                      <th className="text-right p-2 font-medium">Amount</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -452,7 +452,7 @@ export default function Dashboard() {
                           ) : (
                             <span className="text-yellow-700 flex items-center gap-1">
                               <AlertTriangle className="h-3 w-3" />
-                              No coincide
+                              No match
                             </span>
                           )}
                         </td>
@@ -469,13 +469,13 @@ export default function Dashboard() {
               variant="outline"
               onClick={() => setSpiffPreviewOpen(false)}
             >
-              Cancelar
+              Cancel
             </Button>
             <Button
               onClick={handleConfirmSpiff}
               disabled={isApplyingSpiff}
             >
-              {isApplyingSpiff ? "Procesando..." : "Confirmar"}
+              {isApplyingSpiff ? "Processing..." : "Confirm"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -485,7 +485,7 @@ export default function Dashboard() {
       {employees.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Resumen Quincenal — {periodLabel}</CardTitle>
+            <CardTitle className="text-lg">Biweekly Summary — {periodLabel}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-auto">
@@ -493,9 +493,9 @@ export default function Dashboard() {
                 <thead>
                   <tr className="border-b">
                     <th className="text-left p-2 font-medium text-muted-foreground">ID</th>
-                    <th className="text-left p-2 font-medium text-muted-foreground">Nombre</th>
-                    <th className="text-right p-2 font-medium text-muted-foreground">Sueldo Base</th>
-                    <th className="text-right p-2 font-medium text-muted-foreground">Neto Quincenal</th>
+                    <th className="text-left p-2 font-medium text-muted-foreground">Name</th>
+                    <th className="text-right p-2 font-medium text-muted-foreground">Base Salary</th>
+                    <th className="text-right p-2 font-medium text-muted-foreground">Biweekly Net</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -12,7 +12,7 @@ import { ChevronDown, ChevronUp, Download, Lock, Search } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 
-const fmt = (n: number) => n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+const fmt = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "MXN" });
 
 interface HistoryDisplayRecord {
   id: string;
@@ -48,38 +48,38 @@ function generatePDF(record: HistoryDisplayRecord) {
   const r = record.result;
 
   doc.setFontSize(18);
-  doc.text("Recibo de Nómina", 20, 20);
+  doc.text("Payroll Receipt", 20, 20);
   doc.setFontSize(11);
-  doc.text(`Periodo: ${record.periodLabel}`, 20, 30);
-  doc.text(`Fecha de cierre: ${record.closedDate}`, 20, 37);
-  doc.text(`Empleado: ${record.employeeName} (${record.employeeId})`, 20, 47);
-  doc.text(`Sueldo Base Mensual: ${fmt(record.sueldoBase)}`, 20, 57);
+  doc.text(`Period: ${record.periodLabel}`, 20, 30);
+  doc.text(`Closed Date: ${record.closedDate}`, 20, 37);
+  doc.text(`Employee: ${record.employeeName} (${record.employeeId})`, 20, 47);
+  doc.text(`Monthly Base Salary: ${fmt(record.sueldoBase)}`, 20, 57);
 
   let y = 70;
   doc.setFontSize(13);
-  doc.text("Desglose", 20, y); y += 10;
+  doc.text("Breakdown", 20, y); y += 10;
   doc.setFontSize(10);
 
   const lines = [
-    ["Sueldo Quincenal (Base/2)", fmt(r.sueldoQuincenal)],
+    ["Biweekly Salary (Base/2)", fmt(r.sueldoQuincenal)],
     ["", ""],
-    ["RETENCIONES", ""],
-    [`Faltas (${record.config.diasFaltados} días)`, `-${fmt(r.descuentoFaltas)}`],
+    ["DEDUCTIONS", ""],
+    [`Absences (${record.config.diasFaltados} days)`, `-${fmt(r.descuentoFaltas)}`],
     ["", ""],
     ["EXTRAS", ""],
     ["KPI", `+${fmt(r.montoKpi)}`],
-    [`Días Extra (${record.config.diasExtra})`, `+${fmt(r.montoDiasExtra)}`],
-    ["Prima Dominical", `+${fmt(r.montoPrimaDominical)}`],
-    ["Día Festivo", `+${fmt(r.montoDiaFestivo)}`],
-    ["Bonos Adicionales", `+${fmt(r.bonosAdicionales)}`],
+    [`Extra Days (${record.config.diasExtra})`, `+${fmt(r.montoDiasExtra)}`],
+    ["Sunday Premium", `+${fmt(r.montoPrimaDominical)}`],
+    ["Holiday Worked", `+${fmt(r.montoDiaFestivo)}`],
+    ["Additional Bonuses", `+${fmt(r.bonosAdicionales)}`],
     ["", ""],
-    ["Total Retenciones", `-${fmt(r.totalRetenciones)}`],
+    ["Total Deductions", `-${fmt(r.totalRetenciones)}`],
     ["Total Extras", `+${fmt(r.totalExtras)}`],
   ];
 
   lines.forEach(([label, val]) => {
     if (label === "") { y += 3; return; }
-    if (label === "RETENCIONES" || label === "EXTRAS") {
+    if (label === "DEDUCTIONS" || label === "EXTRAS") {
       doc.setFont("helvetica", "bold");
       doc.text(label, 20, y);
       doc.setFont("helvetica", "normal");
@@ -93,7 +93,7 @@ function generatePDF(record: HistoryDisplayRecord) {
   y += 5;
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text("NETO A PAGAR", 20, y);
+  doc.text("NET PAY", 20, y);
   doc.text(fmt(r.netoAPagar), 170, y, { align: "right" });
 
   doc.save(`nomina_${record.employeeId}_${record.periodLabel.replace(/ /g, "_")}.pdf`);
@@ -116,9 +116,9 @@ export default function Historial() {
     closePeriod.mutate(activePeriod.id, {
       onSuccess: () => {
         createPeriod.mutate(getCurrentPeriodDates());
-        toast.success(`Quincena "${periodLabel}" cerrada con ${employees.length} registros`);
+        toast.success(`Period "${periodLabel}" closed with ${employees.length} records`);
       },
-      onError: (err: any) => toast.error(err.message || "Error al cerrar quincena"),
+      onError: (err: any) => toast.error(err.message || "Error closing period"),
     });
   };
 
@@ -130,7 +130,7 @@ export default function Historial() {
       sueldoBase: Number(rec.employees.monthly_base_salary) || 0,
       descuentoPorDia: Number(rec.employees.daily_discount_rate) || 0,
       kpiMonto: Number(rec.employees.kpi_bonus_amount) || 0,
-      turno: "Lunes-Viernes" as const,
+      turno: "Monday-Friday" as const,
     };
     const config = recordToConfig(rec, emp.id);
     const result = calcularNomina(emp, config);
@@ -142,7 +142,7 @@ export default function Historial() {
       employeeName: rec.employees.full_name,
       employeeId: rec.employees.employee_id,
       netPay: result.netoAPagar,
-      closedDate: new Date(rec.updated_at).toLocaleDateString("es-MX"),
+      closedDate: new Date(rec.updated_at).toLocaleDateString("en-US"),
       sueldoBase: emp.sueldoBase,
       config: {
         diasFaltados: rec.days_absent || 0,
@@ -200,25 +200,25 @@ export default function Historial() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h2 className="text-2xl font-bold">Historial de Nómina</h2>
+        <h2 className="text-2xl font-bold">Payroll History</h2>
         {activePeriod && (
           <Dialog>
             <DialogTrigger asChild>
               <Button disabled={employees.length === 0 || !activePeriod || closePeriod.isPending}>
-                <Lock className="mr-2 h-4 w-4" /> Cerrar Quincena
+                <Lock className="mr-2 h-4 w-4" /> Close Period
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>¿Estás seguro?</DialogTitle>
+                <DialogTitle>Are you sure?</DialogTitle>
                 <DialogDescription>
-                  Esto moverá el periodo actual al historial y no se podrá modificar.
+                  This will move the current period to history and it cannot be modified.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button variant="outline">Cancelar</Button>
+                <Button variant="outline">Cancel</Button>
                 <Button onClick={handleCerrarQuincena} disabled={closePeriod.isPending}>
-                  {closePeriod.isPending ? "Cerrando..." : "Cerrar Quincena"}
+                  {closePeriod.isPending ? "Closing..." : "Close Period"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -229,7 +229,7 @@ export default function Historial() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Buscar por periodo, nombre o ID..."
+          placeholder="Search by period, name, or ID..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9"
@@ -239,13 +239,13 @@ export default function Historial() {
       {isLoading ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            Cargando...
+            Loading...
           </CardContent>
         </Card>
       ) : periods.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            No hay registros en el historial
+            No records in history
           </CardContent>
         </Card>
       ) : (
@@ -259,16 +259,16 @@ export default function Historial() {
                       <div className="flex-1">
                         <CardTitle className="text-lg">{period.periodLabel}</CardTitle>
                         <p className="text-sm text-muted-foreground mt-1">
-                          Cierre: {period.closedDate}
+                          Closed: {period.closedDate}
                         </p>
                       </div>
                       <div className="flex items-center gap-4 mr-4">
                         <div className="text-right">
-                          <p className="text-sm text-muted-foreground">Empleados</p>
+                          <p className="text-sm text-muted-foreground">Employees</p>
                           <Badge variant="secondary">{period.employeeCount}</Badge>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm text-muted-foreground">Total Pago</p>
+                          <p className="text-sm text-muted-foreground">Total Pay</p>
                           <p className="font-semibold">{fmt(period.totalPayout)}</p>
                         </div>
                         {expandedPeriods.has(period.periodId) ? (
@@ -286,12 +286,12 @@ export default function Historial() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>ID</TableHead>
-                          <TableHead>Nombre</TableHead>
-                          <TableHead className="text-right">Faltas</TableHead>
+                          <TableHead>Name</TableHead>
+                          <TableHead className="text-right">Absences</TableHead>
                           <TableHead className="text-right">KPI</TableHead>
-                          <TableHead className="text-right">Días Extra</TableHead>
-                          <TableHead className="text-right">Bonos</TableHead>
-                          <TableHead className="text-right">Neto</TableHead>
+                          <TableHead className="text-right">Extra Days</TableHead>
+                          <TableHead className="text-right">Bonuses</TableHead>
+                          <TableHead className="text-right">Net</TableHead>
                           <TableHead className="w-12"></TableHead>
                         </TableRow>
                       </TableHeader>
@@ -312,7 +312,7 @@ export default function Historial() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => generatePDF(rec)}
-                                title="Descargar nómina"
+                                title="Download payroll"
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
@@ -320,7 +320,7 @@ export default function Historial() {
                           </TableRow>
                         ))}
                         <TableRow className="bg-muted/50 font-semibold">
-                          <TableCell colSpan={6}>Total Neto del Periodo</TableCell>
+                          <TableCell colSpan={6}>Period Total Net</TableCell>
                           <TableCell className="text-right">{fmt(period.totalPayout)}</TableCell>
                           <TableCell></TableCell>
                         </TableRow>

@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-const fmt = (n: number) => n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+const fmt = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "MXN" });
 
 export default function EmpleadoPerfil() {
   const { id } = useParams<{ id: string }>();
@@ -39,15 +39,15 @@ export default function EmpleadoPerfil() {
   const emp = employees.find((e) => e.id === id);
 
   if (isLoading) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Cargando...</div>;
+    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
   }
 
   if (!emp) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <p className="text-muted-foreground">Empleado no encontrado</p>
+        <p className="text-muted-foreground">Employee not found</p>
         <Button variant="outline" onClick={() => navigate("/empleados")}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Volver
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
       </div>
     );
@@ -98,7 +98,7 @@ export default function EmpleadoPerfil() {
   return (
     <div className="space-y-6 max-w-4xl">
       <Button variant="ghost" onClick={() => navigate("/empleados")}>
-        <ArrowLeft className="mr-2 h-4 w-4" /> Volver a Empleados
+        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Employees
       </Button>
 
       <div className="flex items-center gap-3">
@@ -107,40 +107,40 @@ export default function EmpleadoPerfil() {
         </div>
         <div>
           <h2 className="text-2xl font-bold">{emp.nombre}</h2>
-          <p className="text-muted-foreground">ID: {emp.id} · Turno: {emp.turno}</p>
+          <p className="text-muted-foreground">ID: {emp.id} · Shift: {emp.turno}</p>
         </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle className="text-lg">Configuración Salarial</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-lg">Salary Configuration</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label>Sueldo Base Mensual</Label>
+              <Label>Monthly Base Salary</Label>
               <Input type="number" value={emp.sueldoBase || ""} onChange={(e) => saveField("sueldoBase", parseFloat(e.target.value) || 0)} />
             </div>
             <div className="grid gap-2">
-              <Label>Descuento por Día Faltado</Label>
+              <Label>Daily Absence Discount</Label>
               <Input type="number" value={emp.descuentoPorDia || ""} onChange={(e) => saveField("descuentoPorDia", parseFloat(e.target.value) || 0)} />
             </div>
             <div className="grid gap-2">
-              <Label>KPI (Monto Extra)</Label>
+              <Label>KPI Bonus Amount</Label>
               <Input type="number" value={emp.kpiMonto || ""} onChange={(e) => saveField("kpiMonto", parseFloat(e.target.value) || 0)} />
             </div>
             <div className="grid gap-2">
-              <Label>Turno</Label>
+              <Label>Shift</Label>
               <Select value={emp.turno} onValueChange={(v) => saveField("turno", v as Turno)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Lunes-Jueves">Lunes-Jueves</SelectItem>
-                  <SelectItem value="Lunes-Viernes">Lunes-Viernes</SelectItem>
-                  <SelectItem value="Viernes-Domingo">Viernes-Domingo</SelectItem>
-                  <SelectItem value="Viernes-Lunes">Viernes-Lunes</SelectItem>
+                  <SelectItem value="Lunes-Jueves">Mon-Thu</SelectItem>
+                  <SelectItem value="Lunes-Viernes">Mon-Fri</SelectItem>
+                  <SelectItem value="Viernes-Domingo">Fri-Sun</SelectItem>
+                  <SelectItem value="Viernes-Lunes">Fri-Mon</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label>Cliente Asignado</Label>
+              <Label>Assigned Client</Label>
               <Select
                 value={(emp as any)._clientId || "none"}
                 onValueChange={async (v) => {
@@ -150,9 +150,9 @@ export default function EmpleadoPerfil() {
                   toast.success("Cliente asignado");
                 }}
               >
-                <SelectTrigger><SelectValue placeholder="Sin cliente" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="No client" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sin cliente</SelectItem>
+                  <SelectItem value="none">No client</SelectItem>
                   {clients.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
@@ -161,44 +161,44 @@ export default function EmpleadoPerfil() {
             </div>
             <Separator />
             <div className="p-3 rounded-lg bg-muted">
-              <p className="text-sm text-muted-foreground">Sueldo Diario</p>
+              <p className="text-sm text-muted-foreground">Daily Salary</p>
               <p className="text-xl font-bold">{fmt(result.sueldoDiario)}</p>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-lg">Incidencias Quincenales</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-lg">Biweekly Adjustments</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label>Días Faltados</Label>
+              <Label>Days Absent</Label>
               <Input type="number" min={0} value={config.diasFaltados || ""} onChange={(e) => saveConfig("diasFaltados", parseInt(e.target.value) || 0)} />
             </div>
             <div className="flex items-center gap-3">
               <Checkbox id="kpi" checked={config.kpiAplicado} onCheckedChange={(v) => saveConfig("kpiAplicado", !!v)} />
-              <Label htmlFor="kpi" className="cursor-pointer">KPI logrado (+{fmt(emp.kpiMonto)})</Label>
+              <Label htmlFor="kpi" className="cursor-pointer">KPI achieved (+{fmt(emp.kpiMonto)})</Label>
             </div>
             <div className="grid gap-2">
-              <Label>Días Extra</Label>
+              <Label>Extra Days</Label>
               <Select value={String(config.diasExtra)} onValueChange={(v) => saveConfig("diasExtra", parseInt(v))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {[0,1,2,3,4,5,6,7].map((n) => (
-                    <SelectItem key={n} value={String(n)}>{n} día{n !== 1 ? "s" : ""}</SelectItem>
+                    <SelectItem key={n} value={String(n)}>{n} day{n !== 1 ? "s" : ""}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="flex items-center gap-3">
               <Checkbox id="prima" checked={config.primaDominical} onCheckedChange={(v) => saveConfig("primaDominical", !!v)} />
-              <Label htmlFor="prima" className="cursor-pointer">Prima Dominical (25% del sueldo diario)</Label>
+              <Label htmlFor="prima" className="cursor-pointer">Sunday Premium (25% of daily salary)</Label>
             </div>
             <div className="flex items-center gap-3">
               <Checkbox id="festivo" checked={config.diaFestivo} onCheckedChange={(v) => saveConfig("diaFestivo", !!v)} />
-              <Label htmlFor="festivo" className="cursor-pointer">Día Festivo (triple del sueldo diario)</Label>
+              <Label htmlFor="festivo" className="cursor-pointer">Holiday (triple of daily salary)</Label>
             </div>
             <div className="grid gap-2">
-              <Label>Bonos Adicionales</Label>
+              <Label>Additional Bonuses</Label>
               <Input type="number" min={0} value={config.bonosAdicionales || ""} onChange={(e) => saveConfig("bonosAdicionales", parseFloat(e.target.value) || 0)} />
             </div>
           </CardContent>
@@ -206,23 +206,23 @@ export default function EmpleadoPerfil() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="text-lg">Desglose Quincenal</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-lg">Biweekly Breakdown</CardTitle></CardHeader>
         <CardContent>
           <div className="grid gap-3">
-            <Row label="Sueldo Quincenal (Base/2)" value={fmt(result.sueldoQuincenal)} />
+            <Row label="Biweekly Salary (Base/2)" value={fmt(result.sueldoQuincenal)} />
             <Separator />
-            <p className="text-sm font-semibold text-destructive">Retenciones</p>
-            <Row label={`Faltas (${config.diasFaltados} × ${fmt(emp.descuentoPorDia)})`} value={`-${fmt(result.descuentoFaltas)}`} negative />
+            <p className="text-sm font-semibold text-destructive">Deductions</p>
+            <Row label={`Absences (${config.diasFaltados} × ${fmt(emp.descuentoPorDia)})`} value={`-${fmt(result.descuentoFaltas)}`} negative />
             <Separator />
             <p className="text-sm font-semibold text-primary">Extras</p>
             <Row label="KPI" value={`+${fmt(result.montoKpi)}`} />
-            <Row label={`Días Extra (${config.diasExtra} × $1,000)`} value={`+${fmt(result.montoDiasExtra)}`} />
-            <Row label="Prima Dominical" value={`+${fmt(result.montoPrimaDominical)}`} />
-            <Row label="Día Festivo" value={`+${fmt(result.montoDiaFestivo)}`} />
-            <Row label="Bonos Adicionales" value={`+${fmt(result.bonosAdicionales)}`} />
+            <Row label={`Extra Days (${config.diasExtra} × $1,000)`} value={`+${fmt(result.montoDiasExtra)}`} />
+            <Row label="Sunday Premium" value={`+${fmt(result.montoPrimaDominical)}`} />
+            <Row label="Holiday" value={`+${fmt(result.montoDiaFestivo)}`} />
+            <Row label="Additional Bonuses" value={`+${fmt(result.bonosAdicionales)}`} />
             <Separator />
             <div className="flex justify-between items-center p-3 rounded-lg bg-primary/10">
-              <span className="font-bold text-lg">Neto a Pagar</span>
+              <span className="font-bold text-lg">Net Pay</span>
               <span className="font-bold text-2xl text-primary">{fmt(result.netoAPagar)}</span>
             </div>
           </div>
