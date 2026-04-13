@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
 import Dashboard from "@/pages/Dashboard";
+import EmployeeHome from "@/pages/EmployeeHome";
 import Empleados from "@/pages/Empleados";
 import EmpleadoPerfil from "@/pages/EmpleadoPerfil";
 import Historial from "@/pages/Historial";
@@ -41,6 +42,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RoleHome() {
+  const { isEmployee } = useAuth();
+  return isEmployee ? <EmployeeHome /> : <Dashboard />;
+}
+
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
 
@@ -74,7 +80,7 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <Routes>
-                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/" element={<RoleHome />} />
                     <Route path="/empleados" element={<Empleados />} />
                     <Route path="/empleados/:id" element={<EmpleadoPerfil />} />
                     <Route path="/historial" element={<Historial />} />
