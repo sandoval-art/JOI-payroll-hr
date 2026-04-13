@@ -622,17 +622,17 @@ export default function Timeclock() {
         <CardContent>
           <div className="overflow-x-auto">
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableHeader>Date</TableHeader>
-                  <TableHeader>Clock In</TableHeader>
-                  <TableHeader>Clock Out</TableHeader>
-                  <TableHeader>Lunch</TableHeader>
-                  <TableHeader>Breaks</TableHeader>
-                  <TableHeader className="text-right">Hours</TableHeader>
-                  <TableHeader>Status</TableHeader>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Clock In</TableHead>
+                  <TableHead>Clock Out</TableHead>
+                  <TableHead>Lunch</TableHead>
+                  <TableHead>Breaks</TableHead>
+                  <TableHead className="text-right">Hours</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {weekEntries.length === 0 ? (
                   <TableRow>
