@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
 import Dashboard from "@/pages/Dashboard";
+import EmployeeHome from "@/pages/EmployeeHome";
 import Empleados from "@/pages/Empleados";
 import EmpleadoPerfil from "@/pages/EmpleadoPerfil";
 import Historial from "@/pages/Historial";
@@ -15,6 +16,12 @@ import FacturaDetalle from "@/pages/FacturaDetalle";
 import Auth from "@/pages/Auth";
 import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/NotFound";
+import Timeclock from "@/pages/Timeclock";
+import EODForm from "@/pages/EODForm";
+import TimeOff from "@/pages/TimeOff";
+import Attendance from "@/pages/Attendance";
+import Performance from "@/pages/Performance";
+import ShiftSettings from "@/pages/ShiftSettings";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +41,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+function RoleHome() {
+  const { isEmployee } = useAuth();
+  return isEmployee ? <EmployeeHome /> : <Dashboard />;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -69,13 +81,19 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <Routes>
-                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/" element={<RoleHome />} />
                     <Route path="/empleados" element={<Empleados />} />
                     <Route path="/empleados/:id" element={<EmpleadoPerfil />} />
                     <Route path="/historial" element={<Historial />} />
                     <Route path="/facturas" element={<Facturas />} />
                     <Route path="/facturas/nueva" element={<FacturaNueva />} />
                     <Route path="/facturas/:id" element={<FacturaDetalle />} />
+                    <Route path="/reloj" element={<Timeclock />} />
+                    <Route path="/eod" element={<EODForm />} />
+                    <Route path="/solicitudes" element={<TimeOff />} />
+                    <Route path="/asistencia" element={<Attendance />} />
+                    <Route path="/desempeno" element={<Performance />} />
+                    <Route path="/settings/shifts" element={<ShiftSettings />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </AppLayout>

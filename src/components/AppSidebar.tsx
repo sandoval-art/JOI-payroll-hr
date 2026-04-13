@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Timer,
   ClipboardCheck,
+  Settings,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,6 +32,7 @@ const adminItems = [
   { title: "Employees", url: "/empleados", icon: Users },
   { title: "Payroll History", url: "/historial", icon: History },
   { title: "Invoices (USD)", url: "/facturas", icon: FileText },
+  { title: "Shift Settings", url: "/settings/shifts", icon: Settings },
 ];
 
 const hrItems = [
@@ -79,19 +81,25 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         {!collapsed && (
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-sidebar-primary flex items-center justify-center">
-              <span className="text-sidebar-primary-foreground font-bold text-sm">JOI</span>
-            </div>
+            <img
+              src="/joi-logo.svg"
+              alt="JOI"
+              className="h-10 w-auto select-none"
+              draggable={false}
+            />
             <div>
-              <h2 className="text-sm font-bold tracking-tight text-sidebar-foreground">JOI Payroll</h2>
-              <p className="text-[11px] uppercase tracking-widest text-sidebar-foreground/40 font-medium">HR Management</p>
+              <h2 className="text-sm font-bold tracking-tight text-sidebar-foreground">Payroll & HR</h2>
+              <p className="text-[11px] uppercase tracking-widest text-sidebar-foreground/40 font-medium">Management</p>
             </div>
           </div>
         )}
         {collapsed && (
-          <div className="h-9 w-9 rounded-xl bg-sidebar-primary flex items-center justify-center mx-auto">
-            <span className="text-sidebar-primary-foreground font-bold text-xs">JOI</span>
-          </div>
+          <img
+            src="/joi-favicon.svg"
+            alt="JOI"
+            className="h-8 w-8 mx-auto select-none"
+            draggable={false}
+          />
         )}
       </SidebarHeader>
       <SidebarContent>

@@ -73,7 +73,7 @@ export default function FacturaNueva() {
 
   const handleSave = (status: "draft" | "sent") => {
     if (!clientId || !weekStart || !weekEnd) {
-      toast.error("Completa todos los campos del encabezado");
+      toast.error("Complete all header fields");
       return;
     }
 
@@ -102,7 +102,7 @@ export default function FacturaNueva() {
       {
         onSuccess: (inv) => {
           toast.success(
-            status === "draft" ? "Borrador guardado" : "Factura enviada"
+            status === "draft" ? "Draft saved" : "Invoice sent"
           );
           navigate(`/facturas/${inv.id}`);
         },
@@ -114,21 +114,21 @@ export default function FacturaNueva() {
   return (
     <div className="space-y-6 max-w-5xl">
       <Button variant="ghost" onClick={() => navigate("/facturas")}>
-        <ArrowLeft className="mr-2 h-4 w-4" /> Volver a Facturas
+        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Invoices
       </Button>
 
-      <h2 className="text-2xl font-bold">Nueva Factura</h2>
+      <h2 className="text-2xl font-bold">New Invoice</h2>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Encabezado</CardTitle>
+          <CardTitle className="text-lg">Header</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div className="grid gap-2">
-            <Label>Cliente</Label>
+            <Label>Client</Label>
             <Select value={clientId} onValueChange={setClientId}>
               <SelectTrigger>
-                <SelectValue placeholder="Seleccionar cliente" />
+                <SelectValue placeholder="Select client" />
               </SelectTrigger>
               <SelectContent>
                 {clients.map((c) => (
@@ -140,7 +140,7 @@ export default function FacturaNueva() {
             </Select>
           </div>
           <div className="grid gap-2">
-            <Label>Semana #</Label>
+            <Label>Week #</Label>
             <Input
               type="number"
               min={1}
@@ -150,7 +150,7 @@ export default function FacturaNueva() {
             />
           </div>
           <div className="grid gap-2">
-            <Label>Fecha Inicio</Label>
+            <Label>Start Date</Label>
             <Input
               type="date"
               value={weekStart}
@@ -158,7 +158,7 @@ export default function FacturaNueva() {
             />
           </div>
           <div className="grid gap-2">
-            <Label>Fecha Fin</Label>
+            <Label>End Date</Label>
             <Input
               type="date"
               value={weekEnd}
@@ -167,13 +167,13 @@ export default function FacturaNueva() {
           </div>
           {invoiceNumber && (
             <div className="grid gap-2">
-              <Label>Factura #</Label>
+              <Label>Invoice #</Label>
               <p className="text-lg font-bold text-primary">{invoiceNumber}</p>
             </div>
           )}
           {dueDate && (
             <div className="grid gap-2">
-              <Label>Vencimiento</Label>
+              <Label>Due Date</Label>
               <p className="text-sm text-muted-foreground">{dueDate}</p>
             </div>
           )}
@@ -183,20 +183,20 @@ export default function FacturaNueva() {
       {clientId && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Líneas de Factura</CardTitle>
+            <CardTitle className="text-lg">Invoice Lines</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {lines.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
-                No hay agentes asignados a este cliente. Asigna agentes desde el perfil de empleado.
+                No agents assigned to this client. Assign agents from the employee profile.
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Agente</TableHead>
-                    <TableHead className="w-28">Días Trabajados</TableHead>
-                    <TableHead className="w-36">Precio Unitario (USD)</TableHead>
+                    <TableHead>Agent</TableHead>
+                    <TableHead className="w-28">Days Worked</TableHead>
+                    <TableHead className="w-36">Unit Price (USD)</TableHead>
                     <TableHead className="w-28 text-right">Total</TableHead>
                     <TableHead className="w-32">Spiffs (USD)</TableHead>
                     <TableHead className="w-32 text-right">Total + Spiffs</TableHead>
@@ -275,13 +275,13 @@ export default function FacturaNueva() {
             onClick={() => handleSave("draft")}
             disabled={createInvoice.isPending}
           >
-            Guardar Borrador
+            Save Draft
           </Button>
           <Button
             onClick={() => handleSave("sent")}
             disabled={createInvoice.isPending}
           >
-            Marcar como Enviada
+            Mark as Sent
           </Button>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useEmployees, useAddEmployee, useAddEmployeesBulk, useRemoveEmployee, useActivePeriod, usePayrollRecords, recordToConfig } from "@/hooks/useSupabasePayroll";
 import { calcularNomina, type Employee, type Turno } from "@/types/payroll";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,11 +9,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Upload, Plus, Trash2, Download } from "lucide-react";
+import { Search, Upload, Plus, Trash2, Download, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
-const fmt = (n: number) => n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+const fmt = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "MXN" });
+
+const PAGE_OPTIONS = [15, 30, 60, 100];
 
 export default function Empleados() {
   const { data: employees = [], isLoading } = useEmployees();
@@ -24,6 +26,9 @@ export default function Empleados() {
   const removeEmployee = useRemoveEmployee();
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [sortAsc, setSortAsc] = useState(true);
+  const [pageSize, setPageSize] = useState(15);
+  const [currentPage, setCurrentPage] = useState(1);
   const fileRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -36,28 +41,52 @@ export default function Empleados() {
     turno: "Lunes-Viernes" as Turno,
   });
 
-  const filtered = employees.filter(
-    (e) =>
-      e.nombre.toLowerCase().includes(search.toLowerCase()) ||
-      e.id.toLowerCase().includes(search.toLowerCase())
-  );
+  // Filter, sort, and paginate
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    let list = employees.filter(
+      (e) =>
+        e.nombre.toLowerCase().includes(q) ||
+        e.id.toLowerCase().includes(q) ||
+        ((e as any)._campaignName || "").toLowerCase().includes(q)
+    );
+    list.sort((a, b) => {
+      const cmp = a.nombre.localeCompare(b.nombre, "es");
+      return sortAsc ? cmp : -cmp;
+    });
+    return list;
+  }, [employees, search, sortAsc]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginated = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  // Reset to page 1 when search or page size changes
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setCurrentPage(1);
+  };
+  const handlePageSizeChange = (val: string) => {
+    setPageSize(Number(val));
+    setCurrentPage(1);
+  };
 
   const handleAdd = () => {
     if (!form.id || !form.nombre) {
-      toast.error("ID y Nombre son requeridos");
+      toast.error("ID and Name are required");
       return;
     }
     if (employees.find((e) => e.id === form.id)) {
-      toast.error("Ya existe un empleado con ese ID");
+      toast.error("An employee with that ID already exists");
       return;
     }
     addEmployee.mutate(form, {
       onSuccess: () => {
-        toast.success("Empleado agregado correctamente");
+        toast.success("Employee added successfully");
         setAddOpen(false);
         setForm({ id: "", nombre: "", sueldoBase: 0, descuentoPorDia: 0, kpiMonto: 0, turno: "Lunes-Viernes" });
       },
-      onError: (err: any) => toast.error(err.message || "Error al agregar empleado"),
+      onError: (err: any) => toast.error(err.message || "Error adding employee"),
     });
   };
 
@@ -84,11 +113,11 @@ export default function Empleados() {
       }
       if (emps.length) {
         addEmployeesBulk.mutate(emps, {
-          onSuccess: () => toast.success(`${emps.length} empleados importados`),
-          onError: (err: any) => toast.error(err.message || "Error al importar"),
+          onSuccess: () => toast.success(`${emps.length} employees imported`),
+          onError: (err: any) => toast.error(err.message || "Error importing employees"),
         });
       } else {
-        toast.error("No se encontraron registros válidos");
+        toast.error("No valid records found");
       }
     };
     reader.readAsText(file);
@@ -96,72 +125,72 @@ export default function Empleados() {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Cargando...</div>;
+    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h2 className="text-2xl font-bold">Gestión de Empleados</h2>
+        <h2 className="text-2xl font-bold">Employee Management</h2>
         <div className="flex gap-2">
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCSV} />
           <Button variant="outline" onClick={() => {
-            const header = "ID,Nombre,SueldoBase,DescuentoPorDia,KPI";
-            const example = "EMP001,Juan Pérez,15000,500,1000";
+            const header = "ID,Name,BaseSalary,DailyDiscount,KPI";
+            const example = "EMP001,Juan Perez,15000,500,1000";
             const blob = new Blob([header + "\n" + example + "\n"], { type: "text/csv" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = "plantilla_empleados.csv";
+            a.download = "employee_template.csv";
             a.click();
             URL.revokeObjectURL(url);
           }}>
-            <Download className="mr-2 h-4 w-4" /> Plantilla CSV
+            <Download className="mr-2 h-4 w-4" /> CSV Template
           </Button>
           <Button variant="outline" onClick={() => fileRef.current?.click()}>
-            <Upload className="mr-2 h-4 w-4" /> Cargar CSV
+            <Upload className="mr-2 h-4 w-4" /> Upload CSV
           </Button>
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" /> Nuevo Empleado</Button>
+              <Button><Plus className="mr-2 h-4 w-4" /> New Employee</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Agregar Empleado</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>Add Employee</DialogTitle></DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label>ID</Label>
                   <Input value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Nombre</Label>
+                  <Label>Full Name</Label>
                   <Input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Sueldo Base Mensual</Label>
+                  <Label>Monthly Base Salary</Label>
                   <Input type="number" value={form.sueldoBase || ""} onChange={(e) => setForm({ ...form, sueldoBase: parseFloat(e.target.value) || 0 })} />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Descuento por Día Faltado</Label>
+                  <Label>Daily Absence Discount</Label>
                   <Input type="number" value={form.descuentoPorDia || ""} onChange={(e) => setForm({ ...form, descuentoPorDia: parseFloat(e.target.value) || 0 })} />
                 </div>
                 <div className="grid gap-2">
-                  <Label>KPI (Monto Extra)</Label>
+                  <Label>KPI Bonus Amount</Label>
                   <Input type="number" value={form.kpiMonto || ""} onChange={(e) => setForm({ ...form, kpiMonto: parseFloat(e.target.value) || 0 })} />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Turno</Label>
+                  <Label>Shift</Label>
                   <Select value={form.turno} onValueChange={(v) => setForm({ ...form, turno: v as Turno })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Lunes-Jueves">Lunes-Jueves</SelectItem>
-                      <SelectItem value="Lunes-Viernes">Lunes-Viernes</SelectItem>
-                      <SelectItem value="Viernes-Domingo">Viernes-Domingo</SelectItem>
-                      <SelectItem value="Viernes-Lunes">Viernes-Lunes</SelectItem>
+                      <SelectItem value="Lunes-Jueves">Mon-Thu</SelectItem>
+                      <SelectItem value="Lunes-Viernes">Mon-Fri</SelectItem>
+                      <SelectItem value="Viernes-Domingo">Fri-Sun</SelectItem>
+                      <SelectItem value="Viernes-Lunes">Fri-Mon</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <Button onClick={handleAdd} disabled={addEmployee.isPending}>
-                  {addEmployee.isPending ? "Guardando..." : "Agregar"}
+                  {addEmployee.isPending ? "Saving..." : "Add Employee"}
                 </Button>
               </div>
             </DialogContent>
@@ -171,7 +200,7 @@ export default function Empleados() {
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Buscar por nombre o ID..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        <Input placeholder="Search by name, ID, or campaign..." value={search} onChange={(e) => handleSearchChange(e.target.value)} className="pl-9" />
       </div>
 
       <Card>
@@ -180,22 +209,31 @@ export default function Empleados() {
             <TableHeader>
               <TableRow>
                 <TableHead>ID</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Turno</TableHead>
-                <TableHead className="text-right">Sueldo Base</TableHead>
-                <TableHead className="text-right">Neto Quincenal</TableHead>
+                <TableHead>
+                  <button
+                    className="flex items-center gap-1 hover:text-foreground transition-colors"
+                    onClick={() => setSortAsc((prev) => !prev)}
+                  >
+                    Name
+                    <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead>Campaign</TableHead>
+                <TableHead>Shift</TableHead>
+                <TableHead className="text-right">Base Salary</TableHead>
+                <TableHead className="text-right">Biweekly Net</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {paginated.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    No hay empleados registrados
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    No employees found
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((emp) => {
+                paginated.map((emp) => {
                   const rec = records.find((r: any) => r.employee_id === emp._uuid);
                   const config = recordToConfig(rec, emp.id);
                   const result = calcularNomina(emp, config);
@@ -203,6 +241,7 @@ export default function Empleados() {
                     <TableRow key={emp.id} className="cursor-pointer" onClick={() => navigate(`/empleados/${emp.id}`)}>
                       <TableCell className="font-medium">{emp.id}</TableCell>
                       <TableCell>{emp.nombre}</TableCell>
+                      <TableCell className="text-muted-foreground">{(emp as any)._campaignName || "—"}</TableCell>
                       <TableCell className="text-muted-foreground">{emp.turno}</TableCell>
                       <TableCell className="text-right">{fmt(emp.sueldoBase)}</TableCell>
                       <TableCell className="text-right font-semibold">{fmt(result.netoAPagar)}</TableCell>
@@ -215,20 +254,20 @@ export default function Empleados() {
                           </AlertDialogTrigger>
                           <AlertDialogContent onClick={(e) => e.stopPropagation()}>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>¿Eliminar empleado?</AlertDialogTitle>
+                              <AlertDialogTitle>Delete employee?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Se eliminará a {emp.nombre} ({emp.id}) del sistema. Esta acción no se puede deshacer.
+                                This will remove {emp.nombre} ({emp.id}) from the system. This action cannot be undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
                               <AlertDialogAction onClick={() => {
                                 removeEmployee.mutate(emp.id, {
-                                  onSuccess: () => toast.success("Empleado eliminado"),
+                                  onSuccess: () => toast.success("Employee removed"),
                                   onError: (err: any) => toast.error(err.message),
                                 });
                               }}>
-                                Eliminar
+                                Delete
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
@@ -242,6 +281,56 @@ export default function Empleados() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Showing {filtered.length === 0 ? 0 : (safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, filtered.length)} of {filtered.length}</span>
+          <span className="mx-2">|</span>
+          <span>Rows per page:</span>
+          <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
+            <SelectTrigger className="w-[70px] h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_OPTIONS.map((n) => (
+                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            disabled={safePage <= 1}
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            <Button
+              key={p}
+              variant={p === safePage ? "default" : "outline"}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setCurrentPage(p)}
+            >
+              {p}
+            </Button>
+          ))}
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            disabled={safePage >= totalPages}
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
