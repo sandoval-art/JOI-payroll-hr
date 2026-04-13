@@ -358,6 +358,22 @@ export default function Timeclock() {
   const isClockedIn = !!todayEntry && !todayEntry.clock_out;
   const activeBreak = getActiveBreak(todayEntry || null);
 
+  // Past grace period and not yet clocked in?
+  // Compares "now" to today's shift_settings.start_time + grace_minutes.
+  let pastGracePeriod = false;
+  let minutesPastGrace = 0;
+  if (!todayEntry && shiftSettings?.start_time) {
+    const [sh, sm] = shiftSettings.start_time.split(":").map(Number);
+    const grace = shiftSettings.grace_minutes || 0;
+    const lateBoundary = new Date(currentTime);
+    lateBoundary.setHours(sh, sm, 0, 0);
+    lateBoundary.setMinutes(lateBoundary.getMinutes() + grace);
+    if (currentTime > lateBoundary) {
+      pastGracePeriod = true;
+      minutesPastGrace = Math.floor((currentTime.getTime() - lateBoundary.getTime()) / 60000);
+    }
+  }
+
   // Active-break live counter
   const activeBreakStartIso =
     activeBreak === "lunch"
@@ -410,14 +426,24 @@ export default function Timeclock() {
           <CardTitle>Current Status</CardTitle>
         </CardHeader>
         <CardContent className="space-y-8">
-          {/* Big clock */}
+          {/* Big clock — turns red if past grace period and not yet clocked in */}
           <div className="text-center">
-            <div className="text-5xl font-bold font-mono text-primary mb-2">
+            <div
+              className={`text-5xl font-bold font-mono mb-2 ${
+                pastGracePeriod ? "text-red-600" : "text-primary"
+              }`}
+            >
               {formatTime(currentTime)}
             </div>
             <div className="text-lg text-muted-foreground capitalize">
               {formatDate(currentTime)}
             </div>
+            {pastGracePeriod && (
+              <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 border border-red-200 text-red-700 text-sm font-semibold">
+                <AlertCircle className="h-4 w-4" />
+                {minutesPastGrace} min past grace — clock in now
+              </div>
+            )}
           </div>
 
           {/* NOT CLOCKED IN */}
