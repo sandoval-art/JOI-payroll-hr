@@ -25,7 +25,7 @@ export default function Auth() {
       if (error) {
         toast.error(error.message);
       } else {
-        toast.success("Revisa tu correo para restablecer tu contraseña");
+        toast.success("Check your email to reset your password");
         setShowReset(false);
       }
       return;
@@ -33,7 +33,7 @@ export default function Auth() {
 
     if (isLogin) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) toast.error("Credenciales inválidas");
+      if (error) toast.error("Invalid credentials");
     } else {
       const { error } = await supabase.auth.signUp({
         email,
@@ -43,7 +43,7 @@ export default function Auth() {
       if (error) {
         toast.error(error.message);
       } else {
-        toast.success("Cuenta creada. Revisa tu correo para confirmar.");
+        toast.success("Account created. Check your email to confirm.");
       }
     }
     setLoading(false);
@@ -54,25 +54,25 @@ export default function Auth() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 h-12 w-12 rounded-xl bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-lg">NP</span>
+            <span className="text-primary-foreground font-bold text-lg">JOI</span>
           </div>
-          <CardTitle className="text-2xl">
-            {showReset ? "Restablecer Contraseña" : isLogin ? "Iniciar Sesión" : "Crear Cuenta"}
+          <CardTitle className="text-2xl tracking-tight">
+            {showReset ? "Reset Password" : isLogin ? "Sign In" : "Create Account"}
           </CardTitle>
           <CardDescription>
             {showReset
-              ? "Ingresa tu correo para recibir un enlace de restablecimiento"
-              : "Sistema de Gestión de Nómina"}
+              ? "Enter your email to receive a reset link"
+              : "Payroll & HR Management System"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Correo electrónico</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="correo@ejemplo.com"
+                placeholder="email@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -80,7 +80,7 @@ export default function Auth() {
             </div>
             {!showReset && (
               <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
+                <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
@@ -94,12 +94,12 @@ export default function Auth() {
             )}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading
-                ? "Procesando..."
+                ? "Processing..."
                 : showReset
-                ? "Enviar enlace"
+                ? "Send Link"
                 : isLogin
-                ? "Iniciar Sesión"
-                : "Crear Cuenta"}
+                ? "Sign In"
+                : "Create Account"}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm space-y-2">
@@ -109,7 +109,7 @@ export default function Auth() {
                 className="text-primary hover:underline block w-full"
                 onClick={() => setShowReset(true)}
               >
-                ¿Olvidaste tu contraseña?
+                Forgot your password?
               </button>
             )}
             <button
@@ -121,10 +121,10 @@ export default function Auth() {
               }}
             >
               {showReset
-                ? "Volver a iniciar sesión"
+                ? "Back to sign in"
                 : isLogin
-                ? "¿No tienes cuenta? Regístrate"
-                : "¿Ya tienes cuenta? Inicia sesión"}
+                ? "Don't have an account? Sign up"
+                : "Already have an account? Sign in"}
             </button>
           </div>
         </CardContent>
