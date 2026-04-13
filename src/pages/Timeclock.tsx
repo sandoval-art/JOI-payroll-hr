@@ -133,7 +133,7 @@ export default function Timeclock() {
   // Clock in mutation
   const clockInMutation = useMutation({
     mutationFn: async () => {
-      if (!employeeId || !employee?.campaign_id) throw new Error("Datos incompletos");
+      if (!employeeId || !employee?.campaign_id) throw new Error("Missing information");
 
       const now = new Date();
       const today = now.toISOString().split("T")[0];
@@ -147,7 +147,7 @@ export default function Timeclock() {
         .eq("date", today)
         .maybeSingle();
 
-      if (existing) throw new Error("Ya tiene una entrada registrada hoy");
+      if (existing) throw new Error("Already clocked in today");
 
       // Calculate if late
       let isLate = false;
@@ -217,7 +217,7 @@ export default function Timeclock() {
   });
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString("es-MX", {
+    return date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
@@ -226,7 +226,7 @@ export default function Timeclock() {
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString("es-MX", {
+    return date.toLocaleDateString("en-US", {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -236,7 +236,7 @@ export default function Timeclock() {
 
   const formatTimeFromString = (timeStr: string) => {
     const date = new Date(timeStr);
-    return date.toLocaleTimeString("es-MX", {
+    return date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
@@ -258,7 +258,7 @@ export default function Timeclock() {
   if (authLoading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
-        Cargando...
+        Loading...
       </div>
     );
   }
@@ -266,12 +266,12 @@ export default function Timeclock() {
   if (!employeeId) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold">Reloj de Asistencia</h2>
+        <h2 className="text-2xl font-bold">Timeclock</h2>
         <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="pt-6 flex items-center gap-3">
             <AlertCircle className="h-5 w-5 text-yellow-600" />
             <p className="text-yellow-800">
-              Tu cuenta no está vinculada a un empleado. Contacta a tu administrador.
+              Your account is not linked to an employee. Contact your administrator.
             </p>
           </CardContent>
         </Card>
@@ -283,12 +283,12 @@ export default function Timeclock() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Reloj de Asistencia</h2>
+      <h2 className="text-2xl font-bold">Timeclock</h2>
 
       {/* Current Status Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Estado Actual</CardTitle>
+          <CardTitle>Current Status</CardTitle>
         </CardHeader>
         <CardContent className="space-y-8">
           {/* Current Time */}
@@ -306,13 +306,13 @@ export default function Timeclock() {
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-sm text-muted-foreground mb-1">Entrada</div>
+                  <div className="text-sm text-muted-foreground mb-1">Clock In</div>
                   <div className="text-2xl font-bold">
                     {formatTimeFromString(todayEntry!.clock_in)}
                   </div>
                 </div>
                 <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <div className="text-sm text-muted-foreground mb-1">Tiempo Transcurrido</div>
+                  <div className="text-sm text-muted-foreground mb-1">Elapsed Time</div>
                   <div className="text-2xl font-bold text-green-600">
                     {calculateElapsedTime(todayEntry!.clock_in)}
                   </div>
@@ -324,7 +324,7 @@ export default function Timeclock() {
                   <div className="flex items-center gap-2 text-red-700">
                     <AlertCircle className="h-5 w-5" />
                     <span className="font-semibold">
-                      Entrada Tardía: {todayEntry.late_minutes} minutos
+                      Late Entry: {todayEntry.late_minutes} minutes
                     </span>
                   </div>
                 </div>
@@ -337,7 +337,7 @@ export default function Timeclock() {
                 disabled={clockOutMutation.isPending}
               >
                 <LogOut className="mr-2 h-5 w-5" />
-                {clockOutMutation.isPending ? "Procesando..." : "Marcar Salida"}
+                {clockOutMutation.isPending ? "Processing..." : "Clock Out"}
               </Button>
             </div>
           ) : (
@@ -349,7 +349,7 @@ export default function Timeclock() {
                 disabled={clockInMutation.isPending}
               >
                 <LogIn className="mr-2 h-5 w-5" />
-                {clockInMutation.isPending ? "Procesando..." : "Marcar Entrada"}
+                {clockInMutation.isPending ? "Processing..." : "Clock In"}
               </Button>
             </div>
           )}
@@ -372,7 +372,7 @@ export default function Timeclock() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
-            Historial de la Semana
+            This Week's History
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -380,25 +380,25 @@ export default function Timeclock() {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableHeader>Fecha</TableHeader>
-                  <TableHeader>Entrada</TableHeader>
-                  <TableHeader>Salida</TableHeader>
-                  <TableHeader className="text-right">Horas Trabajadas</TableHeader>
-                  <TableHeader>Estado</TableHeader>
+                  <TableHeader>Date</TableHeader>
+                  <TableHeader>Clock In</TableHeader>
+                  <TableHeader>Clock Out</TableHeader>
+                  <TableHeader className="text-right">Hours Worked</TableHeader>
+                  <TableHeader>Status</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {weekEntries.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
-                      No hay registros para esta semana
+                      No records this week
                     </TableCell>
                   </TableRow>
                 ) : (
                   weekEntries.map((entry) => (
                     <TableRow key={entry.id} className={entry.is_late ? "bg-red-50" : ""}>
                       <TableCell>
-                        {new Date(entry.date).toLocaleDateString("es-MX", {
+                        {new Date(entry.date).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
                         })}
@@ -415,11 +415,11 @@ export default function Timeclock() {
                       <TableCell>
                         {entry.is_late ? (
                           <Badge variant="destructive">
-                            Tarde {entry.late_minutes}m
+                            Late {entry.late_minutes}m
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="bg-green-50">
-                            A Tiempo
+                            On Time
                           </Badge>
                         )}
                       </TableCell>
@@ -433,9 +433,9 @@ export default function Timeclock() {
           {weekEntries.length > 0 && (
             <div className="mt-4 pt-4 border-t">
               <div className="flex justify-between items-center">
-                <span className="font-semibold">Total Horas Semana:</span>
+                <span className="font-semibold">Weekly Total Hours:</span>
                 <span className="text-lg font-bold">
-                  {weekTotalHours.toFixed(2)} horas
+                  {weekTotalHours.toFixed(2)} hours
                 </span>
               </div>
             </div>

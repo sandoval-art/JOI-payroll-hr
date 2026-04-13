@@ -57,10 +57,10 @@ export default function Attendance() {
   if (role === "employee") {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">Asistencia</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Attendance</h1>
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
-            <p className="text-red-800">No tienes acceso a esta página.</p>
+            <p className="text-red-800">You don't have access to this page.</p>
           </CardContent>
         </Card>
       </div>
@@ -218,7 +218,7 @@ export default function Attendance() {
   const formatTime = (isoString: string | null) => {
     if (!isoString) return "-";
     const date = new Date(isoString);
-    return date.toLocaleTimeString("es-ES", {
+    return date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -235,9 +235,9 @@ export default function Attendance() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Asistencia</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Attendance</h1>
         <p className="text-muted-foreground mt-2">
-          Panel de control de asistencia en tiempo real
+          Real-time attendance dashboard
         </p>
       </div>
 
@@ -248,7 +248,7 @@ export default function Attendance() {
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base text-green-900">
               <UserCheck className="h-4 w-4" />
-              Presentes
+              Present
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -261,7 +261,7 @@ export default function Attendance() {
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base text-red-900">
               <UserX className="h-4 w-4" />
-              Ausentes
+              Absent
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -274,7 +274,7 @@ export default function Attendance() {
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base text-yellow-900">
               <Clock className="h-4 w-4" />
-              Tardanzas Hoy
+              Late Today
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -289,7 +289,7 @@ export default function Attendance() {
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base text-orange-900">
               <AlertTriangle className="h-4 w-4" />
-              Tardanzas Repetidas
+              Repeat Late
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -303,13 +303,13 @@ export default function Attendance() {
       {/* Attendance Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Asistencia en Vivo</CardTitle>
+          <CardTitle>Live Attendance</CardTitle>
         </CardHeader>
         <CardContent>
           {/* Campaign Filter Tabs */}
           <Tabs value={selectedCampaign} onValueChange={setSelectedCampaign} className="mb-4">
             <TabsList>
-              <TabsTrigger value="all">Todas</TabsTrigger>
+              <TabsTrigger value="all">All</TabsTrigger>
               {campaigns.map((campaign) => (
                 <TabsTrigger key={campaign.id} value={campaign.id}>
                   {campaign.name}
@@ -323,13 +323,13 @@ export default function Attendance() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Campaña</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Entrada</TableHead>
-                  <TableHead>Salida</TableHead>
-                  <TableHead>Horas</TableHead>
-                  <TableHead>Tardanza</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Campaign</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Clock In</TableHead>
+                  <TableHead>Clock Out</TableHead>
+                  <TableHead>Hours</TableHead>
+                  <TableHead>Late By</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -341,7 +341,7 @@ export default function Attendance() {
                           {employee.name}
                           {employee.is_repeat_late && (
                             <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">
-                              Recurrente
+                              Repeat
                             </Badge>
                           )}
                         </div>
@@ -350,15 +350,15 @@ export default function Attendance() {
                       <TableCell>
                         {employee.status === "presente" && (
                           <Badge className="bg-green-600 hover:bg-green-700">
-                            Presente
+                            Present
                           </Badge>
                         )}
                         {employee.status === "ausente" && (
-                          <Badge variant="secondary">Ausente</Badge>
+                          <Badge variant="secondary">Absent</Badge>
                         )}
                         {employee.status === "completado" && (
                           <Badge className="bg-blue-600 hover:bg-blue-700">
-                            Completado
+                            Completed
                           </Badge>
                         )}
                       </TableCell>
@@ -381,7 +381,7 @@ export default function Attendance() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      No hay datos de asistencia
+                      No attendance data
                     </TableCell>
                   </TableRow>
                 )}

@@ -28,32 +28,32 @@ import {
 
 const adminItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Empleados", url: "/empleados", icon: Users },
-  { title: "Historial de Nómina", url: "/historial", icon: History },
-  { title: "Facturas (USD)", url: "/facturas", icon: FileText },
+  { title: "Employees", url: "/empleados", icon: Users },
+  { title: "Payroll History", url: "/historial", icon: History },
+  { title: "Invoices (USD)", url: "/facturas", icon: FileText },
 ];
 
 const hrItems = [
-  { title: "Asistencia", url: "/asistencia", icon: Clock },
-  { title: "Desempeño", url: "/desempeno", icon: BarChart3 },
-  { title: "Solicitudes", url: "/solicitudes", icon: CalendarDays },
-  { title: "Mi Reloj", url: "/reloj", icon: Timer },
-  { title: "Mi EOD", url: "/eod", icon: ClipboardCheck },
+  { title: "Attendance", url: "/asistencia", icon: Clock },
+  { title: "Performance", url: "/desempeno", icon: BarChart3 },
+  { title: "Time Off Requests", url: "/solicitudes", icon: CalendarDays },
+  { title: "My Timeclock", url: "/reloj", icon: Timer },
+  { title: "My EOD", url: "/eod", icon: ClipboardCheck },
 ];
 
 const managerItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Asistencia", url: "/asistencia", icon: Clock },
-  { title: "Desempeño", url: "/desempeno", icon: BarChart3 },
-  { title: "Solicitudes", url: "/solicitudes", icon: CalendarDays },
-  { title: "Mi Reloj", url: "/reloj", icon: Timer },
-  { title: "Mi EOD", url: "/eod", icon: ClipboardCheck },
+  { title: "Attendance", url: "/asistencia", icon: Clock },
+  { title: "Performance", url: "/desempeno", icon: BarChart3 },
+  { title: "Time Off Requests", url: "/solicitudes", icon: CalendarDays },
+  { title: "My Timeclock", url: "/reloj", icon: Timer },
+  { title: "My EOD", url: "/eod", icon: ClipboardCheck },
 ];
 
 const employeeItems = [
-  { title: "Mi Reloj", url: "/reloj", icon: Timer },
-  { title: "Mi EOD", url: "/eod", icon: ClipboardCheck },
-  { title: "Mis Solicitudes", url: "/solicitudes", icon: CalendarDays },
+  { title: "My Timeclock", url: "/reloj", icon: Timer },
+  { title: "My EOD", url: "/eod", icon: ClipboardCheck },
+  { title: "My Requests", url: "/solicitudes", icon: CalendarDays },
 ];
 
 export function AppSidebar() {
@@ -84,7 +84,7 @@ export function AppSidebar() {
             </div>
             <div>
               <h2 className="text-sm font-bold text-sidebar-foreground">JOI HR</h2>
-              <p className="text-xs text-sidebar-foreground/60">Sistema Administrativo</p>
+              <p className="text-xs text-sidebar-foreground/60">Admin System</p>
             </div>
           </div>
         )}
@@ -96,7 +96,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50">Menú</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/50">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
@@ -119,7 +119,7 @@ export function AppSidebar() {
         </SidebarGroup>
         {showHRSection && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-sidebar-foreground/50">Recursos Humanos</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-sidebar-foreground/50">Human Resources</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {hrItems.map((item) => (
@@ -150,7 +150,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton onClick={signOut} className="hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
-              {!collapsed && <span>Cerrar Sesión</span>}
+              {!collapsed && <span>Sign Out</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

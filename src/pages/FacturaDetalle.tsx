@@ -11,9 +11,9 @@ import { toast } from "sonner";
 const BILL_FROM = "JOI\n2886 Avenida Pablo Neruda\nProvidencia 4A Seccion\nGuadalajara, Jalisco, 44369";
 
 const statusLabels: Record<string, string> = {
-  draft: "Borrador",
-  sent: "Enviada",
-  paid: "Pagada",
+  draft: "Draft",
+  sent: "Sent",
+  paid: "Paid",
 };
 
 const statusColors: Record<string, string> = {
@@ -29,15 +29,15 @@ export default function FacturaDetalle() {
   const updateStatus = useUpdateInvoiceStatus();
 
   if (isLoading) {
-    return <div className="py-20 text-center text-muted-foreground">Cargando...</div>;
+    return <div className="py-20 text-center text-muted-foreground">Loading...</div>;
   }
 
   if (!invoice) {
     return (
       <div className="py-20 text-center">
-        <p className="text-muted-foreground mb-4">Factura no encontrada</p>
+        <p className="text-muted-foreground mb-4">Invoice not found</p>
         <Button variant="outline" onClick={() => navigate("/facturas")}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Volver
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
       </div>
     );
@@ -52,7 +52,7 @@ export default function FacturaDetalle() {
       {
         onSuccess: () =>
           toast.success(
-            status === "sent" ? "Factura marcada como enviada" : "Factura marcada como pagada"
+            status === "sent" ? "Invoice marked as sent" : "Invoice marked as paid"
           ),
         onError: (err: any) => toast.error(err.message),
       }
@@ -63,7 +63,7 @@ export default function FacturaDetalle() {
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center justify-between print:hidden">
         <Button variant="ghost" onClick={() => navigate("/facturas")}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Volver a Facturas
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Invoices
         </Button>
         <div className="flex gap-2">
           {invoice.status === "draft" && (
@@ -72,7 +72,7 @@ export default function FacturaDetalle() {
               onClick={() => handleStatusChange("sent")}
               disabled={updateStatus.isPending}
             >
-              <Send className="mr-2 h-4 w-4" /> Marcar Enviada
+              <Send className="mr-2 h-4 w-4" /> Mark Sent
             </Button>
           )}
           {invoice.status === "sent" && (
@@ -81,11 +81,11 @@ export default function FacturaDetalle() {
               onClick={() => handleStatusChange("paid")}
               disabled={updateStatus.isPending}
             >
-              <CheckCircle className="mr-2 h-4 w-4" /> Marcar Pagada
+              <CheckCircle className="mr-2 h-4 w-4" /> Mark Paid
             </Button>
           )}
           <Button variant="outline" onClick={() => window.print()}>
-            <Printer className="mr-2 h-4 w-4" /> Imprimir
+            <Printer className="mr-2 h-4 w-4" /> Print
           </Button>
         </div>
       </div>

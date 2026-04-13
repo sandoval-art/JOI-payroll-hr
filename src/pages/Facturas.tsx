@@ -15,9 +15,9 @@ const statusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-  draft: "Borrador",
-  sent: "Enviada",
-  paid: "Pagada",
+  draft: "Draft",
+  sent: "Sent",
+  paid: "Paid",
 };
 
 export default function Facturas() {
@@ -31,19 +31,19 @@ export default function Facturas() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h2 className="text-2xl font-bold">Facturas (USD)</h2>
+        <h2 className="text-2xl font-bold">Invoices (USD)</h2>
         <Button onClick={() => navigate("/facturas/nueva")}>
-          <Plus className="mr-2 h-4 w-4" /> Nueva Factura
+          <Plus className="mr-2 h-4 w-4" /> New Invoice
         </Button>
       </div>
 
       <div className="flex gap-3 items-center">
         <Select value={clientFilter} onValueChange={setClientFilter}>
           <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filtrar por cliente" />
+            <SelectValue placeholder="Filter by client" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos los clientes</SelectItem>
+            <SelectItem value="all">All clients</SelectItem>
             {clients.map((c) => (
               <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
             ))}
@@ -54,23 +54,23 @@ export default function Facturas() {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="py-12 text-center text-muted-foreground">Cargando...</div>
+            <div className="py-12 text-center text-muted-foreground">Loading...</div>
           ) : invoices.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground flex flex-col items-center gap-3">
               <FileText className="h-10 w-10 text-muted-foreground/40" />
-              <p>No hay facturas registradas</p>
+              <p>No invoices recorded</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Factura #</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Semana</TableHead>
-                  <TableHead>Fecha Inicio</TableHead>
-                  <TableHead>Fecha Fin</TableHead>
-                  <TableHead>Vencimiento</TableHead>
-                  <TableHead>Estado</TableHead>
+                  <TableHead>Invoice #</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Week</TableHead>
+                  <TableHead>Start Date</TableHead>
+                  <TableHead>End Date</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

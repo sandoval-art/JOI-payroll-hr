@@ -181,19 +181,19 @@ export default function EODForm() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Reporte de Fin de Día</h1>
-          <p className="text-muted-foreground mt-2">Envía tu reporte de desempeño diario</p>
+          <h1 className="text-3xl font-bold tracking-tight">End of Day Report</h1>
+          <p className="text-muted-foreground mt-2">Submit your daily performance report</p>
         </div>
 
         <Card className="border-red-200 bg-red-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-red-700">
               <AlertTriangle className="h-5 w-5" />
-              Cuenta No Vinculada
+              Account Not Linked
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-red-600">Tu cuenta no está vinculada a un empleado.</p>
+            <p className="text-red-600">Your account is not linked to an employee.</p>
           </CardContent>
         </Card>
       </div>
@@ -204,11 +204,11 @@ export default function EODForm() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Reporte de Fin de Día</h1>
+          <h1 className="text-3xl font-bold tracking-tight">End of Day Report</h1>
         </div>
         <Card>
           <CardContent className="py-8">
-            <p className="text-center text-muted-foreground">Cargando...</p>
+            <p className="text-center text-muted-foreground">Loading...</p>
           </CardContent>
         </Card>
       </div>
@@ -216,7 +216,7 @@ export default function EODForm() {
   }
 
   const today = new Date();
-  const dateFormatter = new Intl.DateTimeFormat('es-ES', {
+  const dateFormatter = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -226,8 +226,8 @@ export default function EODForm() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Reporte de Fin de Día</h1>
-        <p className="text-muted-foreground mt-2">Envía tu reporte de desempeño diario</p>
+        <h1 className="text-3xl font-bold tracking-tight">End of Day Report</h1>
+        <p className="text-muted-foreground mt-2">Submit your daily performance report</p>
       </div>
 
       <Card>
@@ -239,19 +239,19 @@ export default function EODForm() {
             </CardTitle>
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div>
-                <p className="text-muted-foreground">Campaña</p>
-                <Badge variant="outline">{client?.name || 'Cargando...'}</Badge>
+                <p className="text-muted-foreground">Campaign</p>
+                <Badge variant="outline">{client?.name || 'Loading...'}</Badge>
               </div>
               <div>
-                <p className="text-muted-foreground">Fecha</p>
+                <p className="text-muted-foreground">Date</p>
                 <p className="font-medium capitalize">{dateFormatter.format(today)}</p>
               </div>
               {submitted && (
                 <div>
-                  <p className="text-muted-foreground">Estado</p>
+                  <p className="text-muted-foreground">Status</p>
                   <div className="flex items-center gap-2 text-green-600 font-medium">
                     <CheckCircle className="h-4 w-4" />
-                    Enviado
+                    Submitted
                   </div>
                 </div>
               )}
@@ -264,10 +264,10 @@ export default function EODForm() {
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
               <p className="text-green-700 font-medium flex items-center gap-2">
                 <CheckCircle className="h-4 w-4" />
-                Ya enviaste tu reporte hoy
+                You already submitted today's report
               </p>
               <p className="text-green-600 text-sm mt-1">
-                Enviado a las {new Date(existingSubmission.created_at).toLocaleTimeString('es-ES')}
+                Submitted at {new Date(existingSubmission.created_at).toLocaleTimeString('en-US')}
               </p>
             </div>
           )}
@@ -289,7 +289,7 @@ export default function EODForm() {
                         {field.field_label}
                         {field.min_target !== null && (
                           <span className="text-muted-foreground ml-2 text-sm">
-                            (Meta: {field.min_target})
+                            (Target: {field.min_target})
                           </span>
                         )}
                       </Label>
@@ -301,8 +301,8 @@ export default function EODForm() {
                           min="0"
                           placeholder={
                             field.min_target !== null
-                              ? `Meta: ${field.min_target}`
-                              : 'Ingresa el valor'
+                              ? `Target: ${field.min_target}`
+                              : 'Enter value'
                           }
                           value={value === '' ? '' : value}
                           onChange={(e) =>
@@ -328,7 +328,7 @@ export default function EODForm() {
                             htmlFor={field.field_name}
                             className="font-normal cursor-pointer"
                           >
-                            {value === true ? 'Sí' : 'No'}
+                            {value === true ? 'Yes' : 'No'}
                           </Label>
                         </div>
                       )}
@@ -336,25 +336,25 @@ export default function EODForm() {
                       {isBelowTarget && (
                         <p className="text-sm text-yellow-700 flex items-center gap-1">
                           <AlertTriangle className="h-3 w-3" />
-                          Estás por debajo de la meta
+                          You're below target
                         </p>
                       )}
                     </div>
                   );
                 })
               ) : (
-                <p className="text-muted-foreground">Sin campos configurados para esta campaña</p>
+                <p className="text-muted-foreground">No fields configured for this campaign</p>
               )}
             </div>
 
             {/* Notes */}
             <div className="space-y-2">
               <Label htmlFor="notes" className="font-medium">
-                Notas (Opcional)
+                Notes (Optional)
               </Label>
               <Textarea
                 id="notes"
-                placeholder="Agrega cualquier comentario o información adicional..."
+                placeholder="Add any comments or additional information..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 disabled={submitted}
@@ -369,14 +369,14 @@ export default function EODForm() {
                 disabled={submitMutation.isPending}
                 className="w-full h-10 text-base font-medium"
               >
-                {submitMutation.isPending ? 'Enviando...' : 'Enviar Reporte'}
+                {submitMutation.isPending ? 'Submitting...' : 'Submit Report'}
               </Button>
             )}
 
             {submitted && (
               <Button disabled className="w-full h-10 text-base font-medium bg-green-600">
                 <CheckCircle className="h-4 w-4 mr-2" />
-                Reporte Enviado
+                Report Submitted
               </Button>
             )}
           </form>
