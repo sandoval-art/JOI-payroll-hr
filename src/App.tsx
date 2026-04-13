@@ -21,6 +21,7 @@ import EODForm from "@/pages/EODForm";
 import TimeOff from "@/pages/TimeOff";
 import Attendance from "@/pages/Attendance";
 import Performance from "@/pages/Performance";
+import ShiftSettings from "@/pages/ShiftSettings";
 
 const queryClient = new QueryClient();
 
@@ -92,6 +93,7 @@ const App = () => (
                     <Route path="/solicitudes" element={<TimeOff />} />
                     <Route path="/asistencia" element={<Attendance />} />
                     <Route path="/desempeno" element={<Performance />} />
+                    <Route path="/settings/shifts" element={<ShiftSettings />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </AppLayout>

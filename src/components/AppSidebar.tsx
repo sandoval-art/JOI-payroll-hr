@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Timer,
   ClipboardCheck,
+  Settings,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,6 +32,7 @@ const adminItems = [
   { title: "Employees", url: "/empleados", icon: Users },
   { title: "Payroll History", url: "/historial", icon: History },
   { title: "Invoices (USD)", url: "/facturas", icon: FileText },
+  { title: "Shift Settings", url: "/settings/shifts", icon: Settings },
 ];
 
 const hrItems = [
