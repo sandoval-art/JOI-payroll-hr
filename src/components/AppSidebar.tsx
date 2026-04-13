@@ -1,4 +1,15 @@
-import { LayoutDashboard, Users, History, LogOut, FileText } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  History,
+  LogOut,
+  FileText,
+  Clock,
+  BarChart3,
+  CalendarDays,
+  Timer,
+  ClipboardCheck,
+} from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -15,17 +26,53 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const items = [
+const adminItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Empleados", url: "/empleados", icon: Users },
   { title: "Historial de Nómina", url: "/historial", icon: History },
   { title: "Facturas (USD)", url: "/facturas", icon: FileText },
 ];
 
+const hrItems = [
+  { title: "Asistencia", url: "/asistencia", icon: Clock },
+  { title: "Desempeño", url: "/desempeno", icon: BarChart3 },
+  { title: "Solicitudes", url: "/solicitudes", icon: CalendarDays },
+  { title: "Mi Reloj", url: "/reloj", icon: Timer },
+  { title: "Mi EOD", url: "/eod", icon: ClipboardCheck },
+];
+
+const managerItems = [
+  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Asistencia", url: "/asistencia", icon: Clock },
+  { title: "Desempeño", url: "/desempeno", icon: BarChart3 },
+  { title: "Solicitudes", url: "/solicitudes", icon: CalendarDays },
+  { title: "Mi Reloj", url: "/reloj", icon: Timer },
+  { title: "Mi EOD", url: "/eod", icon: ClipboardCheck },
+];
+
+const employeeItems = [
+  { title: "Mi Reloj", url: "/reloj", icon: Timer },
+  { title: "Mi EOD", url: "/eod", icon: ClipboardCheck },
+  { title: "Mis Solicitudes", url: "/solicitudes", icon: CalendarDays },
+];
+
 export function AppSidebar() {
   const { state } = useSidebar();
-  const { signOut, user } = useAuth();
+  const { signOut, user, role, isAdmin, isManager, isEmployee } = useAuth();
   const collapsed = state === "collapsed";
+
+  // Determine which items to show based on role
+  let mainItems = [];
+  let showHRSection = false;
+
+  if (isAdmin) {
+    mainItems = adminItems;
+    showHRSection = true;
+  } else if (isManager) {
+    mainItems = managerItems;
+  } else if (isEmployee) {
+    mainItems = employeeItems;
+  }
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -33,17 +80,17 @@ export function AppSidebar() {
         {!collapsed && (
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
-              <span className="text-sidebar-primary-foreground font-bold text-sm">NP</span>
+              <span className="text-sidebar-primary-foreground font-bold text-sm">JH</span>
             </div>
             <div>
-              <h2 className="text-sm font-bold text-sidebar-foreground">Nómina Pro</h2>
+              <h2 className="text-sm font-bold text-sidebar-foreground">JOI HR</h2>
               <p className="text-xs text-sidebar-foreground/60">Sistema Administrativo</p>
             </div>
           </div>
         )}
         {collapsed && (
           <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center mx-auto">
-            <span className="text-sidebar-primary-foreground font-bold text-sm">N</span>
+            <span className="text-sidebar-primary-foreground font-bold text-sm">J</span>
           </div>
         )}
       </SidebarHeader>
@@ -52,7 +99,7 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-sidebar-foreground/50">Menú</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
+              {mainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -70,6 +117,30 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {showHRSection && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-sidebar-foreground/50">Recursos Humanos</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {hrItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.url}
+                        end={item.url === "/"}
+                        className="hover:bg-sidebar-accent"
+                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      >
+                        <item.icon className="mr-2 h-4 w-4" />
+                        {!collapsed && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter className="p-2">
         {!collapsed && user && (
