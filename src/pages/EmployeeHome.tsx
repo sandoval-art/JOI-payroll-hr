@@ -225,7 +225,7 @@ export default function EmployeeHome() {
 
   const weekHours = weekEntries.reduce((s, e) => s + (e.total_hours || 0), 0);
   const daysWorked = weekEntries.filter((e) => !!e.clock_out).length;
-  const onTimeDays = weekEntries.filter((e) => !!e.clock_out && !e.is_late).length;
+  const minutesLate = weekEntries.reduce((s, e) => s + (e.late_minutes || 0), 0);
 
   // Status badge text/color
   let statusBadge: { label: string; tone: string } = {
@@ -411,10 +411,15 @@ export default function EmployeeHome() {
           icon={<TrendingUp className="h-5 w-5 text-primary" />}
         />
         <StatCard
-          label="On-Time Days"
-          value={String(onTimeDays)}
-          suffix={daysWorked ? `of ${daysWorked}` : ""}
-          icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />}
+          label="Minutes Late This Week"
+          value={String(minutesLate)}
+          suffix="min"
+          icon={
+            <AlertCircle
+              className={`h-5 w-5 ${minutesLate > 0 ? "text-red-600" : "text-emerald-600"}`}
+            />
+          }
+          accent={minutesLate > 0 ? "text-red-600" : undefined}
         />
       </div>
 
@@ -557,11 +562,13 @@ function StatCard({
   value,
   suffix,
   icon,
+  accent,
 }: {
   label: string;
   value: string;
   suffix?: string;
   icon: React.ReactNode;
+  accent?: string;
 }) {
   return (
     <Card>
@@ -571,7 +578,7 @@ function StatCard({
           {icon}
         </div>
         <div className="flex items-baseline gap-1">
-          <span className="text-3xl font-bold">{value}</span>
+          <span className={`text-3xl font-bold ${accent || ""}`}>{value}</span>
           {suffix && <span className="text-sm text-muted-foreground">{suffix}</span>}
         </div>
       </CardContent>
