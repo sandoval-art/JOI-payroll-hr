@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from "react";
 import { useEmployees, useAddEmployee, useAddEmployeesBulk, useRemoveEmployee, useActivePeriod, usePayrollRecords, recordToConfig } from "@/hooks/useSupabasePayroll";
-import { calcularNomina, type Employee, type Turno } from "@/types/payroll";
+import { calcularNomina, type Employee, type Turno, type EmpTitle } from "@/types/payroll";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,20 @@ export default function Empleados() {
     descuentoPorDia: 0,
     kpiMonto: 0,
     turno: "Lunes-Viernes" as Turno,
+    title: "agent" as EmpTitle,
+    reportsTo: null,
   });
+
+  // Possible supervisors for the Reports To dropdown:
+  // managers + team leads + admins/owner. We pull from the employees list.
+  const supervisorOptions = useMemo(() => {
+    return employees
+      .filter((e) => {
+        const t = (e as any).title as EmpTitle | undefined;
+        return t === "manager" || t === "team_lead" || t === "admin" || t === "owner";
+      })
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  }, [employees]);
 
   // Filter, sort, and paginate
   const filtered = useMemo(() => {
@@ -84,7 +97,16 @@ export default function Empleados() {
       onSuccess: () => {
         toast.success("Employee added successfully");
         setAddOpen(false);
-        setForm({ id: "", nombre: "", sueldoBase: 0, descuentoPorDia: 0, kpiMonto: 0, turno: "Lunes-Viernes" });
+        setForm({
+          id: "",
+          nombre: "",
+          sueldoBase: 0,
+          descuentoPorDia: 0,
+          kpiMonto: 0,
+          turno: "Lunes-Viernes",
+          title: "agent",
+          reportsTo: null,
+        });
       },
       onError: (err: any) => toast.error(err.message || "Error adding employee"),
     });
@@ -188,6 +210,46 @@ export default function Empleados() {
                       <SelectItem value="Viernes-Lunes">Fri-Mon</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Title</Label>
+                  <Select value={form.title} onValueChange={(v) => setForm({ ...form, title: v as EmpTitle })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="owner">Owner</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="team_lead">Team Lead</SelectItem>
+                      <SelectItem value="agent">Agent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Title controls what they see in the app. Most hires are Agents.
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Reports To</Label>
+                  <Select
+                    value={form.reportsTo ?? "__none__"}
+                    onValueChange={(v) => setForm({ ...form, reportsTo: v === "__none__" ? null : v })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select supervisor" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {supervisorOptions.map((sup) => {
+                        const supTitle = ((sup as any).title as EmpTitle) || "agent";
+                        const titleLabel = supTitle.replace("_", " ");
+                        return (
+                          <SelectItem key={(sup as any)._uuid || sup.id} value={(sup as any)._uuid || sup.id}>
+                            {sup.nombre} <span className="text-muted-foreground text-xs">· {titleLabel}</span>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Who they roll up to. Time-off requests and late alerts go here first.
+                  </p>
                 </div>
                 <Button onClick={handleAdd} disabled={addEmployee.isPending}>
                   {addEmployee.isPending ? "Saving..." : "Add Employee"}

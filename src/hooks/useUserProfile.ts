@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 export interface UserProfile {
   id: string;
   employee_id: string | null;
-  role: "admin" | "manager" | "employee";
+  role: "owner" | "admin" | "manager" | "team_lead" | "agent" | "employee";
   created_at: string;
 }
 

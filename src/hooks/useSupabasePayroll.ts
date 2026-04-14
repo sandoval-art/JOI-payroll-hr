@@ -60,6 +60,8 @@ export function useAddEmployee() {
         monthly_base_salary: emp.sueldoBase,
         daily_discount_rate: emp.descuentoPorDia,
         kpi_bonus_amount: emp.kpiMonto,
+        title: emp.title ?? "agent",
+        reports_to: emp.reportsTo ?? null,
       });
       if (error) throw error;
     },

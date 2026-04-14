@@ -55,20 +55,36 @@ function dayChips(days: number[] | null): string {
 }
 
 export default function ShiftSettings() {
-  const { isAdmin } = useAuth();
+  const { isLeadership, isTeamLead, employeeId } = useAuth();
+  const canAccess = isLeadership || isTeamLead;
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<{
     campaign: Client;
     shift: Partial<ShiftSetting> | null;
   } | null>(null);
 
-  const { data: clients = [], isLoading: loadingClients } = useQuery({
-    queryKey: ["all-clients"],
+  // For team leads, find which campaign they're scoped to (their own client_id)
+  const { data: myEmployee } = useQuery({
+    queryKey: ["my-employee", employeeId],
+    enabled: !!employeeId && isTeamLead,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("clients")
-        .select("id, name")
-        .order("name");
+        .from("employees")
+        .select("id, client_id")
+        .eq("id", employeeId!)
+        .single();
+      if (error) throw error;
+      return data as { id: string; client_id: string | null };
+    },
+  });
+  const teamLeadClientId = isTeamLead ? myEmployee?.client_id ?? null : null;
+
+  const { data: clients = [], isLoading: loadingClients } = useQuery({
+    queryKey: ["all-clients", teamLeadClientId],
+    queryFn: async () => {
+      let q = supabase.from("clients").select("id, name").order("name");
+      if (teamLeadClientId) q = q.eq("id", teamLeadClientId);
+      const { data, error } = await q;
       if (error) throw error;
       return (data || []) as Client[];
     },
@@ -142,7 +158,7 @@ export default function ShiftSettings() {
     onSuccess: invalidate,
   });
 
-  if (!isAdmin) {
+  if (!canAccess) {
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-bold">Shift Settings</h2>
@@ -150,7 +166,7 @@ export default function ShiftSettings() {
           <CardContent className="pt-6 flex items-center gap-3">
             <AlertCircle className="h-5 w-5 text-yellow-600" />
             <p className="text-yellow-800">
-              Only administrators can manage shift settings.
+              Only Team Leads, Managers, and Admins can manage shift settings.
             </p>
           </CardContent>
         </Card>
@@ -426,7 +442,22 @@ function ShiftEditDialog({
             Cancel
           </Button>
           <Button
-            onClick={() =>
+            onClick={() => {
+              const origStart = (shift?.start_time || "").slice(0, 5);
+              const origEnd = (shift?.end_time || "").slice(0, 5);
+              const timesChanged =
+                shift?.id && (start !== origStart || end !== origEnd);
+              if (timesChanged) {
+                const ok = confirm(
+                  `Confirm shift time change\n\n` +
+                  `${campaign.name} — "${name}"\n` +
+                  `${fmtTime(origStart)}–${fmtTime(origEnd)}  →  ${fmtTime(start)}–${fmtTime(end)}\n\n` +
+                  `This affects all ${headcount} active ${headcount === 1 ? "employee" : "employees"} on ${campaign.name}. ` +
+                  `Their lateness math will use the new times immediately.\n\n` +
+                  `Continue?`,
+                );
+                if (!ok) return;
+              }
               onSave({
                 ...shift,
                 shift_name: name,
@@ -434,8 +465,8 @@ function ShiftEditDialog({
                 end_time: end,
                 grace_minutes: grace,
                 days_of_week: days,
-              })
-            }
+              });
+            }}
             disabled={saving || !name || !start || !end}
           >
             {saving ? "Saving..." : "Save Shift"}

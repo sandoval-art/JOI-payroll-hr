@@ -1,5 +1,7 @@
 export type Turno = 'Lunes-Jueves' | 'Lunes-Viernes' | 'Viernes-Domingo' | 'Viernes-Lunes';
 
+export type EmpTitle = 'owner' | 'admin' | 'manager' | 'team_lead' | 'agent';
+
 export interface Employee {
   id: string;
   nombre: string;
@@ -7,6 +9,8 @@ export interface Employee {
   descuentoPorDia: number;
   kpiMonto: number;
   turno: Turno;
+  title?: EmpTitle;        // job title / permission level (defaults to 'agent')
+  reportsTo?: string | null; // employee UUID of supervisor (manager or team_lead)
   _uuid?: string; // Supabase internal UUID
 }
 

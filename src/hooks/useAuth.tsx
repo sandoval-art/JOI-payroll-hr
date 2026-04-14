@@ -2,11 +2,41 @@ import { useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
+export type UserTitle = "owner" | "admin" | "manager" | "team_lead" | "agent";
+
 interface UserProfileData {
   id: string;
   employee_id: string | null;
-  role: "admin" | "manager" | "employee";
+  // role mirrors employees.title (kept in sync by trigger). May still hold
+  // legacy values like 'employee' until the migration runs.
+  role: UserTitle | "employee" | null;
   created_at: string;
+}
+
+// Map any legacy/unknown role value to the new title enum
+function normalizeTitle(role: string | null | undefined): UserTitle {
+  if (role === "employee") return "agent";
+  if (
+    role === "owner" ||
+    role === "admin" ||
+    role === "manager" ||
+    role === "team_lead" ||
+    role === "agent"
+  ) {
+    return role;
+  }
+  return "agent";
+}
+
+// Display label for a title
+export function titleLabel(t: UserTitle): string {
+  switch (t) {
+    case "owner": return "Owner";
+    case "admin": return "Admin";
+    case "manager": return "Manager";
+    case "team_lead": return "Team Lead";
+    case "agent": return "Agent";
+  }
 }
 
 export function useAuth() {
@@ -74,16 +104,29 @@ export function useAuth() {
     await supabase.auth.signOut();
   };
 
+  const title: UserTitle | null = profile ? normalizeTitle(profile.role) : null;
+
+  // Leadership = owner + admin + manager. They see everything (including pay).
+  const isLeadership = title === "owner" || title === "admin" || title === "manager";
+
   return {
     session,
     user,
     loading: loading || profileLoading,
     signOut,
-    // Profile-related returns
-    role: profile?.role ?? null,
+    // Title (single source of truth)
+    title,
+    role: title, // alias for back-compat
     employeeId: profile?.employee_id ?? null,
-    isAdmin: profile?.role === "admin",
-    isManager: profile?.role === "manager",
-    isEmployee: profile?.role === "employee",
+    // Strict title checks
+    isOwner: title === "owner",
+    isAdmin: title === "admin",
+    isManager: title === "manager",
+    isTeamLead: title === "team_lead",
+    isAgent: title === "agent",
+    // Permission tiers (use these for gates)
+    isLeadership,
+    // Back-compat alias — old code reads isEmployee to mean "regular worker"
+    isEmployee: title === "agent",
   };
 }
