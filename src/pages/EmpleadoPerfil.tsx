@@ -3,6 +3,7 @@ import { useEmployees, useUpdateEmployee, useActivePeriod, usePayrollRecords, us
 import { useClients } from "@/hooks/useInvoices";
 import { supabase } from "@/integrations/supabase/client";
 import { calcularNomina, type Turno } from "@/types/payroll";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +29,23 @@ export default function EmpleadoPerfil() {
   const upsertRecord = useUpsertPayrollRecord();
   const { data: clients = [] } = useClients();
   const queryClient = useQueryClient();
+
+  // Load shift options from shift_settings for this employee's campaign
+  const campaignId = (employees.find((e) => e.id === id) as any)?._clientId ?? null;
+  const { data: campaignShifts = [] } = useQuery({
+    queryKey: ['shift-options', campaignId],
+    queryFn: async () => {
+      if (!campaignId) return [];
+      const { data, error } = await supabase
+        .from('shift_settings')
+        .select('id, shift_name, start_time, end_time, days_of_week')
+        .eq('campaign_id', campaignId)
+        .order('shift_name');
+      if (error) throw error;
+      return data as { id: string; shift_name: string; start_time: string; end_time: string; days_of_week: number[] | null }[];
+    },
+    enabled: !!campaignId,
+  });
 
   // Auto-create period if none exists
   useEffect(() => {
@@ -130,12 +148,22 @@ export default function EmpleadoPerfil() {
             <div className="grid gap-2">
               <Label>Shift</Label>
               <Select value={emp.turno} onValueChange={(v) => saveField("turno", v as Turno)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select a shift..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Lunes-Jueves">Mon-Thu</SelectItem>
-                  <SelectItem value="Lunes-Viernes">Mon-Fri</SelectItem>
-                  <SelectItem value="Viernes-Domingo">Fri-Sun</SelectItem>
-                  <SelectItem value="Viernes-Lunes">Fri-Mon</SelectItem>
+                  {campaignShifts.length > 0 ? (
+                    campaignShifts.map((s) => (
+                      <SelectItem key={s.id} value={s.shift_name}>
+                        {s.shift_name}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {s.start_time?.slice(0, 5)}–{s.end_time?.slice(0, 5)}
+                        </span>
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value={emp.turno || 'none'} disabled>
+                      {campaignId ? 'No shifts configured for this campaign' : 'Assign a campaign first'}
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -154,7 +182,9 @@ export default function EmpleadoPerfil() {
                 <SelectContent>
                   <SelectItem value="none">No client</SelectItem>
                   {clients.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {(c as any).subtitle ? `${c.name} – ${(c as any).subtitle}` : c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

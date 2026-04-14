@@ -11,6 +11,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { ClipboardCheck, AlertTriangle, CheckCircle } from 'lucide-react';
 
 interface KPIField {
@@ -18,10 +25,12 @@ interface KPIField {
   campaign_id: string;
   field_name: string;
   field_label: string;
-  field_type: 'number' | 'boolean';
+  field_type: 'number' | 'boolean' | 'text' | 'dropdown';
   min_target: number | null;
   display_order: number;
   is_active: boolean;
+  dropdown_options: string[] | null;
+  is_required: boolean;
 }
 
 interface Employee {
@@ -126,7 +135,11 @@ export default function EODForm() {
     if (kpiFields && kpiFields.length > 0) {
       const initial: FormValues = {};
       kpiFields.forEach((field) => {
-        initial[field.field_name] = field.field_type === 'boolean' ? false : '';
+        if (field.field_type === 'boolean') {
+          initial[field.field_name] = false;
+        } else {
+          initial[field.field_name] = '';
+        }
       });
       setFormValues(initial);
     }
@@ -314,6 +327,34 @@ export default function EODForm() {
                           disabled={submitted}
                           className={isBelowTarget ? 'bg-yellow-50 border-yellow-300' : ''}
                         />
+                      ) : field.field_type === 'text' ? (
+                        <Input
+                          id={field.field_name}
+                          type="text"
+                          placeholder="Enter your answer"
+                          value={typeof value === 'string' ? value : ''}
+                          onChange={(e) =>
+                            handleInputChange(field.field_name, e.target.value)
+                          }
+                          disabled={submitted}
+                        />
+                      ) : field.field_type === 'dropdown' ? (
+                        <Select
+                          value={typeof value === 'string' ? value : ''}
+                          onValueChange={(val) => handleInputChange(field.field_name, val)}
+                          disabled={submitted}
+                        >
+                          <SelectTrigger id={field.field_name}>
+                            <SelectValue placeholder="Select an option..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(field.dropdown_options ?? []).map((opt) => (
+                              <SelectItem key={opt} value={opt}>
+                                {opt}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       ) : (
                         <div className="flex items-center gap-3">
                           <Switch

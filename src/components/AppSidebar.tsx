@@ -9,7 +9,9 @@ import {
   CalendarDays,
   Timer,
   ClipboardCheck,
+  ClipboardList,
   Settings,
+  Building2,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -33,7 +35,7 @@ const leadershipItems = [
   { title: "Employees", url: "/empleados", icon: Users },
   { title: "Payroll History", url: "/historial", icon: History },
   { title: "Invoices (USD)", url: "/facturas", icon: FileText },
-  { title: "Shift Settings", url: "/settings/shifts", icon: Settings },
+  { title: "Campaigns", url: "/campaigns", icon: Building2 },
 ];
 
 const hrItems = [
