@@ -63,7 +63,7 @@ const emptyField = (): Omit<KPIField, 'id' | 'campaign_id' | 'display_order'> =>
 });
 
 export default function EODFormBuilder() {
-  const { isLeadership, isAdmin, isOwner } = useAuth();
+  const { isLeadership, isAdmin, isOwner, loading } = useAuth();
   const queryClient = useQueryClient();
 
   const [selectedCampaign, setSelectedCampaign] = useState<string>('');
@@ -73,6 +73,7 @@ export default function EODFormBuilder() {
   const [dropdownInput, setDropdownInput] = useState('');
 
   // Only leadership can access this page
+  if (loading) return null;
   if (!isLeadership) return <Navigate to="/" replace />;
 
   // Fetch all campaigns

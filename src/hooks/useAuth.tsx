@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -39,22 +39,46 @@ export function titleLabel(t: UserTitle): string {
   }
 }
 
-export function useAuth() {
+interface AuthContextValue {
+  session: Session | null;
+  user: User | null;
+  loading: boolean;
+  signOut: () => Promise<void>;
+  title: UserTitle | null;
+  role: UserTitle | null;
+  employeeId: string | null;
+  isOwner: boolean;
+  isAdmin: boolean;
+  isManager: boolean;
+  isTeamLead: boolean;
+  isAgent: boolean;
+  isLeadership: boolean;
+  isEmployee: boolean;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfileData | null>(null);
-  const [profileLoading, setProfileLoading] = useState(false);
+  // Track which user ID we've loaded the profile for (null = not yet loaded)
+  const [profileLoadedForId, setProfileLoadedForId] = useState<string | null>(null);
 
   // Fetch user profile when user changes
   useEffect(() => {
     if (!user) {
       setProfile(null);
+      setProfileLoadedForId(null);
       return;
     }
 
+    // Already loaded for this user
+    if (profileLoadedForId === user.id) return;
+
+    let cancelled = false;
     const fetchProfile = async () => {
-      setProfileLoading(true);
       try {
         const { data, error } = await supabase
           .from("user_profiles")
@@ -62,8 +86,9 @@ export function useAuth() {
           .eq("id", user.id)
           .single();
 
+        if (cancelled) return;
+
         if (error) {
-          // If profile doesn't exist, that's fine - just set null
           if (error.code !== "PGRST116") {
             console.error("Error fetching user profile:", error);
           }
@@ -72,15 +97,17 @@ export function useAuth() {
           setProfile(data as UserProfileData);
         }
       } catch (err) {
+        if (cancelled) return;
         console.error("Error fetching user profile:", err);
         setProfile(null);
       } finally {
-        setProfileLoading(false);
+        if (!cancelled) setProfileLoadedForId(user.id);
       }
     };
 
     fetchProfile();
-  }, [user?.id]);
+    return () => { cancelled = true; };
+  }, [user?.id, profileLoadedForId]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -109,10 +136,10 @@ export function useAuth() {
   // Leadership = owner + admin + manager. They see everything (including pay).
   const isLeadership = title === "owner" || title === "admin" || title === "manager";
 
-  return {
+  const value: AuthContextValue = {
     session,
     user,
-    loading: loading || profileLoading,
+    loading: loading || (user !== null && profileLoadedForId !== user.id),
     signOut,
     // Title (single source of truth)
     title,
@@ -129,4 +156,12 @@ export function useAuth() {
     // Back-compat alias — old code reads isEmployee to mean "regular worker"
     isEmployee: title === "agent",
   };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
+  return ctx;
 }
