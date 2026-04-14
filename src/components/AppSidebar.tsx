@@ -27,7 +27,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const adminItems = [
+// Leadership (owner / admin / manager) — sees everything including pay
+const leadershipItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Employees", url: "/empleados", icon: Users },
   { title: "Payroll History", url: "/historial", icon: History },
@@ -43,16 +44,18 @@ const hrItems = [
   { title: "My EOD", url: "/eod", icon: ClipboardCheck },
 ];
 
-const managerItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Attendance", url: "/asistencia", icon: Clock },
-  { title: "Performance", url: "/desempeno", icon: BarChart3 },
+// Team Lead — team-scoped views, shift settings (their campaign), no pay
+const teamLeadItems = [
+  { title: "Home", url: "/", icon: LayoutDashboard },
+  { title: "My Team", url: "/asistencia", icon: Users },
   { title: "Time Off Requests", url: "/solicitudes", icon: CalendarDays },
+  { title: "Shift Settings", url: "/settings/shifts", icon: Settings },
   { title: "My Timeclock", url: "/reloj", icon: Timer },
   { title: "My EOD", url: "/eod", icon: ClipboardCheck },
 ];
 
-const employeeItems = [
+// Agent — only their own stuff
+const agentItems = [
   { title: "My Timeclock", url: "/reloj", icon: Timer },
   { title: "My EOD", url: "/eod", icon: ClipboardCheck },
   { title: "My Requests", url: "/solicitudes", icon: CalendarDays },
@@ -60,20 +63,20 @@ const employeeItems = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
-  const { signOut, user, role, isAdmin, isManager, isEmployee } = useAuth();
+  const { signOut, user, isLeadership, isTeamLead, isAgent } = useAuth();
   const collapsed = state === "collapsed";
 
-  // Determine which items to show based on role
-  let mainItems = [];
+  // Determine which items to show based on title
+  let mainItems: { title: string; url: string; icon: typeof LayoutDashboard }[] = [];
   let showHRSection = false;
 
-  if (isAdmin) {
-    mainItems = adminItems;
+  if (isLeadership) {
+    mainItems = leadershipItems;
     showHRSection = true;
-  } else if (isManager) {
-    mainItems = managerItems;
-  } else if (isEmployee) {
-    mainItems = employeeItems;
+  } else if (isTeamLead) {
+    mainItems = teamLeadItems;
+  } else if (isAgent) {
+    mainItems = agentItems;
   }
 
   return (

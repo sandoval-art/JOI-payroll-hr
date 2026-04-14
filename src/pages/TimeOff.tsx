@@ -190,8 +190,15 @@ export default function TimeOff() {
     },
   });
 
-  const isEmployee = role === "employee";
-  const isManagerOrAdmin = role === "manager" || role === "admin";
+  // 5-tier title model:
+  //   - agents request and view their own
+  //   - team leads can also approve their team's
+  //   - leadership (owner/admin/manager) can approve everyone's
+  const isAgent = role === "agent" || role === "employee"; // legacy fallback
+  const isApprover = role === "team_lead" || role === "manager" || role === "admin" || role === "owner";
+  // Back-compat names for the JSX below (so we don't have to rewrite all the conditionals)
+  const isEmployee = isAgent;
+  const isManagerOrAdmin = isApprover;
 
   return (
     <div className="space-y-6">
