@@ -22,13 +22,31 @@ create index if not exists idx_employees_reports_to on public.employees(reports_
 create index if not exists idx_employees_title on public.employees(title);
 
 -- 3. Backfill known titles by name match (best effort — won't error if name missing)
-update public.employees set title = 'owner'     where full_name ilike 'Daniel Sandoval%';
+-- NOTE: Owner is seeded by auth email (not name), see block below. The name
+-- "Daniel Sandoval" belongs to a test employee account, not the real owner.
 update public.employees set title = 'admin'     where full_name ilike 'Paty Rodriguez%';
 update public.employees set title = 'manager'   where full_name ilike 'Joe Renteria%';
 update public.employees set title = 'team_lead' where full_name ilike 'Wendy%'
                                                   or full_name ilike 'Ruben Curiel%'
                                                   or full_name ilike 'Javier Caballero%';
 -- Everyone else stays 'agent' by default.
+
+-- 3b. Owner: match by auth email, not name (test accounts may share a name)
+do $$
+declare
+  owner_auth_id uuid;
+  owner_emp_id uuid;
+begin
+  select id into owner_auth_id from auth.users
+    where email = 'diomedes.sandoval@justoutsource.it' limit 1;
+  if owner_auth_id is null then return; end if;
+
+  select employee_id into owner_emp_id from public.user_profiles
+    where id = owner_auth_id limit 1;
+  if owner_emp_id is null then return; end if;
+
+  update public.employees set title = 'owner' where id = owner_emp_id;
+end $$;
 
 -- 4. Backfill reports_to for the team-lead reporting chain (best effort)
 -- Team leads report up to Joe (manager). Agents report to their team lead by campaign.
