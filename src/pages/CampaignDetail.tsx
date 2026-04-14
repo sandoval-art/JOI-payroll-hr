@@ -75,7 +75,7 @@ const emptyField = (): Omit<KPIField, 'id' | 'campaign_id' | 'display_order'> =>
 export default function CampaignDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isLeadership, isOwner, isAdmin } = useAuth();
+  const { isLeadership, isOwner, isAdmin, loading } = useAuth();
   const queryClient = useQueryClient();
 
   // Campaign info
@@ -99,6 +99,7 @@ export default function CampaignDetail() {
   const [fieldForm, setFieldForm] = useState(emptyField());
   const [dropdownInput, setDropdownInput] = useState('');
 
+  if (loading) return null;
   if (!isLeadership) return <Navigate to="/" replace />;
 
   const invalidateCampaign = () => {

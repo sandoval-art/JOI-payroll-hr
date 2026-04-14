@@ -34,13 +34,14 @@ export function campaignLabel(c: { name: string; subtitle?: string | null }) {
 }
 
 export default function Campaigns() {
-  const { isLeadership } = useAuth();
+  const { isLeadership, loading } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newSubtitle, setNewSubtitle] = useState('');
 
+  if (loading) return null;
   if (!isLeadership) return <Navigate to="/" replace />;
 
   const { data: campaigns = [], isLoading } = useQuery({
