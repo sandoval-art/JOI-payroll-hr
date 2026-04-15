@@ -49,12 +49,12 @@ interface OverviewStats {
 }
 
 export default function Attendance() {
-  const { user, role } = useAuth();
+  const { user, role, employeeId, isLeadership, isTeamLead } = useAuth();
   const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
   const [campaigns, setCampaigns] = useState<Array<{ id: string; name: string }>>([]);
 
   // Check authorization
-  if (role === "employee") {
+  if (role === "agent") {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold tracking-tight">Attendance</h1>
@@ -89,7 +89,7 @@ export default function Attendance() {
 
   // Fetch attendance data for today
   const { data: attendanceData, refetch } = useQuery({
-    queryKey: ["attendance", selectedCampaign],
+    queryKey: ["attendance", selectedCampaign, employeeId, isLeadership, isTeamLead],
     queryFn: async () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -113,11 +113,17 @@ export default function Attendance() {
 
       if (timeClockError) throw timeClockError;
 
-      // Fetch all active employees
-      const { data: employees, error: employeesError } = await supabase
+      // Fetch employees scoped by role
+      let employeesQuery = supabase
         .from("employees")
         .select("id, full_name, campaign_id")
         .eq("is_active", true);
+
+      if (isTeamLead && employeeId) {
+        employeesQuery = employeesQuery.eq("reports_to", employeeId);
+      }
+
+      const { data: employees, error: employeesError } = await employeesQuery;
 
       if (employeesError) throw employeesError;
 
