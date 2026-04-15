@@ -138,6 +138,7 @@ export default function CampaignDetail() {
   const invalidateCampaign = () => {
     queryClient.invalidateQueries({ queryKey: ['campaign', id] });
     queryClient.invalidateQueries({ queryKey: ['campaigns-list'] });
+    queryClient.invalidateQueries({ queryKey: ['clients-with-campaigns'] });
   };
 
   // Fetch campaign + parent client

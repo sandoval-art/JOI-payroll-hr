@@ -14,6 +14,7 @@ import { Users, Clock, AlertTriangle, UserCheck, UserX } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { todayLocal } from "@/lib/localDate";
 
 interface AttendanceRecord {
   id: string;
@@ -91,25 +92,12 @@ export default function Attendance() {
   const { data: attendanceData, refetch } = useQuery({
     queryKey: ["attendance", selectedCampaign, employeeId, isLeadership, isTeamLead],
     queryFn: async () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const todayStr = todayLocal();
 
       const { data: timeClock, error: timeClockError } = await supabase
         .from("time_clock")
-        .select(
-          `
-          id,
-          employee_id,
-          employees:employee_id (name),
-          clock_in,
-          clock_out,
-          is_late,
-          minutes_late,
-          created_at
-        `
-        )
-        .gte("created_at", today.toISOString())
-        .lt("created_at", new Date(today.getTime() + 86400000).toISOString());
+        .select("id, employee_id, clock_in, clock_out, is_late, minutes_late")
+        .eq("date", todayStr);
 
       if (timeClockError) throw timeClockError;
 
@@ -137,15 +125,17 @@ export default function Attendance() {
       const campaignMap = new Map(campaignsList.map((c: any) => [c.id, c.name]));
 
       // Get repeat lates for this week
+      const today = new Date();
       const weekStart = new Date(today);
       weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const weekStartStr = todayLocal(weekStart);
 
       const { data: weekLates, error: weekLatesError } = await supabase
         .from("time_clock")
         .select("employee_id")
         .eq("is_late", true)
-        .gte("created_at", weekStart.toISOString())
-        .lt("created_at", new Date(today.getTime() + 86400000).toISOString());
+        .gte("date", weekStartStr)
+        .lte("date", todayStr);
 
       if (weekLatesError) throw weekLatesError;
 

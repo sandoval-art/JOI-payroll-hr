@@ -28,11 +28,11 @@ interface ShiftSetting {
   start_time: string; // "HH:MM:SS"
   end_time: string;
   grace_minutes: number;
-  days_of_week: number[] | null; // ISO 1=Mon ... 7=Sun
+  days_of_week: number[] | null; // JS convention: 0=Sun, 1=Mon ... 6=Sat
 }
 
-const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const DAY_VALUES = [1, 2, 3, 4, 5, 6, 7];
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_VALUES = [0, 1, 2, 3, 4, 5, 6];
 
 function fmtTime(t: string | undefined): string {
   if (!t) return "—";
@@ -46,12 +46,12 @@ function fmtTime(t: string | undefined): string {
 
 function dayChips(days: number[] | null): string {
   if (!days || days.length === 0) return "All days";
-  // weekday (1-5) = "Mon-Fri"; weekend (6,7) = "Sat-Sun"; else list
+  // weekday (1-5) = "Mon-Fri"; weekend (0,6) = "Sat-Sun"; else list
   const sorted = [...days].sort((a, b) => a - b);
   if (sorted.length === 5 && sorted.join() === "1,2,3,4,5") return "Mon-Fri";
-  if (sorted.length === 2 && sorted.join() === "6,7") return "Sat-Sun";
+  if (sorted.length === 2 && sorted.join() === "0,6") return "Sat-Sun";
   if (sorted.length === 7) return "All days";
-  return sorted.map((d) => DAY_NAMES[d - 1]).join(", ");
+  return sorted.map((d) => DAY_NAMES[d]).join(", ");
 }
 
 export default function ShiftSettings() {
@@ -233,7 +233,7 @@ export default function ShiftSettings() {
                           start_time: "09:00",
                           end_time: "18:00",
                           grace_minutes: 10,
-                          days_of_week: [1, 2, 3, 4, 5],
+                          days_of_week: [1, 2, 3, 4, 5], // Mon-Fri in JS convention
                         },
                       })
                     }
@@ -344,7 +344,7 @@ function ShiftEditDialog({
   const [start, setStart] = useState((shift?.start_time || "").slice(0, 5));
   const [end, setEnd] = useState((shift?.end_time || "").slice(0, 5));
   const [grace, setGrace] = useState(shift?.grace_minutes ?? 10);
-  const [days, setDays] = useState<number[]>(shift?.days_of_week || [1, 2, 3, 4, 5]);
+  const [days, setDays] = useState<number[]>(shift?.days_of_week || [1, 2, 3, 4, 5]); // Mon-Fri
 
   const toggleDay = (d: number) => {
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()));

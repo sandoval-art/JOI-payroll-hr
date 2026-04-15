@@ -34,7 +34,7 @@ BEGIN
     UPDATE public.employees
     SET reports_to = new.team_lead_id
     WHERE campaign_id = new.id
-      AND id != COALESCE(new.team_lead_id, '00000000-0000-0000-0000-000000000000');
+      AND (new.team_lead_id IS NULL OR id != new.team_lead_id);
   END IF;
   RETURN new;
 END;
