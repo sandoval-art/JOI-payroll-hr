@@ -1,0 +1,103 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+export interface Campaign {
+  id: string;
+  client_id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface ClientWithCampaigns {
+  id: string;
+  name: string;
+  prefix: string;
+  bill_to_name: string | null;
+  campaigns: Campaign[];
+}
+
+export function useCampaigns(clientId?: string) {
+  return useQuery({
+    queryKey: ["campaigns", clientId],
+    queryFn: async () => {
+      let query = supabase.from("campaigns").select("*").order("name");
+      if (clientId) query = query.eq("client_id", clientId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as Campaign[];
+    },
+  });
+}
+
+export function useCampaignsByClient() {
+  return useQuery({
+    queryKey: ["campaigns-by-client"],
+    queryFn: async () => {
+      const [{ data: clients, error: cErr }, { data: campaigns, error: campErr }] =
+        await Promise.all([
+          supabase.from("clients").select("*").order("name"),
+          supabase.from("campaigns").select("*").order("name"),
+        ]);
+      if (cErr) throw cErr;
+      if (campErr) throw campErr;
+      return (clients || []).map((cl: any) => ({
+        ...cl,
+        campaigns: (campaigns || []).filter((c: any) => c.client_id === cl.id),
+      })) as ClientWithCampaigns[];
+    },
+  });
+}
+
+export function useCreateCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ clientId, name }: { clientId: string; name: string }) => {
+      const { data, error } = await supabase
+        .from("campaigns")
+        .insert({ client_id: clientId, name: name.trim() })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      qc.invalidateQueries({ queryKey: ["campaigns-by-client"] });
+      qc.invalidateQueries({ queryKey: ["campaigns-list"] });
+    },
+  });
+}
+
+export function useUpdateCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase
+        .from("campaigns")
+        .update({ name: name.trim() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      qc.invalidateQueries({ queryKey: ["campaigns-by-client"] });
+      qc.invalidateQueries({ queryKey: ["campaigns-list"] });
+      qc.invalidateQueries({ queryKey: ["campaign"] });
+    },
+  });
+}
+
+export function useDeleteCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("campaigns").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      qc.invalidateQueries({ queryKey: ["campaigns-by-client"] });
+      qc.invalidateQueries({ queryKey: ["campaigns-list"] });
+    },
+  });
+}

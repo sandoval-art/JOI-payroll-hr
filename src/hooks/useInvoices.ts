@@ -101,11 +101,19 @@ export function useAgentsByClient(clientId: string | undefined) {
     queryKey: ["agentsByClient", clientId],
     enabled: !!clientId,
     queryFn: async () => {
+      // Get all campaign IDs for this client
+      const { data: campaigns } = await supabase
+        .from("campaigns")
+        .select("id")
+        .eq("client_id", clientId!);
+      const campaignIds = (campaigns || []).map(c => c.id);
+      if (campaignIds.length === 0) return [];
+
       const { data, error } = await supabase
         .from("employees")
         .select("id, full_name, employee_id, shift_type")
         .eq("is_active", true)
-        .eq("client_id", clientId!);
+        .in("campaign_id", campaignIds);
       if (error) throw error;
       return data || [];
     },

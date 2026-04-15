@@ -72,9 +72,8 @@ export default function Attendance() {
     queryKey: ["campaigns"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("clients")
+        .from("campaigns")
         .select("id, name")
-        .eq("is_active", true)
         .order("name");
 
       if (error) throw error;
@@ -102,7 +101,6 @@ export default function Attendance() {
           id,
           employee_id,
           employees:employee_id (name),
-          clients:client_id (id, name),
           clock_in,
           clock_out,
           is_late,
@@ -118,19 +116,19 @@ export default function Attendance() {
       // Fetch all active employees
       const { data: employees, error: employeesError } = await supabase
         .from("employees")
-        .select("id, name, client_id")
+        .select("id, full_name, campaign_id")
         .eq("is_active", true);
 
       if (employeesError) throw employeesError;
 
       // Fetch clients for campaign names
-      const { data: clients, error: clientsError } = await supabase
-        .from("clients")
+      const { data: campaignsList, error: campaignsError } = await supabase
+        .from("campaigns")
         .select("id, name");
 
-      if (clientsError) throw clientsError;
+      if (campaignsError) throw campaignsError;
 
-      const clientMap = new Map(clients.map((c: any) => [c.id, c.name]));
+      const campaignMap = new Map(campaignsList.map((c: any) => [c.id, c.name]));
 
       // Get repeat lates for this week
       const weekStart = new Date(today);
@@ -163,7 +161,7 @@ export default function Attendance() {
       const employeeList: EmployeeWithAttendance[] = employees.map(
         (emp: any) => {
           const attendance = attendanceMap.get(emp.id);
-          const campaignName = clientMap.get(emp.client_id) || "Unknown";
+          const campaignName = campaignMap.get(emp.campaign_id) || "Unknown";
           const isRepeatLate = (lateCountMap.get(emp.id) || 0) > 1;
 
           let status: "presente" | "ausente" | "completado" = "ausente";
@@ -177,8 +175,8 @@ export default function Attendance() {
 
           return {
             id: emp.id,
-            name: emp.name,
-            campaign_id: emp.client_id,
+            name: emp.full_name,
+            campaign_id: emp.campaign_id,
             campaign_name: campaignName,
             status,
             clock_in: attendance?.clock_in || null,

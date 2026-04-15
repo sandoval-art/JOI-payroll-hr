@@ -22,6 +22,8 @@ import {
   UtensilsCrossed,
   CheckCircle2,
 } from "lucide-react";
+import { ClockOutEODDialog, type KPIField } from "@/components/ClockOutEODDialog";
+import { todayLocal, parseLocalDate } from "@/lib/localDate";
 
 interface TimeClockEntry {
   id: string;
@@ -56,7 +58,7 @@ interface ShiftSettings {
 
 interface Employee {
   id: string;
-  client_id: string;
+  campaign_id: string;
 }
 
 // Cap durations (in minutes)
@@ -108,6 +110,7 @@ function buildShiftEndExpected(now: Date, shift: ShiftSettings | null): string |
 export default function Timeclock() {
   const { employeeId, loading: authLoading } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [eodDialogOpen, setEodDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -121,7 +124,7 @@ export default function Timeclock() {
       if (!employeeId) return null;
       const { data, error } = await supabase
         .from("employees")
-        .select("id, client_id")
+        .select("id, campaign_id")
         .eq("id", employeeId)
         .single();
       if (error) throw error;
@@ -134,7 +137,7 @@ export default function Timeclock() {
     queryKey: ["timeclock-today", employeeId],
     queryFn: async () => {
       if (!employeeId) return null;
-      const today = new Date().toISOString().split("T")[0];
+      const today = todayLocal();
       const { data, error } = await supabase
         .from("time_clock")
         .select("*")
@@ -149,18 +152,69 @@ export default function Timeclock() {
   });
 
   const { data: shiftSettings } = useQuery({
-    queryKey: ["shift-settings", employee?.client_id],
+    queryKey: ["shift-settings", employee?.campaign_id],
     queryFn: async () => {
-      if (!employee?.client_id) return null;
+      if (!employee?.campaign_id) return null;
       const { data, error } = await supabase
         .from("shift_settings")
         .select("*")
-        .eq("campaign_id", employee.client_id)
+        .eq("campaign_id", employee.campaign_id)
         .maybeSingle();
       if (error && error.code !== "PGRST116") throw error;
       return (data || null) as ShiftSettings | null;
     },
-    enabled: !!employee?.client_id,
+    enabled: !!employee?.campaign_id,
+  });
+
+  // Campaign name for the dialog header
+  const { data: campaign } = useQuery({
+    queryKey: ["campaign-name", employee?.campaign_id],
+    queryFn: async () => {
+      if (!employee?.campaign_id) return null;
+      const { data, error } = await supabase
+        .from("campaigns")
+        .select("id, name")
+        .eq("id", employee.campaign_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { id: string; name: string } | null;
+    },
+    enabled: !!employee?.campaign_id,
+  });
+
+  // KPI fields for this agent's campaign — drives the pre-clock-out EOD dialog
+  const { data: kpiFields = [] } = useQuery({
+    queryKey: ["kpi-config", employee?.campaign_id],
+    queryFn: async () => {
+      if (!employee?.campaign_id) return [];
+      const { data, error } = await supabase
+        .from("campaign_kpi_config")
+        .select("*")
+        .eq("campaign_id", employee.campaign_id)
+        .eq("is_active", true)
+        .order("display_order", { ascending: true });
+      if (error) throw error;
+      return (data || []) as KPIField[];
+    },
+    enabled: !!employee?.campaign_id,
+  });
+
+  // Whether agent already submitted today's EOD (via old /eod page or a prior attempt)
+  const { data: todayEodLog } = useQuery({
+    queryKey: ["eod-today", employeeId],
+    queryFn: async () => {
+      if (!employeeId) return null;
+      const today = todayLocal();
+      const { data, error } = await supabase
+        .from("eod_logs")
+        .select("id")
+        .eq("employee_id", employeeId)
+        .eq("date", today)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!employeeId,
   });
 
   const { data: weekEntries = [] } = useQuery({
@@ -176,7 +230,7 @@ export default function Timeclock() {
         .from("time_clock")
         .select("*")
         .eq("employee_id", employeeId)
-        .gte("date", startOfWeek.toISOString().split("T")[0])
+        .gte("date", todayLocal(startOfWeek))
         .order("date", { ascending: false });
       if (error) throw error;
       return (data || []) as TimeClockEntry[];
@@ -188,14 +242,15 @@ export default function Timeclock() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["timeclock-today"] });
     queryClient.invalidateQueries({ queryKey: ["timeclock-week"] });
+    queryClient.invalidateQueries({ queryKey: ["eod-today", employeeId] });
   };
 
   // Clock In
   const clockInMutation = useMutation({
     mutationFn: async () => {
-      if (!employeeId || !employee?.client_id) throw new Error("Missing employee/campaign");
+      if (!employeeId || !employee?.campaign_id) throw new Error("Missing employee/campaign");
       const now = new Date();
-      const today = now.toISOString().split("T")[0];
+      const today = todayLocal(now);
 
       const { data: existing } = await supabase
         .from("time_clock")
@@ -602,7 +657,15 @@ export default function Timeclock() {
                   <Button
                     size="lg"
                     className="w-full h-12 bg-red-600 hover:bg-red-700 text-white text-lg"
-                    onClick={() => clockOutMutation.mutate()}
+                    onClick={() => {
+                      // Need EOD first? Open the dialog. It calls back to clock out on submit.
+                      // Skip (silent) if no KPI fields configured or already submitted today.
+                      if (kpiFields.length > 0 && !todayEodLog && employee?.campaign_id) {
+                        setEodDialogOpen(true);
+                      } else {
+                        clockOutMutation.mutate();
+                      }
+                    }}
                     disabled={clockOutMutation.isPending}
                   >
                     <LogOut className="mr-2 h-5 w-5" />
@@ -674,7 +737,7 @@ export default function Timeclock() {
                     return (
                       <TableRow key={entry.id} className={entry.is_late ? "bg-red-50" : ""}>
                         <TableCell>
-                          {new Date(entry.date).toLocaleDateString("en-US", {
+                          {parseLocalDate(entry.date).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                           })}
@@ -737,6 +800,22 @@ export default function Timeclock() {
           )}
         </CardContent>
       </Card>
+
+      {/* EOD required before clock-out */}
+      {employee?.campaign_id && (
+        <ClockOutEODDialog
+          open={eodDialogOpen}
+          onOpenChange={setEodDialogOpen}
+          employeeId={employeeId!}
+          campaignId={employee.campaign_id}
+          campaignName={campaign?.name}
+          kpiFields={kpiFields}
+          onSubmitted={() => {
+            setEodDialogOpen(false);
+            clockOutMutation.mutate();
+          }}
+        />
+      )}
     </div>
   );
 }

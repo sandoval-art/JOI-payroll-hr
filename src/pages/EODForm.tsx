@@ -1,426 +1,166 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { ClipboardCheck, AlertTriangle, CheckCircle } from 'lucide-react';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ClipboardCheck, ChevronDown } from "lucide-react";
+import { parseLocalDate } from "@/lib/localDate";
 
-interface KPIField {
-  id: string;
-  campaign_id: string;
-  field_name: string;
-  field_label: string;
-  field_type: 'number' | 'boolean' | 'text' | 'dropdown';
-  min_target: number | null;
-  display_order: number;
-  is_active: boolean;
-  dropdown_options: string[] | null;
-  is_required: boolean;
-}
-
-interface Employee {
-  id: string;
-  full_name: string;
-  client_id: string;
-}
-
-interface Client {
-  id: string;
-  name: string;
-}
-
-interface FormValues {
-  [key: string]: string | number | boolean;
-}
+// Read-only history of this agent's EOD submissions.
+// New EODs are submitted from the Timeclock (triggered by Clock Out).
+// This page is for reference — "did I submit on Tuesday?" lookups.
 
 interface EODLog {
   id: string;
-  metrics: FormValues;
-  notes: string;
+  date: string;
+  campaign_id: string;
+  metrics: Record<string, string | number | boolean>;
+  notes: string | null;
   created_at: string;
+  campaigns: { name: string } | null;
 }
 
-export default function EODForm() {
+export default function EODHistory() {
   const { employeeId } = useAuth();
-  const queryClient = useQueryClient();
-  const [formValues, setFormValues] = useState<FormValues>({});
-  const [notes, setNotes] = useState('');
-  const [submitted, setSubmitted] = useState(false);
-  const [existingSubmission, setExistingSubmission] = useState<EODLog | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Get employee info
-  const { data: employee, isLoading: employeeLoading } = useQuery({
-    queryKey: ['employee', employeeId],
+  const { data: logs = [], isLoading } = useQuery({
+    queryKey: ["eod-history", employeeId],
     queryFn: async () => {
-      if (!employeeId) return null;
+      if (!employeeId) return [];
       const { data, error } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('id', employeeId)
-        .single();
+        .from("eod_logs")
+        .select("id, date, campaign_id, metrics, notes, created_at, campaigns(name)")
+        .eq("employee_id", employeeId)
+        .order("date", { ascending: false })
+        .limit(60);
       if (error) throw error;
-      return data as Employee;
+      return (data || []) as unknown as EODLog[];
     },
     enabled: !!employeeId,
   });
 
-  // Get client/campaign info
-  const { data: client } = useQuery({
-    queryKey: ['client', employee?.client_id],
-    queryFn: async () => {
-      if (!employee?.client_id) return null;
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id', employee.client_id)
-        .single();
-      if (error) throw error;
-      return data as Client;
-    },
-    enabled: !!employee?.client_id,
-  });
-
-  // Get KPI config for campaign
-  const { data: kpiFields, isLoading: kpiLoading } = useQuery({
-    queryKey: ['kpi-config', employee?.client_id],
-    queryFn: async () => {
-      if (!employee?.client_id) return [];
-      const { data, error } = await supabase
-        .from('campaign_kpi_config')
-        .select('*')
-        .eq('campaign_id', employee.client_id)
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
-      if (error) throw error;
-      return data as KPIField[];
-    },
-    enabled: !!employee?.client_id,
-  });
-
-  // Check if already submitted today
-  const { data: todaySubmission } = useQuery({
-    queryKey: ['eod-today', employeeId],
-    queryFn: async () => {
-      if (!employeeId) return null;
-      const today = new Date().toISOString().split('T')[0];
-      const { data, error } = await supabase
-        .from('eod_logs')
-        .select('*')
-        .eq('employee_id', employeeId)
-        .eq('date', today)
-        .single();
-      if (error && error.code !== 'PGRST116') throw error;
-      return data as EODLog | null;
-    },
-    enabled: !!employeeId,
-  });
-
-  // Initialize form values from KPI fields
-  useEffect(() => {
-    if (kpiFields && kpiFields.length > 0) {
-      const initial: FormValues = {};
-      kpiFields.forEach((field) => {
-        if (field.field_type === 'boolean') {
-          initial[field.field_name] = false;
-        } else {
-          initial[field.field_name] = '';
-        }
-      });
-      setFormValues(initial);
-    }
-  }, [kpiFields]);
-
-  // Populate from existing submission
-  useEffect(() => {
-    if (todaySubmission) {
-      setExistingSubmission(todaySubmission);
-      setFormValues(todaySubmission.metrics);
-      setNotes(todaySubmission.notes || '');
-      setSubmitted(true);
-    }
-  }, [todaySubmission]);
-
-  // Submit form
-  const submitMutation = useMutation({
-    mutationFn: async () => {
-      if (!employeeId || !employee) throw new Error('No employee');
-      const today = new Date().toISOString().split('T')[0];
-
-      const { error } = await supabase.from('eod_logs').insert({
-        employee_id: employeeId,
-        date: today,
-        campaign_id: employee.client_id,
-        metrics: formValues,
-        notes: notes || null,
-      });
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      setSubmitted(true);
-      queryClient.invalidateQueries({ queryKey: ['eod-today', employeeId] });
-    },
-  });
-
-  const handleInputChange = (fieldName: string, value: string | number | boolean) => {
-    setFormValues((prev) => ({
-      ...prev,
-      [fieldName]: value,
-    }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    submitMutation.mutate();
-  };
-
-  // Error state
   if (!employeeId) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">End of Day Report</h1>
-          <p className="text-muted-foreground mt-2">Submit your daily performance report</p>
-        </div>
-
-        <Card className="border-red-200 bg-red-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-700">
-              <AlertTriangle className="h-5 w-5" />
-              Account Not Linked
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-red-600">Your account is not linked to an employee.</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (employeeLoading || kpiLoading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">End of Day Report</h1>
-        </div>
+        <h1 className="text-3xl font-bold tracking-tight">My EOD History</h1>
         <Card>
-          <CardContent className="py-8">
-            <p className="text-center text-muted-foreground">Loading...</p>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            Your account is not linked to an employee.
           </CardContent>
         </Card>
       </div>
     );
   }
-
-  const today = new Date();
-  const dateFormatter = new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">End of Day Report</h1>
-        <p className="text-muted-foreground mt-2">Submit your daily performance report</p>
+        <h1 className="text-3xl font-bold tracking-tight">My EOD History</h1>
+        <p className="text-muted-foreground mt-2">
+          Your past end-of-day reports. New reports are submitted when you clock out.
+        </p>
       </div>
 
       <Card>
         <CardHeader>
-          <div className="space-y-4">
-            <CardTitle className="flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5" />
-              {employee?.full_name}
-            </CardTitle>
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Campaign</p>
-                <Badge variant="outline">{client?.name || 'Loading...'}</Badge>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Date</p>
-                <p className="font-medium capitalize">{dateFormatter.format(today)}</p>
-              </div>
-              {submitted && (
-                <div>
-                  <p className="text-muted-foreground">Status</p>
-                  <div className="flex items-center gap-2 text-green-600 font-medium">
-                    <CheckCircle className="h-4 w-4" />
-                    Submitted
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <ClipboardCheck className="h-5 w-5" />
+            Recent Submissions
+          </CardTitle>
         </CardHeader>
-
         <CardContent>
-          {submitted && existingSubmission && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-green-700 font-medium flex items-center gap-2">
-                <CheckCircle className="h-4 w-4" />
-                You already submitted today's report
-              </p>
-              <p className="text-green-600 text-sm mt-1">
-                Submitted at {new Date(existingSubmission.created_at).toLocaleTimeString('en-US')}
-              </p>
+          {isLoading ? (
+            <p className="text-muted-foreground text-sm">Loading...</p>
+          ) : logs.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              No EOD reports yet. Your next one will be submitted when you clock out.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10" />
+                    <TableHead>Date</TableHead>
+                    <TableHead>Campaign</TableHead>
+                    <TableHead>Submitted At</TableHead>
+                    <TableHead className="text-right">Fields</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {logs.map((log) => {
+                    const fieldCount = Object.keys(log.metrics || {}).length;
+                    const open = expandedId === log.id;
+                    return (
+                      <>
+                        <TableRow
+                          key={log.id}
+                          className="cursor-pointer hover:bg-muted/40"
+                          onClick={() => setExpandedId(open ? null : log.id)}
+                        >
+                          <TableCell>
+                            <ChevronDown
+                              className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {parseLocalDate(log.date).toLocaleDateString("en-US", {
+                              weekday: "short",
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{log.campaigns?.name || "—"}</Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {new Date(log.created_at).toLocaleTimeString("en-US", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">{fieldCount}</TableCell>
+                        </TableRow>
+                        {open && (
+                          <TableRow key={`${log.id}-detail`}>
+                            <TableCell colSpan={5} className="bg-muted/30">
+                              <div className="py-2 space-y-2">
+                                {Object.entries(log.metrics || {}).map(([k, v]) => (
+                                  <div key={k} className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">{k}</span>
+                                    <span className="font-medium">
+                                      {typeof v === "boolean" ? (v ? "Yes" : "No") : String(v)}
+                                    </span>
+                                  </div>
+                                ))}
+                                {log.notes && (
+                                  <div className="pt-2 mt-2 border-t text-sm">
+                                    <div className="text-muted-foreground mb-1">Notes</div>
+                                    <div className="italic">{log.notes}</div>
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </div>
           )}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* KPI Fields */}
-            <div className="space-y-4">
-              {kpiFields && kpiFields.length > 0 ? (
-                kpiFields.map((field) => {
-                  const value = formValues[field.field_name];
-                  const isBelowTarget =
-                    field.min_target !== null &&
-                    typeof value === 'number' &&
-                    value < field.min_target;
-
-                  return (
-                    <div key={field.id} className="space-y-2">
-                      <Label htmlFor={field.field_name} className="font-medium">
-                        {field.field_label}
-                        {field.min_target !== null && (
-                          <span className="text-muted-foreground ml-2 text-sm">
-                            (Target: {field.min_target})
-                          </span>
-                        )}
-                      </Label>
-
-                      {field.field_type === 'number' ? (
-                        <Input
-                          id={field.field_name}
-                          type="number"
-                          min="0"
-                          placeholder={
-                            field.min_target !== null
-                              ? `Target: ${field.min_target}`
-                              : 'Enter value'
-                          }
-                          value={value === '' ? '' : value}
-                          onChange={(e) =>
-                            handleInputChange(
-                              field.field_name,
-                              e.target.value === '' ? '' : parseInt(e.target.value, 10)
-                            )
-                          }
-                          disabled={submitted}
-                          className={isBelowTarget ? 'bg-yellow-50 border-yellow-300' : ''}
-                        />
-                      ) : field.field_type === 'text' ? (
-                        <Input
-                          id={field.field_name}
-                          type="text"
-                          placeholder="Enter your answer"
-                          value={typeof value === 'string' ? value : ''}
-                          onChange={(e) =>
-                            handleInputChange(field.field_name, e.target.value)
-                          }
-                          disabled={submitted}
-                        />
-                      ) : field.field_type === 'dropdown' ? (
-                        <Select
-                          value={typeof value === 'string' ? value : ''}
-                          onValueChange={(val) => handleInputChange(field.field_name, val)}
-                          disabled={submitted}
-                        >
-                          <SelectTrigger id={field.field_name}>
-                            <SelectValue placeholder="Select an option..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {(field.dropdown_options ?? []).map((opt) => (
-                              <SelectItem key={opt} value={opt}>
-                                {opt}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <div className="flex items-center gap-3">
-                          <Switch
-                            id={field.field_name}
-                            checked={value === true}
-                            onCheckedChange={(checked) =>
-                              handleInputChange(field.field_name, checked)
-                            }
-                            disabled={submitted}
-                          />
-                          <Label
-                            htmlFor={field.field_name}
-                            className="font-normal cursor-pointer"
-                          >
-                            {value === true ? 'Yes' : 'No'}
-                          </Label>
-                        </div>
-                      )}
-
-                      {isBelowTarget && (
-                        <p className="text-sm text-yellow-700 flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          You're below target
-                        </p>
-                      )}
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="text-muted-foreground">No fields configured for this campaign</p>
-              )}
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes" className="font-medium">
-                Notes (Optional)
-              </Label>
-              <Textarea
-                id="notes"
-                placeholder="Add any comments or additional information..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                disabled={submitted}
-                className="min-h-24"
-              />
-            </div>
-
-            {/* Submit Button */}
-            {!submitted && (
-              <Button
-                type="submit"
-                disabled={submitMutation.isPending}
-                className="w-full h-10 text-base font-medium"
-              >
-                {submitMutation.isPending ? 'Submitting...' : 'Submit Report'}
-              </Button>
-            )}
-
-            {submitted && (
-              <Button disabled className="w-full h-10 text-base font-medium bg-green-600">
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Report Submitted
-              </Button>
-            )}
-          </form>
         </CardContent>
       </Card>
     </div>
