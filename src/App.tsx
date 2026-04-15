@@ -25,6 +25,7 @@ import ShiftSettings from "@/pages/ShiftSettings";
 import Campaigns from "@/pages/Campaigns";
 import CampaignDetail from "@/pages/CampaignDetail";
 import PayrollRun from "@/pages/PayrollRun";
+import TeamLeadHome from "@/pages/TeamLeadHome";
 import Account from "@/pages/Account";
 import { RequireLeadership, RequireTeamLeadOrAbove } from "@/components/RequireRole";
 
@@ -51,8 +52,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function RoleHome() {
   const { isLeadership, isTeamLead } = useAuth();
   if (isLeadership) return <Dashboard />;
-  // TL gets redirected to attendance (their team view) — proper TL dashboard is a future PR
-  if (isTeamLead) return <Navigate to="/asistencia" replace />;
+  if (isTeamLead) return <TeamLeadHome />;
   return <EmployeeHome />;
 }
 
