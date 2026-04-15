@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -102,9 +102,8 @@ export default function EODHistory() {
                     const fieldCount = Object.keys(log.metrics || {}).length;
                     const open = expandedId === log.id;
                     return (
-                      <>
+                      <Fragment key={log.id}>
                         <TableRow
-                          key={log.id}
                           className="cursor-pointer hover:bg-muted/40"
                           onClick={() => setExpandedId(open ? null : log.id)}
                         >
@@ -154,7 +153,7 @@ export default function EODHistory() {
                             </TableCell>
                           </TableRow>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </TableBody>
