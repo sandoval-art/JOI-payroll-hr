@@ -67,15 +67,15 @@ export default function Attendance() {
     );
   }
 
-  // Fetch campaigns
+  // Fetch campaigns (scoped for TLs)
   const { data: campaignsData } = useQuery({
-    queryKey: ["campaigns"],
+    queryKey: ["attendance-campaigns", employeeId, isLeadership, isTeamLead],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("campaigns")
-        .select("id, name")
-        .order("name");
-
+      let q = supabase.from("campaigns").select("id, name").order("name");
+      if (isTeamLead && !isLeadership) {
+        q = q.eq("team_lead_id", employeeId!);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return data || [];
     },

@@ -16,7 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, Pencil, Plus, Trash2, Clock, Users } from "lucide-react";
 
-interface Client {
+interface Campaign {
   id: string;
   name: string;
 }
@@ -59,61 +59,55 @@ export default function ShiftSettings() {
   const canAccess = isLeadership || isTeamLead;
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<{
-    campaign: Client;
+    campaign: Campaign;
     shift: Partial<ShiftSetting> | null;
   } | null>(null);
 
-  // For team leads, find which campaign they're scoped to (their own client_id)
-  const { data: myEmployee } = useQuery({
-    queryKey: ["my-employee", employeeId],
-    enabled: !!employeeId && isTeamLead,
+  const { data: campaigns = [], isLoading: loadingCampaigns } = useQuery({
+    queryKey: ["shift-campaigns", employeeId, isTeamLead, isLeadership],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("employees")
-        .select("id, client_id")
-        .eq("id", employeeId!)
-        .single();
-      if (error) throw error;
-      return data as { id: string; client_id: string | null };
-    },
-  });
-  const teamLeadClientId = isTeamLead ? myEmployee?.client_id ?? null : null;
-
-  const { data: clients = [], isLoading: loadingClients } = useQuery({
-    queryKey: ["all-clients", teamLeadClientId],
-    queryFn: async () => {
-      let q = supabase.from("clients").select("id, name").order("name");
-      if (teamLeadClientId) q = q.eq("id", teamLeadClientId);
+      let q = supabase.from("campaigns").select("id, name").order("name");
+      if (isTeamLead && !isLeadership) {
+        q = q.eq("team_lead_id", employeeId!);
+      }
       const { data, error } = await q;
       if (error) throw error;
-      return (data || []) as Client[];
+      return (data || []) as Campaign[];
     },
   });
 
+  const campaignIds = campaigns.map((c) => c.id);
+
   const { data: shifts = [], isLoading: loadingShifts } = useQuery({
-    queryKey: ["all-shift-settings"],
+    queryKey: ["all-shift-settings", campaignIds],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("shift_settings")
-        .select("*")
-        .order("shift_name");
+      let q = supabase.from("shift_settings").select("*").order("shift_name");
+      if (isTeamLead && !isLeadership && campaignIds.length > 0) {
+        q = q.in("campaign_id", campaignIds);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return (data || []) as ShiftSetting[];
     },
+    enabled: isLeadership || campaignIds.length > 0,
   });
 
   // Headcount per campaign so we can show "applies to N employees"
   const { data: headcounts = {} } = useQuery({
-    queryKey: ["campaign-headcounts"],
+    queryKey: ["campaign-headcounts", campaignIds],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("employees")
-        .select("client_id")
-        .eq("status", "active");
+        .select("campaign_id")
+        .eq("is_active", true);
+      if (isTeamLead && !isLeadership && campaignIds.length > 0) {
+        q = q.in("campaign_id", campaignIds);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       const counts: Record<string, number> = {};
       for (const row of data || []) {
-        const id = (row as { client_id: string | null }).client_id;
+        const id = (row as { campaign_id: string | null }).campaign_id;
         if (id) counts[id] = (counts[id] || 0) + 1;
       }
       return counts;
@@ -174,7 +168,7 @@ export default function ShiftSettings() {
     );
   }
 
-  if (loadingClients || loadingShifts) {
+  if (loadingCampaigns || loadingShifts) {
     return <p className="text-muted-foreground">Loading...</p>;
   }
 
@@ -209,7 +203,7 @@ export default function ShiftSettings() {
       </Card>
 
       <div className="space-y-4">
-        {clients.map((c) => {
+        {campaigns.map((c) => {
           const list = shiftsByCampaign.get(c.id) || [];
           const headcount = headcounts[c.id] || 0;
           return (
@@ -338,7 +332,7 @@ function ShiftEditDialog({
   saving,
   error,
 }: {
-  campaign: Client;
+  campaign: Campaign;
   shift: Partial<ShiftSetting> | null;
   headcount: number;
   onClose: () => void;

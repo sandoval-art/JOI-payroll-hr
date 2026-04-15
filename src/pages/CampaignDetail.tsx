@@ -146,11 +146,11 @@ export default function CampaignDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('campaigns')
-        .select('id, name, client_id, clients(id, name, prefix)')
+        .select('id, name, client_id, team_lead_id, clients(id, name, prefix)')
         .eq('id', id!)
         .single();
       if (error) throw error;
-      return data as { id: string; name: string; client_id: string; clients: { id: string; name: string; prefix: string } | null };
+      return data as { id: string; name: string; client_id: string; team_lead_id: string | null; clients: { id: string; name: string; prefix: string } | null };
     },
     enabled: !!id,
   });
@@ -238,6 +238,38 @@ export default function CampaignDetail() {
 
   // Filter to employees not on this campaign
   const availableEmployees = allEmployees.filter((e) => e.campaign_id !== id);
+
+  // Eligible Team Leads
+  const { data: eligibleTLs = [] } = useQuery({
+    queryKey: ['eligible-tls'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, full_name, title')
+        .eq('is_active', true)
+        .in('title', ['team_lead', 'manager', 'admin', 'owner'])
+        .order('full_name');
+      if (error) throw error;
+      return data as { id: string; full_name: string; title: string }[];
+    },
+  });
+
+  // Save Team Lead
+  const saveTLMutation = useMutation({
+    mutationFn: async (tlId: string | null) => {
+      const { error } = await supabase
+        .from('campaigns')
+        .update({ team_lead_id: tlId })
+        .eq('id', id!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateCampaign();
+      queryClient.invalidateQueries({ queryKey: ['campaign-agents', id] });
+      const count = assignedAgents.filter(a => a.id !== saveTLMutation.variables).length;
+      toast.success(`TL updated. ${count} agent${count !== 1 ? 's' : ''} now report to the new lead.`);
+    },
+  });
 
   const agentCount = assignedAgents.length;
 
@@ -483,6 +515,25 @@ export default function CampaignDetail() {
               </Button>
             </div>
           )}
+          <div className="flex items-center gap-3 mt-2">
+            <Label className="text-sm text-muted-foreground whitespace-nowrap">Team Lead:</Label>
+            <Select
+              value={campaign?.team_lead_id || "none"}
+              onValueChange={(v) => saveTLMutation.mutate(v === "none" ? null : v)}
+            >
+              <SelectTrigger className="w-64 h-9">
+                <SelectValue placeholder="Select TL..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— None —</SelectItem>
+                {eligibleTLs.map((tl) => (
+                  <SelectItem key={tl.id} value={tl.id}>
+                    {tl.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 

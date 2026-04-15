@@ -142,18 +142,18 @@ export default function TeamLeadHome() {
                 className="flex items-center justify-between rounded-md border px-3 py-2"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium">{entry.employeeName}</span>
+                  <span className="text-sm font-medium">{entry.fullName}</span>
                   {statusBadge(entry.status)}
                 </div>
                 <div className="flex items-center gap-2">
                   {(entry.status === "present" || entry.status === "completed") && (
                     <span className="text-xs text-muted-foreground">
-                      In: {formatTime(entry.clockIn)}
+                      In: {formatTime(entry.clockInTime)}
                     </span>
                   )}
                   {entry.status === "late" && (
                     <span className="text-xs text-muted-foreground">
-                      {entry.clockIn ? `In: ${formatTime(entry.clockIn)}` : "Not in yet"}
+                      {entry.clockInTime ? `In: ${formatTime(entry.clockInTime)}` : "Not in yet"}
                     </span>
                   )}
                   {(entry.status === "late" || entry.status === "absent") && (
@@ -192,9 +192,9 @@ export default function TeamLeadHome() {
                 className="flex flex-col gap-1 rounded-md border px-3 py-2"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{req.employeeName}</span>
+                  <span className="text-sm font-medium">{req.fullName}</span>
                   <span className="text-xs text-muted-foreground">
-                    {formatDateRange(req.startDate, req.endDate)}
+                    {formatDateRange(req.start_date, req.end_date)}
                   </span>
                 </div>
                 {req.reason && (
@@ -264,13 +264,13 @@ export default function TeamLeadHome() {
                       <TableRow key={row.employeeId}>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">{row.employeeName}</span>
-                            {row.isTop && (
+                            <span className="font-medium">{row.fullName}</span>
+                            {row.isTopPerformer && (
                               <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-xs">
                                 Top
                               </Badge>
                             )}
-                            {row.isBottom && (
+                            {row.isBottomPerformer && (
                               <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 text-xs">
                                 Needs attention
                               </Badge>
@@ -319,7 +319,7 @@ export default function TeamLeadHome() {
                   >
                     <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
                     <div className="text-sm">
-                      <span className="font-medium">{alert.employeeName}</span>
+                      <span className="font-medium">{alert.fullName}</span>
                       <span className="text-amber-800 ml-1">— {alert.reason}</span>
                     </div>
                   </div>

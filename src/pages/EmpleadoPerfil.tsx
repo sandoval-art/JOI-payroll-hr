@@ -31,6 +31,19 @@ export default function EmpleadoPerfil() {
   // Cascading Client → Campaign state
   const empRecord = employees.find((e) => e.id === id);
   const campaignId = (empRecord as any)?._campaignId ?? null;
+
+  // Supervisor (auto-derived from campaign TL)
+  const supervisorId = (empRecord as any)?.reportsTo ?? null;
+  const { data: supervisor } = useQuery({
+    queryKey: ['supervisor', supervisorId],
+    queryFn: async () => {
+      if (!supervisorId) return null;
+      const { data } = await supabase.from('employees').select('full_name').eq('id', supervisorId).maybeSingle();
+      return data;
+    },
+    enabled: !!supervisorId,
+  });
+  const supervisorName = supervisor?.full_name ?? null;
   // Find which client this campaign belongs to
   const { data: currentCampaign } = useQuery({
     queryKey: ['emp-campaign', campaignId],
@@ -150,6 +163,11 @@ export default function EmpleadoPerfil() {
                 </div>
               </div>
             )}
+            {/* Supervisor (auto-derived from campaign TL) */}
+            <div className="grid gap-1.5">
+              <Label className="text-muted-foreground text-xs">Supervisor</Label>
+              <p className="text-sm">{supervisorName || "—"}</p>
+            </div>
           </CardContent>
         </Card>
 
