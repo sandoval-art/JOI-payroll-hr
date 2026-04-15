@@ -111,11 +111,11 @@ export default function EmployeeHome() {
       if (!employeeId) return null;
       const { data, error } = await supabase
         .from("employees")
-        .select("id, full_name, campaign_id, shift_type")
+        .select("id, full_name, campaign_id")
         .eq("id", employeeId)
         .single();
       if (error) throw error;
-      return data as { id: string; full_name: string; campaign_id: string; shift_type: string };
+      return data as { id: string; full_name: string; campaign_id: string };
     },
     enabled: !!employeeId,
   });
@@ -264,7 +264,6 @@ export default function EmployeeHome() {
                 <span className="font-medium text-foreground">{campaignName}</span>
               </>
             )}
-            {employee?.shift_type && <> · {employee.shift_type}</>}
           </p>
         </div>
         <Badge className={`${statusBadge.tone} text-sm px-3 py-1`} variant="outline">

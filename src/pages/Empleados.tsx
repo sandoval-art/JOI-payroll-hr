@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from "react";
 import { useEmployees, useAddEmployee, useAddEmployeesBulk, useRemoveEmployee, useActivePeriod, usePayrollRecords, recordToConfig } from "@/hooks/useSupabasePayroll";
-import { calcularNomina, type Employee, type Turno, type EmpTitle } from "@/types/payroll";
+import { calcularNomina, type Employee, type EmpTitle } from "@/types/payroll";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,6 @@ export default function Empleados() {
     sueldoBase: 0,
     descuentoPorDia: 0,
     kpiMonto: 0,
-    turno: "Lunes-Viernes" as Turno,
     title: "agent" as EmpTitle,
     reportsTo: null as string | null,
     clientId: null as string | null,
@@ -98,7 +97,6 @@ export default function Empleados() {
         sueldoBase: form.sueldoBase,
         descuentoPorDia: form.descuentoPorDia,
         kpiMonto: form.kpiMonto,
-        turno: form.turno,
         title: form.title,
         reportsTo: form.reportsTo,
         campaignId: form.campaignId,
@@ -112,7 +110,6 @@ export default function Empleados() {
             sueldoBase: 0,
             descuentoPorDia: 0,
             kpiMonto: 0,
-            turno: "Lunes-Viernes",
             title: "agent",
             reportsTo: null,
             clientId: null,
@@ -141,7 +138,6 @@ export default function Empleados() {
             sueldoBase: parseFloat(cols[2]) || 0,
             descuentoPorDia: parseFloat(cols[3]) || 0,
             kpiMonto: parseFloat(cols[4]) || 0,
-            turno: "Lunes-Viernes",
           });
         }
       }
@@ -206,18 +202,6 @@ export default function Empleados() {
                 <div className="grid gap-2">
                   <Label>KPI Bonus Amount</Label>
                   <Input type="number" value={form.kpiMonto || ""} onChange={(e) => setForm({ ...form, kpiMonto: parseFloat(e.target.value) || 0 })} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Shift</Label>
-                  <Select value={form.turno} onValueChange={(v) => setForm({ ...form, turno: v as Turno })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Lunes-Jueves">Mon-Thu</SelectItem>
-                      <SelectItem value="Lunes-Viernes">Mon-Fri</SelectItem>
-                      <SelectItem value="Viernes-Domingo">Fri-Sun</SelectItem>
-                      <SelectItem value="Viernes-Lunes">Fri-Mon</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
                 <div className="grid gap-2">
                   <Label>Title</Label>
@@ -295,7 +279,6 @@ export default function Empleados() {
                   </button>
                 </TableHead>
                 <TableHead>Campaign</TableHead>
-                <TableHead>Shift</TableHead>
                 <TableHead className="text-right">Base Salary</TableHead>
                 <TableHead className="text-right">Biweekly Net</TableHead>
                 <TableHead className="w-12"></TableHead>
@@ -304,7 +287,7 @@ export default function Empleados() {
             <TableBody>
               {paginated.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     No employees found
                   </TableCell>
                 </TableRow>
@@ -318,7 +301,6 @@ export default function Empleados() {
                       <TableCell className="font-medium">{emp.id}</TableCell>
                       <TableCell>{emp.nombre}</TableCell>
                       <TableCell className="text-muted-foreground">{(emp as any)._campaignName || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground">{emp.turno}</TableCell>
                       <TableCell className="text-right">{fmt(emp.sueldoBase)}</TableCell>
                       <TableCell className="text-right font-semibold">{fmt(result.netoAPagar)}</TableCell>
                       <TableCell>

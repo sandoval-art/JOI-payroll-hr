@@ -111,7 +111,7 @@ export default function EmpleadoPerfil() {
         </div>
         <div>
           <h2 className="text-2xl font-bold">{emp.nombre}</h2>
-          <p className="text-muted-foreground">ID: {emp.id} · Shift: {emp.turno}</p>
+          <p className="text-muted-foreground">ID: {emp.id}</p>
         </div>
       </div>
 

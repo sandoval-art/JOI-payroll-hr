@@ -24,7 +24,26 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { ArrowLeft, Plus, Pencil, ArrowUp, ArrowDown, X, Save } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { ArrowLeft, Plus, Pencil, ArrowUp, ArrowDown, X, Save, UserMinus, UserPlus } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -62,6 +81,21 @@ interface ShiftSetting {
   days_of_week: number[];
 }
 
+interface AssignedAgent {
+  id: string;
+  employee_id: string;
+  full_name: string;
+  title: string | null;
+  reports_to: string | null;
+}
+
+interface AvailableEmployee {
+  id: string;
+  employee_id: string;
+  full_name: string;
+  campaign_id: string | null;
+}
+
 const emptyField = (): Omit<KPIField, 'id' | 'campaign_id' | 'display_order'> => ({
   field_name: '',
   field_label: '',
@@ -97,6 +131,9 @@ export default function CampaignDetail() {
   const [editingField, setEditingField] = useState<KPIField | null>(null);
   const [fieldForm, setFieldForm] = useState(emptyField());
   const [dropdownInput, setDropdownInput] = useState('');
+
+  // Assign employee
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
 
   const invalidateCampaign = () => {
     queryClient.invalidateQueries({ queryKey: ['campaign', id] });
@@ -169,18 +206,40 @@ export default function CampaignDetail() {
     enabled: !!id,
   });
 
-  // Fetch agent count
-  const { data: agentCount = 0 } = useQuery({
+  // Fetch assigned agents for this campaign
+  const { data: assignedAgents = [] } = useQuery({
     queryKey: ['campaign-agents', id],
     queryFn: async () => {
-      const { count } = await supabase
+      const { data, error } = await supabase
         .from('employees')
-        .select('*', { count: 'exact', head: true })
-        .eq('campaign_id', id!);
-      return count ?? 0;
+        .select('id, employee_id, full_name, title, reports_to')
+        .eq('campaign_id', id!)
+        .eq('is_active', true)
+        .order('full_name');
+      if (error) throw error;
+      return data as AssignedAgent[];
     },
     enabled: !!id,
   });
+
+  // Fetch all active employees (for the assign dropdown)
+  const { data: allEmployees = [] } = useQuery({
+    queryKey: ['all-active-employees'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, employee_id, full_name, campaign_id')
+        .eq('is_active', true)
+        .order('full_name');
+      if (error) throw error;
+      return data as AvailableEmployee[];
+    },
+  });
+
+  // Filter to employees not on this campaign
+  const availableEmployees = allEmployees.filter((e) => e.campaign_id !== id);
+
+  const agentCount = assignedAgents.length;
 
   // Save campaign name
   const saveCampaignMutation = useMutation({
@@ -232,6 +291,43 @@ export default function CampaignDetail() {
       queryClient.invalidateQueries({ queryKey: ['campaigns-list'] });
       setShiftDirty(false);
       toast.success('Shift saved');
+    },
+  });
+
+  // Remove agent from campaign
+  const removeAgentMutation = useMutation({
+    mutationFn: async (employeeId: string) => {
+      const { error } = await supabase
+        .from('employees')
+        .update({ campaign_id: null })
+        .eq('id', employeeId);
+      if (error) throw error;
+    },
+    onSuccess: (_data, employeeId) => {
+      const agent = assignedAgents.find((a) => a.id === employeeId);
+      queryClient.invalidateQueries({ queryKey: ['campaign-agents', id] });
+      queryClient.invalidateQueries({ queryKey: ['all-active-employees'] });
+      queryClient.invalidateQueries({ queryKey: ['campaigns-list'] });
+      toast.success(`Removed ${agent?.full_name ?? 'employee'} from ${campaign?.name ?? 'campaign'}. They can be reassigned from their profile.`);
+    },
+  });
+
+  // Assign employee to campaign
+  const assignAgentMutation = useMutation({
+    mutationFn: async (employeeId: string) => {
+      const { error } = await supabase
+        .from('employees')
+        .update({ campaign_id: id! })
+        .eq('id', employeeId);
+      if (error) throw error;
+    },
+    onSuccess: (_data, employeeId) => {
+      const emp = allEmployees.find((e) => e.id === employeeId);
+      queryClient.invalidateQueries({ queryKey: ['campaign-agents', id] });
+      queryClient.invalidateQueries({ queryKey: ['all-active-employees'] });
+      queryClient.invalidateQueries({ queryKey: ['campaigns-list'] });
+      setSelectedEmployeeId('');
+      toast.success(`Assigned ${emp?.full_name ?? 'employee'} to ${campaign?.name ?? 'campaign'}.`);
     },
   });
 
@@ -456,6 +552,101 @@ export default function CampaignDetail() {
             <Button onClick={() => saveShiftMutation.mutate()} disabled={saveShiftMutation.isPending}>
               {saveShiftMutation.isPending ? 'Saving...' : 'Save Shift'}
             </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Assigned Agents */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Assigned Agents</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {assignedAgents.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              No agents assigned to this campaign yet.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Work Name</TableHead>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead className="w-[80px]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {assignedAgents.map((agent) => (
+                  <TableRow key={agent.id}>
+                    <TableCell className="font-medium">{agent.full_name}</TableCell>
+                    <TableCell>{agent.employee_id}</TableCell>
+                    <TableCell>{agent.title ?? '-'}</TableCell>
+                    <TableCell>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                            <UserMinus className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remove agent</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Remove {agent.full_name} from {campaign.name}? They can be reassigned later from their profile or from this page.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => removeAgentMutation.mutate(agent.id)}>
+                              Remove
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Assign Employee */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Assign Employee</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-3">
+            <div className="flex-1 space-y-1.5">
+              <Label>Employee</Label>
+              <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an employee..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableEmployees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id}>
+                      {emp.full_name} ({emp.employee_id}){emp.campaign_id ? ' - currently assigned' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={() => { if (selectedEmployeeId) assignAgentMutation.mutate(selectedEmployeeId); }}
+              disabled={!selectedEmployeeId || assignAgentMutation.isPending}
+            >
+              <UserPlus className="h-4 w-4 mr-1" />
+              {assignAgentMutation.isPending ? 'Assigning...' : 'Assign'}
+            </Button>
+          </div>
+          {availableEmployees.length === 0 && (
+            <p className="text-sm text-muted-foreground mt-3">
+              All active employees are already assigned to this campaign.
+            </p>
           )}
         </CardContent>
       </Card>

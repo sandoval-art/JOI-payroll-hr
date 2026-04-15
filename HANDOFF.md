@@ -119,6 +119,13 @@ One-off fix files (run once, not migrations):
 4. **Modern Trustee polish** — Dashboard final pass, Auth editorial card, final QA (Tasks 9/10/11 from Modern Trustee design plan).
 5. **Delete `src/pages/EODFormBuilder.tsx`** — stubbed with a throw on 2026-04-14 so the file is safe to remove from the repo. Builder functionality now lives on the Campaigns page.
 
+**Campaign owns shift (2026-04-16):**
+- **Shift is a campaign property, not an employee property.** One campaign = one shift pattern. `shift_settings` table is the single source of truth. `employees.shift_type` is ignored by the app (column left in DB for rollback safety, will be dropped in a follow-up).
+- Removed all reads/writes of `employees.shift_type` from: `useSupabasePayroll.ts` (mapEmployee, add/update/bulk mutations, history records), `Empleados.tsx` (form + table), `EmpleadoPerfil.tsx` (header), `EmployeeHome.tsx` (display), `useInvoices.ts` (agent query).
+- Removed `Turno` type from `payroll.ts` and all consumers.
+- `CampaignDetail.tsx` rewritten as full campaign admin screen: campaign info editing, shift settings editing (days + times + grace), KPI/EOD metrics management, assigned agents roster with remove, and assign-existing-employee dropdown.
+- `usePayrollComputed.ts` already reads shift from `shift_settings.days_of_week` — no change needed.
+
 **Bug sweep (2026-04-15):**
 - **Bug 1 — TL attendance scoping:** Attendance.tsx now filters employees by `reports_to` for TLs. Leadership sees all. Nelly Sandoval seeded as reporting to sandoval801 test TL.
 - **Bug 2 — TL salary leak on homepage:** `RoleHome` now routes TLs to `/asistencia` instead of Dashboard. TLs never hit the salary-exposing Dashboard.
