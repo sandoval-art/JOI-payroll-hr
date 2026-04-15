@@ -43,7 +43,7 @@ const hrItems = [
   { title: "Performance", url: "/desempeno", icon: BarChart3 },
   { title: "Time Off Requests", url: "/solicitudes", icon: CalendarDays },
   { title: "My Timeclock", url: "/reloj", icon: Timer },
-  { title: "My EOD", url: "/eod", icon: ClipboardCheck },
+  { title: "My EOD History", url: "/eod", icon: ClipboardCheck },
 ];
 
 // Team Lead — team-scoped views, shift settings (their campaign), no pay
@@ -53,13 +53,13 @@ const teamLeadItems = [
   { title: "Time Off Requests", url: "/solicitudes", icon: CalendarDays },
   { title: "Shift Settings", url: "/settings/shifts", icon: Settings },
   { title: "My Timeclock", url: "/reloj", icon: Timer },
-  { title: "My EOD", url: "/eod", icon: ClipboardCheck },
+  { title: "My EOD History", url: "/eod", icon: ClipboardCheck },
 ];
 
 // Agent — only their own stuff
 const agentItems = [
   { title: "My Timeclock", url: "/reloj", icon: Timer },
-  { title: "My EOD", url: "/eod", icon: ClipboardCheck },
+  { title: "My EOD History", url: "/eod", icon: ClipboardCheck },
   { title: "My Requests", url: "/solicitudes", icon: CalendarDays },
 ];
 

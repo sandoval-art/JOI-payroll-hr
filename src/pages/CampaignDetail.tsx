@@ -75,13 +75,12 @@ const emptyField = (): Omit<KPIField, 'id' | 'campaign_id' | 'display_order'> =>
 export default function CampaignDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isLeadership, isOwner, isAdmin, loading } = useAuth();
+  const { isOwner, isAdmin } = useAuth();
   const queryClient = useQueryClient();
 
   // Campaign info
   const [editingName, setEditingName] = useState(false);
   const [nameVal, setNameVal] = useState('');
-  const [subtitleVal, setSubtitleVal] = useState('');
 
   // Shift state
   const [shift, setShift] = useState<Partial<ShiftSetting>>({
@@ -99,34 +98,30 @@ export default function CampaignDetail() {
   const [fieldForm, setFieldForm] = useState(emptyField());
   const [dropdownInput, setDropdownInput] = useState('');
 
-  if (loading) return null;
-  if (!isLeadership) return <Navigate to="/" replace />;
-
   const invalidateCampaign = () => {
     queryClient.invalidateQueries({ queryKey: ['campaign', id] });
     queryClient.invalidateQueries({ queryKey: ['campaigns-list'] });
   };
 
-  // Fetch campaign
+  // Fetch campaign + parent client
   const { data: campaign, isLoading } = useQuery({
     queryKey: ['campaign', id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('clients')
-        .select('id, name, subtitle')
+        .from('campaigns')
+        .select('id, name, client_id, clients(id, name, prefix)')
         .eq('id', id!)
         .single();
       if (error) throw error;
-      return data as { id: string; name: string; subtitle: string | null };
+      return data as { id: string; name: string; client_id: string; clients: { id: string; name: string; prefix: string } | null };
     },
     enabled: !!id,
   });
 
-  // Populate name/subtitle fields when campaign loads
+  // Populate name field when campaign loads
   useEffect(() => {
     if (campaign) {
       setNameVal(campaign.name);
-      setSubtitleVal(campaign.subtitle ?? '');
     }
   }, [campaign]);
 
@@ -181,18 +176,18 @@ export default function CampaignDetail() {
       const { count } = await supabase
         .from('employees')
         .select('*', { count: 'exact', head: true })
-        .eq('client_id', id!);
+        .eq('campaign_id', id!);
       return count ?? 0;
     },
     enabled: !!id,
   });
 
-  // Save campaign name/subtitle
+  // Save campaign name
   const saveCampaignMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
-        .from('clients')
-        .update({ name: nameVal.trim(), subtitle: subtitleVal.trim() || null })
+        .from('campaigns')
+        .update({ name: nameVal.trim() })
         .eq('id', id!);
       if (error) throw error;
     },
@@ -352,7 +347,8 @@ export default function CampaignDetail() {
   if (isLoading) return <div className="py-20 text-center text-muted-foreground">Loading...</div>;
   if (!campaign) return <Navigate to="/campaigns" replace />;
 
-  const displayName = campaign.subtitle ? `${campaign.name} – ${campaign.subtitle}` : campaign.name;
+  const clientName = campaign.clients?.name ?? '';
+  const displayName = clientName ? `${clientName} › ${campaign.name}` : campaign.name;
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -365,25 +361,17 @@ export default function CampaignDetail() {
         <div>
           {editingName ? (
             <div className="space-y-3">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Name (e.g. Torro)"
-                  value={nameVal}
-                  onChange={(e) => setNameVal(e.target.value)}
-                  className="w-48"
-                />
-                <Input
-                  placeholder="Subtitle (e.g. SLOC Weekday)"
-                  value={subtitleVal}
-                  onChange={(e) => setSubtitleVal(e.target.value)}
-                  className="w-56"
-                />
-              </div>
+              <Input
+                placeholder="Campaign name"
+                value={nameVal}
+                onChange={(e) => setNameVal(e.target.value)}
+                className="w-64"
+              />
               <div className="flex gap-2">
                 <Button size="sm" onClick={() => saveCampaignMutation.mutate()} disabled={!nameVal.trim() || saveCampaignMutation.isPending}>
                   <Save className="h-3.5 w-3.5 mr-1" /> Save
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => { setEditingName(false); setNameVal(campaign.name); setSubtitleVal(campaign.subtitle ?? ''); }}>
+                <Button size="sm" variant="outline" onClick={() => { setEditingName(false); setNameVal(campaign.name); }}>
                   Cancel
                 </Button>
               </div>

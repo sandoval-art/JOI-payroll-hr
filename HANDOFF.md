@@ -1,6 +1,6 @@
 # JOI Payroll & HR App — Handoff
 
-Last updated: 2026-04-14
+Last updated: 2026-04-14 (latest: clients/campaigns schema split)
 
 Quick reference for picking the project back up on a new machine.
 
@@ -40,6 +40,21 @@ React + TypeScript + Vite + Supabase + TanStack React Query + shadcn/ui + Tailwi
 
 Route gating is driven by `useAuth()` in `src/hooks/useAuth.tsx`. It reads `user_profiles.role` which is auto-synced from `employees.title` via a Postgres trigger.
 
+Auth state is shared via a React Context (`AuthProvider` wraps the app in `src/App.tsx`). Every component that calls `useAuth()` reads from the same context — no more independent Supabase fetches per component. Profile loading uses a `profileLoadedForId` tracker (not a bare `loading` boolean) to eliminate a race where `loading` was briefly false before the profile fetch started.
+
+**Pattern for any new role-gated page:** wrap the route in a guard from `src/components/RequireRole.tsx`:
+
+```tsx
+// In App.tsx
+<Route path="/campaigns" element={<RequireLeadership><Campaigns /></RequireLeadership>} />
+<Route path="/settings/shifts" element={<RequireTeamLeadOrAbove><ShiftSettings /></RequireTeamLeadOrAbove>} />
+<Route path="/owner-only" element={<RequireOwner><OwnerPanel /></RequireOwner>} />
+```
+
+Available guards: `RequireLeadership`, `RequireTeamLeadOrAbove`, `RequireOwner`. All three handle the loading-before-redirect dance internally — the page component itself doesn't need to check `loading` for route access. Without the wrapper, the page flashes a redirect on first render before the profile resolves and the user never reaches the destination.
+
+If you still need `loading` inside a page for other reasons (e.g. rendering a skeleton while auth data loads before showing pay info), destructure it from `useAuth()` as normal.
+
 Five-tier title hierarchy (owner → admin → manager → team_lead → agent) is the single source of truth for permissions. Anything `isLeadership` (owner+admin+manager) sees everything including pay. Team leads see team-scoped data without pay. Agents see only their own stuff.
 
 ## Permission model
@@ -68,8 +83,12 @@ Run these in order via the Supabase SQL editor if setting up a fresh database. A
 8. `20260413120100_auto_clockout_function.sql` — pg_cron auto-clockout every 5 min
 9. `20260413130000_shift_seasons.sql` — **no-op** (we decided not to use season toggle)
 10. `20260413140000_titles_and_reports_to.sql` — 5-tier title system + reports_to + shift audit log
+11. `20260414000001_eod_form_builder.sql` — EOD form builder schema
+12. `20260414000002_campaigns_subtitle.sql` — subtitle column on clients (now deprecated)
+13. `20260414000003_split_clients_and_campaigns.sql` — **Major refactor**: creates `campaigns` table, migrates `employees.client_id` → `campaign_id`, seeds 4 clients + 12 campaigns, reassigns all employees per roster, redistributes KPIs and shift settings
 
 One-off fix files (run once, not migrations):
+- `supabase/fix_stale_timeclock_row.sql` — preview + delete stray same-minute clock-in/out rows caused by the pre-fix UTC date bug. Run when cleaning up before testing the timeclock on Apr 14, 2026.
 - `supabase/fix_owner_and_test_account.sql` — corrects D's test account back to agent and tags the real owner. Run this AFTER creating the diomedes.sandoval@justoutsource.it auth user.
 - `supabase/seed_test_employee_daniel.sql` — creates the Daniel Sandoval test employee linked to sandoval.028@gmail.com
 - `supabase/seed_shift_settings_defaults.sql` — default shifts for Big Think, HFB, Torro/Scoop
@@ -93,22 +112,38 @@ One-off fix files (run once, not migrations):
 
 **Next up (in priority order):**
 
-1. **EOD form builder** — admin-only page where D + Paty define the questions each campaign answers at end of day (number / text / dropdown field types). Unblocks gating clock-out on EOD completion.
-2. **Gate clock-out on EOD completed** — once #1 ships, agents must submit EOD before clocking out.
-3. **Audit log viewer UI** — small page showing recent shift changes (trigger is already logging to `shift_settings_audit`). ~30min of work.
-4. **Late notification digest** — batch email to team leads every 15 min listing agents past grace. Needs Resend or similar email setup.
-5. **Team Coverage report** — summary of who's working which campaign per day.
-6. **Modern Trustee polish** — Dashboard final pass, Auth editorial card, final QA (Tasks 9/10/11 from Modern Trustee design plan).
+1. **Audit log viewer UI** — small page showing recent shift changes (trigger is already logging to `shift_settings_audit`). ~30min of work.
+2. **Late notification digest** — batch email to team leads every 15 min listing agents past grace. Needs Resend or similar email setup.
+3. **Team Coverage report** — summary of who's working which campaign per day.
+4. **Modern Trustee polish** — Dashboard final pass, Auth editorial card, final QA (Tasks 9/10/11 from Modern Trustee design plan).
+5. **Delete `src/pages/EODFormBuilder.tsx`** — stubbed with a throw on 2026-04-14 so the file is safe to remove from the repo. Builder functionality now lives on the Campaigns page.
+
+**Recently shipped (2026-04-14, schema refactor):**
+- **Schema: clients vs campaigns split.** `clients` is now the billing entity (Torro, BTC, Scoop, HFB). `campaigns` is a child table (SLOC Weekday, MCA, Transfers, etc.). `employees.client_id` was renamed to `campaign_id` → FK to `campaigns(id)`. `invoices.client_id` stays on `clients(id)`. Migration: `20260414000003_split_clients_and_campaigns.sql`.
+- Campaigns page rewritten as two-level: Client cards → expand to see campaigns. Full CRUD on both.
+- CampaignDetail breadcrumb shows `Client › Campaign`.
+- EmpleadoPerfil: cascading Client → Campaign dropdowns. Salary card gated on `isLeadership` (hidden from Team Leads).
+- All employees mapped to correct campaigns per roster PDF. 7 inactive employees deactivated. 4 work-name renames applied (Jacob Miller, Hannia Lopez, Sofia Gonzalez, Mauro Gomez). 5 Team Leads confirmed.
+- KPI config redistributed per campaign (credit-puller metrics on both SLOC campaigns, MCA/Sales Agent/Sales CS metrics split from parent).
+- Shift settings reseeded for all 12 campaigns.
+
+**Also shipped (2026-04-14):**
+- EOD clock-out gate: agents can't clock out until they answer their campaign's KPI fields. The dialog lives in `src/components/ClockOutEODDialog.tsx` and is triggered from `Timeclock.tsx`. If a campaign has no active KPI fields configured, clock-out proceeds silently (no form).
+- EOD Form Builder page removed — per-campaign KPI config is now on the Campaigns → [Campaign] page.
+- `My EOD` sidebar item renamed to `My EOD History` and the page rewritten as a read-only list of the agent's past submissions.
 
 ## Key files to know
 
-- `src/hooks/useAuth.tsx` — title + permission booleans (`isLeadership`, `isTeamLead`, `isAgent`, strict matches like `isOwner`)
+- `src/hooks/useAuth.tsx` — `AuthProvider` + `useAuth()` context. Title + permission booleans (`isLeadership`, `isTeamLead`, `isAgent`, strict matches like `isOwner`), plus `loading` flag for gating redirects
+- `src/App.tsx` — wraps the tree in `<AuthProvider>` so all components share auth state
+- `src/components/RequireRole.tsx` — `<RequireLeadership>`, `<RequireTeamLeadOrAbove>`, `<RequireOwner>` route wrappers that handle the loading guard automatically
 - `src/components/AppSidebar.tsx` — three menus per title tier
 - `src/pages/EmployeeHome.tsx` — what agents see on login
 - `src/pages/Timeclock.tsx` — break-aware clock-in/out, red clock past grace
 - `src/pages/ShiftSettings.tsx` — per-campaign shift hours; team_lead scoped to own campaign
 - `src/pages/Empleados.tsx` — employee list + Add form (with Title + Reports To)
 - `src/App.tsx` — routing + `RoleHome` wrapper
+- `src/components/ClockOutEODDialog.tsx` — pre-clock-out EOD form; renders KPI fields per campaign and blocks clock-out until submitted
 - `supabase/migrations/20260413140000_titles_and_reports_to.sql` — reference for the title model
 
 ## Development commands
@@ -126,6 +161,8 @@ npx tsc --noEmit     # type-check without emitting
 
 - Supabase MCP may point at the wrong project (the-living-word rather than JOI). Prefer writing SQL migration files for the user to run manually until this is fixed.
 - `.git/index.lock` can get stuck if a terminal is closed mid-commit. Fix: `rm -f .git/index.lock`.
-- The `employees` table has `client_id`, not `campaign_id`. Clients are campaigns in this app.
+- The `employees` table has `campaign_id` (FK to `campaigns`). The `clients` table is the billing parent. A client like Torro has multiple campaigns (SLOC Weekday, MCA, etc.). Invoices roll up at the client level; agents are assigned at the campaign level.
 - shadcn Table uses `<TableHeader>` as the `<thead>` wrapper and `<TableHead>` as the `<th>` cell. Easy to swap by accident.
 - `user_profiles.role` is auto-synced from `employees.title` by a trigger (`trg_sync_user_profile_role`). Don't write to `role` directly — update `title` and let the trigger handle it.
+- Role-gated pages MUST use the `<RequireLeadership>` / `<RequireTeamLeadOrAbove>` / `<RequireOwner>` wrappers from `src/components/RequireRole.tsx`. Don't inline-guard with `<Navigate>` — the wrapper handles the loading race; rolling your own leads to the "flash redirect before profile loads" bug.
+- **Never use `new Date().toISOString().split("T")[0]` for the `date` column of `time_clock` or `eod_logs`.** That's UTC date. For an agent in Mexico (UTC-6) clocking in at 6 PM local, UTC is already the next day — so the row gets stamped with tomorrow's date and breaks today's queries. Use `todayLocal()` from `src/lib/localDate.ts`. For display, use `parseLocalDate(dateStr)` so `2026-04-14` doesn't render as Apr 13 via UTC-midnight parsing.

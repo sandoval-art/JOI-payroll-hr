@@ -1,7 +1,9 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEmployees, useUpdateEmployee, useActivePeriod, usePayrollRecords, useUpsertPayrollRecord, useCreatePeriod, getCurrentPeriodDates, recordToConfig } from "@/hooks/useSupabasePayroll";
 import { useClients } from "@/hooks/useInvoices";
+import { useCampaigns } from "@/hooks/useCampaigns";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { calcularNomina, type Turno } from "@/types/payroll";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,9 +31,30 @@ export default function EmpleadoPerfil() {
   const upsertRecord = useUpsertPayrollRecord();
   const { data: clients = [] } = useClients();
   const queryClient = useQueryClient();
+  const { isLeadership } = useAuth();
 
-  // Load shift options from shift_settings for this employee's campaign
-  const campaignId = (employees.find((e) => e.id === id) as any)?._clientId ?? null;
+  // Cascading Client → Campaign state
+  const empRecord = employees.find((e) => e.id === id);
+  const campaignId = (empRecord as any)?._campaignId ?? null;
+  // Find which client this campaign belongs to
+  const { data: currentCampaign } = useQuery({
+    queryKey: ['emp-campaign', campaignId],
+    queryFn: async () => {
+      if (!campaignId) return null;
+      const { data } = await supabase
+        .from('campaigns')
+        .select('id, client_id, name')
+        .eq('id', campaignId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!campaignId,
+  });
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  useEffect(() => {
+    if (currentCampaign?.client_id) setSelectedClientId(currentCampaign.client_id);
+  }, [currentCampaign?.client_id]);
+  const { data: campaignsForClient = [] } = useCampaigns(selectedClientId || undefined);
   const { data: campaignShifts = [] } = useQuery({
     queryKey: ['shift-options', campaignId],
     queryFn: async () => {
@@ -130,20 +153,53 @@ export default function EmpleadoPerfil() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
+        {/* Assignment Card — visible to Team Lead and above */}
         <Card>
-          <CardHeader><CardTitle className="text-lg">Salary Configuration</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-lg">Assignment</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label>Monthly Base Salary</Label>
-              <Input type="number" value={emp.sueldoBase || ""} onChange={(e) => saveField("sueldoBase", parseFloat(e.target.value) || 0)} />
+              <Label>Client</Label>
+              <Select
+                value={selectedClientId || "none"}
+                onValueChange={(v) => {
+                  setSelectedClientId(v === "none" ? "" : v);
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Select client..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No client</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
-              <Label>Daily Absence Discount</Label>
-              <Input type="number" value={emp.descuentoPorDia || ""} onChange={(e) => saveField("descuentoPorDia", parseFloat(e.target.value) || 0)} />
-            </div>
-            <div className="grid gap-2">
-              <Label>KPI Bonus Amount</Label>
-              <Input type="number" value={emp.kpiMonto || ""} onChange={(e) => saveField("kpiMonto", parseFloat(e.target.value) || 0)} />
+              <Label>Campaign</Label>
+              <Select
+                value={campaignId || "none"}
+                onValueChange={async (v) => {
+                  const newCampaignId = v === "none" ? null : v;
+                  const { error } = await supabase
+                    .from("employees")
+                    .update({ campaign_id: newCampaignId })
+                    .eq("employee_id", emp.id);
+                  if (error) {
+                    toast.error(`Failed to assign campaign: ${error.message}`);
+                    return;
+                  }
+                  queryClient.invalidateQueries({ queryKey: ["employees"] });
+                  toast.success("Campaign assigned");
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder={selectedClientId ? "Select campaign..." : "Select client first"} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No campaign</SelectItem>
+                  {campaignsForClient.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label>Shift</Label>
@@ -161,33 +217,31 @@ export default function EmpleadoPerfil() {
                     ))
                   ) : (
                     <SelectItem value={emp.turno || 'none'} disabled>
-                      {campaignId ? 'No shifts configured for this campaign' : 'Assign a campaign first'}
+                      {campaignId ? 'No shifts configured' : 'Assign a campaign first'}
                     </SelectItem>
                   )}
                 </SelectContent>
               </Select>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Salary Configuration — leadership only */}
+        {isLeadership && (
+        <Card>
+          <CardHeader><CardTitle className="text-lg">Salary Configuration</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label>Assigned Client</Label>
-              <Select
-                value={(emp as any)._clientId || "none"}
-                onValueChange={async (v) => {
-                  const clientId = v === "none" ? null : v;
-                  await supabase.from("employees").update({ client_id: clientId }).eq("employee_id", emp.id);
-                  queryClient.invalidateQueries({ queryKey: ["employees"] });
-                  toast.success("Cliente asignado");
-                }}
-              >
-                <SelectTrigger><SelectValue placeholder="No client" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No client</SelectItem>
-                  {clients.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {(c as any).subtitle ? `${c.name} – ${(c as any).subtitle}` : c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Monthly Base Salary</Label>
+              <Input type="number" value={emp.sueldoBase || ""} onChange={(e) => saveField("sueldoBase", parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Daily Absence Discount</Label>
+              <Input type="number" value={emp.descuentoPorDia || ""} onChange={(e) => saveField("descuentoPorDia", parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>KPI Bonus Amount</Label>
+              <Input type="number" value={emp.kpiMonto || ""} onChange={(e) => saveField("kpiMonto", parseFloat(e.target.value) || 0)} />
             </div>
             <Separator />
             <div className="p-3 rounded-lg bg-muted">
@@ -196,6 +250,7 @@ export default function EmpleadoPerfil() {
             </div>
           </CardContent>
         </Card>
+        )}
 
         <Card>
           <CardHeader><CardTitle className="text-lg">Biweekly Adjustments</CardTitle></CardHeader>

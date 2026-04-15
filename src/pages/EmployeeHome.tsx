@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { todayLocal } from "@/lib/localDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -73,7 +74,7 @@ function dayLabels(weekStart: Date): { iso: string; label: string }[] {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
     return {
-      iso: d.toISOString().split("T")[0],
+      iso: todayLocal(d),
       label: d.toLocaleDateString("en-US", { weekday: "short" }),
     };
   });
@@ -110,29 +111,29 @@ export default function EmployeeHome() {
       if (!employeeId) return null;
       const { data, error } = await supabase
         .from("employees")
-        .select("id, full_name, client_id, shift_type")
+        .select("id, full_name, campaign_id, shift_type")
         .eq("id", employeeId)
         .single();
       if (error) throw error;
-      return data as { id: string; full_name: string; client_id: string; shift_type: string };
+      return data as { id: string; full_name: string; campaign_id: string; shift_type: string };
     },
     enabled: !!employeeId,
   });
 
   // Campaign name
   const { data: campaignName } = useQuery({
-    queryKey: ["home-campaign", employee?.client_id],
+    queryKey: ["home-campaign", employee?.campaign_id],
     queryFn: async () => {
-      if (!employee?.client_id) return null;
+      if (!employee?.campaign_id) return null;
       const { data, error } = await supabase
-        .from("clients")
+        .from("campaigns")
         .select("name")
-        .eq("id", employee.client_id)
+        .eq("id", employee.campaign_id)
         .maybeSingle();
       if (error) return null;
       return (data?.name as string) || null;
     },
-    enabled: !!employee?.client_id,
+    enabled: !!employee?.campaign_id,
   });
 
   // Today's entry
@@ -140,7 +141,7 @@ export default function EmployeeHome() {
     queryKey: ["home-today", employeeId],
     queryFn: async () => {
       if (!employeeId) return null;
-      const today = new Date().toISOString().split("T")[0];
+      const today = todayLocal();
       const { data, error } = await supabase
         .from("time_clock")
         .select("*")
@@ -157,14 +158,14 @@ export default function EmployeeHome() {
   // Week's entries
   const weekStart = startOfWeek(now);
   const { data: weekEntries = [] } = useQuery({
-    queryKey: ["home-week", employeeId, weekStart.toISOString().split("T")[0]],
+    queryKey: ["home-week", employeeId, todayLocal(weekStart)],
     queryFn: async () => {
       if (!employeeId) return [];
       const { data, error } = await supabase
         .from("time_clock")
         .select("*")
         .eq("employee_id", employeeId)
-        .gte("date", weekStart.toISOString().split("T")[0])
+        .gte("date", todayLocal(weekStart))
         .order("date", { ascending: true });
       if (error) throw error;
       return (data || []) as TimeClockEntry[];
@@ -199,7 +200,7 @@ export default function EmployeeHome() {
         .select("*")
         .eq("employee_id", employeeId)
         .in("status", ["pending", "approved"])
-        .gte("start_date", new Date().toISOString().split("T")[0])
+        .gte("start_date", todayLocal())
         .order("start_date", { ascending: true })
         .limit(3);
       if (error) throw error;

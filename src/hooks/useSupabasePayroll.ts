@@ -18,7 +18,7 @@ const shiftFromDb: Record<string, Turno> = {
 };
 
 // Map DB row to frontend Employee
-function mapEmployee(row: any): Employee & { _clientId?: string; _campaignName?: string } {
+function mapEmployee(row: any): Employee & { _campaignId?: string; _campaignName?: string } {
   return {
     id: row.employee_id,
     nombre: row.full_name,
@@ -27,8 +27,8 @@ function mapEmployee(row: any): Employee & { _clientId?: string; _campaignName?:
     kpiMonto: Number(row.kpi_bonus_amount) || 0,
     turno: shiftFromDb[row.shift_type] || "Lunes-Viernes",
     _uuid: row.id,
-    _clientId: row.client_id || undefined,
-    _campaignName: row.clients?.name || undefined,
+    _campaignId: row.campaign_id || undefined,
+    _campaignName: row.campaigns?.name || undefined,
   };
 }
 
@@ -40,7 +40,7 @@ export function useEmployees() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("employees")
-        .select("*, clients(name)")
+        .select("*, campaigns(name)")
         .eq("is_active", true)
         .order("created_at", { ascending: true });
       if (error) throw error;
