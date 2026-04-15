@@ -24,6 +24,7 @@ import Performance from "@/pages/Performance";
 import ShiftSettings from "@/pages/ShiftSettings";
 import Campaigns from "@/pages/Campaigns";
 import CampaignDetail from "@/pages/CampaignDetail";
+import PayrollRun from "@/pages/PayrollRun";
 import { RequireLeadership, RequireTeamLeadOrAbove } from "@/components/RequireRole";
 
 const queryClient = new QueryClient();
@@ -100,6 +101,7 @@ const App = () => (
                     <Route path="/settings/shifts" element={<RequireTeamLeadOrAbove><ShiftSettings /></RequireTeamLeadOrAbove>} />
                     <Route path="/campaigns" element={<RequireLeadership><Campaigns /></RequireLeadership>} />
                     <Route path="/campaigns/:id" element={<RequireLeadership><CampaignDetail /></RequireLeadership>} />
+                    <Route path="/payroll-run" element={<RequireLeadership><PayrollRun /></RequireLeadership>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </AppLayout>

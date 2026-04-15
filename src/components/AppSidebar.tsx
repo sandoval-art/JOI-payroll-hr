@@ -12,6 +12,7 @@ import {
   ClipboardList,
   Settings,
   Building2,
+  Calculator,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -33,6 +34,7 @@ import {
 const leadershipItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Employees", url: "/empleados", icon: Users },
+  { title: "Payroll Run", url: "/payroll-run", icon: Calculator },
   { title: "Payroll History", url: "/historial", icon: History },
   { title: "Invoices (USD)", url: "/facturas", icon: FileText },
   { title: "Campaigns", url: "/campaigns", icon: Building2 },
