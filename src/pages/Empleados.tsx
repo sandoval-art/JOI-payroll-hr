@@ -35,25 +35,14 @@ export default function Empleados() {
 
   const [form, setForm] = useState({
     nombre: "",
+    email: "",
     sueldoBase: 0,
     descuentoPorDia: 0,
     kpiMonto: 0,
     title: "agent" as EmpTitle,
-    reportsTo: null as string | null,
     clientId: null as string | null,
     campaignId: null as string | null,
   });
-
-  // Possible supervisors for the Reports To dropdown:
-  // managers + team leads + admins/owner. We pull from the employees list.
-  const supervisorOptions = useMemo(() => {
-    return employees
-      .filter((e) => {
-        const t = (e as any).title as EmpTitle | undefined;
-        return t === "manager" || t === "team_lead" || t === "admin" || t === "owner";
-      })
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-  }, [employees]);
 
   // Filter, sort, and paginate
   const filtered = useMemo(() => {
@@ -86,8 +75,8 @@ export default function Empleados() {
   };
 
   const handleAdd = () => {
-    if (!form.nombre) {
-      toast.error("Name is required");
+    if (!form.nombre || !form.email) {
+      toast.error("Name and email are required");
       return;
     }
     addEmployee.mutate(
@@ -98,7 +87,7 @@ export default function Empleados() {
         descuentoPorDia: form.descuentoPorDia,
         kpiMonto: form.kpiMonto,
         title: form.title,
-        reportsTo: form.reportsTo,
+        email: form.email,
         campaignId: form.campaignId,
       },
       {
@@ -107,11 +96,11 @@ export default function Empleados() {
           setAddOpen(false);
           setForm({
             nombre: "",
+            email: "",
             sueldoBase: 0,
             descuentoPorDia: 0,
             kpiMonto: 0,
             title: "agent",
-            reportsTo: null,
             clientId: null,
             campaignId: null,
           });
@@ -220,27 +209,15 @@ export default function Empleados() {
                   </p>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Reports To</Label>
-                  <Select
-                    value={form.reportsTo ?? "__none__"}
-                    onValueChange={(v) => setForm({ ...form, reportsTo: v === "__none__" ? null : v })}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Select supervisor" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— None —</SelectItem>
-                      {supervisorOptions.map((sup) => {
-                        const supTitle = ((sup as any).title as EmpTitle) || "agent";
-                        const titleLabel = supTitle.replace("_", " ");
-                        return (
-                          <SelectItem key={(sup as any)._uuid || sup.id} value={(sup as any)._uuid || sup.id}>
-                            {sup.nombre} <span className="text-muted-foreground text-xs">· {titleLabel}</span>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    placeholder="employee@example.com"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  />
                   <p className="text-xs text-muted-foreground">
-                    Who they roll up to. Time-off requests and late alerts go here first.
+                    Used for login. An invite will be sent to set their password.
                   </p>
                 </div>
                 <ClientCampaignPicker
