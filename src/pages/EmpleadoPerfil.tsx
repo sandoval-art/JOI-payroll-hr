@@ -3,12 +3,11 @@ import { useEmployees, useUpdateEmployee, useActivePeriod, usePayrollRecords, us
 import { ClientCampaignPicker } from "@/components/ClientCampaignPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { calcularNomina, type Turno } from "@/types/payroll";
+import { calcularNomina } from "@/types/payroll";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft } from "lucide-react";
@@ -139,28 +138,18 @@ export default function EmpleadoPerfil() {
                 }
               }}
             />
-            <div className="grid gap-2">
-              <Label>Shift</Label>
-              <Select value={emp.turno} onValueChange={(v) => saveField("turno", v as Turno)}>
-                <SelectTrigger><SelectValue placeholder="Select a shift..." /></SelectTrigger>
-                <SelectContent>
-                  {campaignShifts.length > 0 ? (
-                    campaignShifts.map((s) => (
-                      <SelectItem key={s.id} value={s.shift_name}>
-                        {s.shift_name}
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {s.start_time?.slice(0, 5)}–{s.end_time?.slice(0, 5)}
-                        </span>
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value={emp.turno || 'none'} disabled>
-                      {campaignId ? 'No shifts configured' : 'Assign a campaign first'}
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Shift (read-only from campaign settings) */}
+            {campaignShifts.length > 0 && (
+              <div className="grid gap-1.5">
+                <Label>Shift</Label>
+                <div className="p-2.5 rounded-md border bg-muted/30 text-sm">
+                  {campaignShifts[0].start_time?.slice(0, 5)}–{campaignShifts[0].end_time?.slice(0, 5)}
+                  <span className="text-muted-foreground ml-2">
+                    ({campaignShifts[0].days_of_week?.map(d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ')})
+                  </span>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

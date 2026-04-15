@@ -25,6 +25,7 @@ import ShiftSettings from "@/pages/ShiftSettings";
 import Campaigns from "@/pages/Campaigns";
 import CampaignDetail from "@/pages/CampaignDetail";
 import PayrollRun from "@/pages/PayrollRun";
+import Account from "@/pages/Account";
 import { RequireLeadership, RequireTeamLeadOrAbove } from "@/components/RequireRole";
 
 const queryClient = new QueryClient();
@@ -48,8 +49,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function RoleHome() {
-  const { isEmployee } = useAuth();
-  return isEmployee ? <EmployeeHome /> : <Dashboard />;
+  const { isLeadership, isTeamLead } = useAuth();
+  if (isLeadership) return <Dashboard />;
+  // TL gets redirected to attendance (their team view) — proper TL dashboard is a future PR
+  if (isTeamLead) return <Navigate to="/asistencia" replace />;
+  return <EmployeeHome />;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -87,21 +91,22 @@ const App = () => (
                 <AppLayout>
                   <Routes>
                     <Route path="/" element={<RoleHome />} />
-                    <Route path="/empleados" element={<Empleados />} />
-                    <Route path="/empleados/:id" element={<EmpleadoPerfil />} />
-                    <Route path="/historial" element={<Historial />} />
-                    <Route path="/facturas" element={<Facturas />} />
-                    <Route path="/facturas/nueva" element={<FacturaNueva />} />
-                    <Route path="/facturas/:id" element={<FacturaDetalle />} />
+                    <Route path="/empleados" element={<RequireLeadership><Empleados /></RequireLeadership>} />
+                    <Route path="/empleados/:id" element={<RequireTeamLeadOrAbove><EmpleadoPerfil /></RequireTeamLeadOrAbove>} />
+                    <Route path="/historial" element={<RequireLeadership><Historial /></RequireLeadership>} />
+                    <Route path="/facturas" element={<RequireLeadership><Facturas /></RequireLeadership>} />
+                    <Route path="/facturas/nueva" element={<RequireLeadership><FacturaNueva /></RequireLeadership>} />
+                    <Route path="/facturas/:id" element={<RequireLeadership><FacturaDetalle /></RequireLeadership>} />
                     <Route path="/reloj" element={<Timeclock />} />
                     <Route path="/eod" element={<EODForm />} />
                     <Route path="/solicitudes" element={<TimeOff />} />
-                    <Route path="/asistencia" element={<Attendance />} />
-                    <Route path="/desempeno" element={<Performance />} />
+                    <Route path="/asistencia" element={<RequireTeamLeadOrAbove><Attendance /></RequireTeamLeadOrAbove>} />
+                    <Route path="/desempeno" element={<RequireTeamLeadOrAbove><Performance /></RequireTeamLeadOrAbove>} />
                     <Route path="/settings/shifts" element={<RequireTeamLeadOrAbove><ShiftSettings /></RequireTeamLeadOrAbove>} />
                     <Route path="/campaigns" element={<RequireLeadership><Campaigns /></RequireLeadership>} />
                     <Route path="/campaigns/:id" element={<RequireLeadership><CampaignDetail /></RequireLeadership>} />
                     <Route path="/payroll-run" element={<RequireLeadership><PayrollRun /></RequireLeadership>} />
+                    <Route path="/account" element={<Account />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </AppLayout>

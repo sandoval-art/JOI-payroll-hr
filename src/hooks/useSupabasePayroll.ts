@@ -26,6 +26,8 @@ function mapEmployee(row: any): Employee & { _campaignId?: string; _campaignName
     descuentoPorDia: Number(row.daily_discount_rate) || 0,
     kpiMonto: Number(row.kpi_bonus_amount) || 0,
     turno: shiftFromDb[row.shift_type] || "Lunes-Viernes",
+    title: row.title || "agent",
+    reportsTo: row.reports_to || null,
     _uuid: row.id,
     _campaignId: row.campaign_id || undefined,
     _campaignName: row.campaigns?.name || undefined,

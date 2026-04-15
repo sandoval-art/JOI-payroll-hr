@@ -13,6 +13,7 @@ import {
   Settings,
   Building2,
   Calculator,
+  UserCog,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -162,6 +163,18 @@ export function AppSidebar() {
           <p className="text-xs text-sidebar-foreground/50 px-2 mb-1 truncate">{user.email}</p>
         )}
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <NavLink
+                to="/account"
+                className="hover:bg-sidebar-accent"
+                activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
+              >
+                <UserCog className="mr-2 h-4 w-4" />
+                {!collapsed && <span>My Account</span>}
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={signOut} className="hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
