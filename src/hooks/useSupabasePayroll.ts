@@ -52,9 +52,8 @@ export function useEmployees() {
 export function useAddEmployee() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (emp: Omit<Employee, "_uuid">) => {
-      const { error } = await supabase.from("employees").insert({
-        employee_id: emp.id,
+    mutationFn: async (emp: Omit<Employee, "_uuid" | "id"> & { campaignId?: string | null }) => {
+      const { data, error } = await supabase.from("employees").insert({
         full_name: emp.nombre,
         shift_type: shiftToDb[emp.turno],
         monthly_base_salary: emp.sueldoBase,
@@ -62,8 +61,10 @@ export function useAddEmployee() {
         kpi_bonus_amount: emp.kpiMonto,
         title: emp.title ?? "agent",
         reports_to: emp.reportsTo ?? null,
-      });
+        campaign_id: emp.campaignId ?? null,
+      }).select("employee_id").single();
       if (error) throw error;
+      return data as { employee_id: string };
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["employees"] }),
   });
@@ -208,6 +209,7 @@ export function useUpsertPayrollRecord() {
       holiday_worked?: boolean;
       additional_bonuses?: number;
       calculated_net_pay?: number;
+      overrides_json?: Record<string, boolean>;
     }) => {
       const { error } = await supabase
         .from("payroll_records")

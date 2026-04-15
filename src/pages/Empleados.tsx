@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Upload, Plus, Trash2, Download, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { ClientCampaignPicker } from "@/components/ClientCampaignPicker";
 
 const fmt = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "MXN" });
 
@@ -32,15 +33,16 @@ export default function Empleados() {
   const fileRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
-  const [form, setForm] = useState<Omit<Employee, "_uuid"> & { id: string }>({
-    id: "",
+  const [form, setForm] = useState({
     nombre: "",
     sueldoBase: 0,
     descuentoPorDia: 0,
     kpiMonto: 0,
     turno: "Lunes-Viernes" as Turno,
     title: "agent" as EmpTitle,
-    reportsTo: null,
+    reportsTo: null as string | null,
+    clientId: null as string | null,
+    campaignId: null as string | null,
   });
 
   // Possible supervisors for the Reports To dropdown:
@@ -85,31 +87,41 @@ export default function Empleados() {
   };
 
   const handleAdd = () => {
-    if (!form.id || !form.nombre) {
-      toast.error("ID and Name are required");
+    if (!form.nombre) {
+      toast.error("Name is required");
       return;
     }
-    if (employees.find((e) => e.id === form.id)) {
-      toast.error("An employee with that ID already exists");
-      return;
-    }
-    addEmployee.mutate(form, {
-      onSuccess: () => {
-        toast.success("Employee added successfully");
-        setAddOpen(false);
-        setForm({
-          id: "",
-          nombre: "",
-          sueldoBase: 0,
-          descuentoPorDia: 0,
-          kpiMonto: 0,
-          turno: "Lunes-Viernes",
-          title: "agent",
-          reportsTo: null,
-        });
+    addEmployee.mutate(
+      {
+        id: "", // ignored — DB auto-generates
+        nombre: form.nombre,
+        sueldoBase: form.sueldoBase,
+        descuentoPorDia: form.descuentoPorDia,
+        kpiMonto: form.kpiMonto,
+        turno: form.turno,
+        title: form.title,
+        reportsTo: form.reportsTo,
+        campaignId: form.campaignId,
       },
-      onError: (err: any) => toast.error(err.message || "Error adding employee"),
-    });
+      {
+        onSuccess: (data) => {
+          toast.success(`Employee added — ID: ${data.employee_id}`);
+          setAddOpen(false);
+          setForm({
+            nombre: "",
+            sueldoBase: 0,
+            descuentoPorDia: 0,
+            kpiMonto: 0,
+            turno: "Lunes-Viernes",
+            title: "agent",
+            reportsTo: null,
+            clientId: null,
+            campaignId: null,
+          });
+        },
+        onError: (err: any) => toast.error(err.message || "Error adding employee"),
+      }
+    );
   };
 
   const handleCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -180,10 +192,6 @@ export default function Empleados() {
               <DialogHeader><DialogTitle>Add Employee</DialogTitle></DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label>ID</Label>
-                  <Input value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} />
-                </div>
-                <div className="grid gap-2">
                   <Label>Full Name</Label>
                   <Input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
                 </div>
@@ -251,6 +259,12 @@ export default function Empleados() {
                     Who they roll up to. Time-off requests and late alerts go here first.
                   </p>
                 </div>
+                <ClientCampaignPicker
+                  value={{ clientId: form.clientId, campaignId: form.campaignId }}
+                  onChange={({ clientId, campaignId }) =>
+                    setForm((f) => ({ ...f, clientId, campaignId }))
+                  }
+                />
                 <Button onClick={handleAdd} disabled={addEmployee.isPending}>
                   {addEmployee.isPending ? "Saving..." : "Add Employee"}
                 </Button>
