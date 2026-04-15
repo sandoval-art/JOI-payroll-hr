@@ -111,7 +111,7 @@ export function useAgentsByClient(clientId: string | undefined) {
 
       const { data, error } = await supabase
         .from("employees")
-        .select("id, full_name, employee_id, shift_type")
+        .select("id, full_name, employee_id")
         .eq("is_active", true)
         .in("campaign_id", campaignIds);
       if (error) throw error;

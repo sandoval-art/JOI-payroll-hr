@@ -1,21 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Employee, Turno, PayrollConfig, PayrollResult } from "@/types/payroll";
+import type { Employee, PayrollConfig, PayrollResult } from "@/types/payroll";
 import { calcularNomina } from "@/types/payroll";
-
-// Shift type mapping between frontend and DB
-const shiftToDb: Record<Turno, string> = {
-  "Lunes-Jueves": "L-J",
-  "Lunes-Viernes": "L-V",
-  "Viernes-Domingo": "V-D",
-  "Viernes-Lunes": "V-L",
-};
-const shiftFromDb: Record<string, Turno> = {
-  "L-J": "Lunes-Jueves",
-  "L-V": "Lunes-Viernes",
-  "V-D": "Viernes-Domingo",
-  "V-L": "Viernes-Lunes",
-};
 
 // Map DB row to frontend Employee
 function mapEmployee(row: any): Employee & { _campaignId?: string; _campaignName?: string } {
@@ -25,7 +11,6 @@ function mapEmployee(row: any): Employee & { _campaignId?: string; _campaignName
     sueldoBase: Number(row.monthly_base_salary) || 0,
     descuentoPorDia: Number(row.daily_discount_rate) || 0,
     kpiMonto: Number(row.kpi_bonus_amount) || 0,
-    turno: shiftFromDb[row.shift_type] || "Lunes-Viernes",
     title: row.title || "agent",
     reportsTo: row.reports_to || null,
     _uuid: row.id,
@@ -57,7 +42,6 @@ export function useAddEmployee() {
     mutationFn: async (emp: Omit<Employee, "_uuid" | "id"> & { campaignId?: string | null }) => {
       const { data, error } = await supabase.from("employees").insert({
         full_name: emp.nombre,
-        shift_type: shiftToDb[emp.turno],
         monthly_base_salary: emp.sueldoBase,
         daily_discount_rate: emp.descuentoPorDia,
         kpi_bonus_amount: emp.kpiMonto,
@@ -79,7 +63,6 @@ export function useAddEmployeesBulk() {
       const rows = emps.map((e) => ({
         employee_id: e.id,
         full_name: e.nombre,
-        shift_type: shiftToDb[e.turno],
         monthly_base_salary: e.sueldoBase,
         daily_discount_rate: e.descuentoPorDia,
         kpi_bonus_amount: e.kpiMonto,
@@ -102,7 +85,6 @@ export function useUpdateEmployee() {
       if (data.sueldoBase !== undefined) update.monthly_base_salary = data.sueldoBase;
       if (data.descuentoPorDia !== undefined) update.daily_discount_rate = data.descuentoPorDia;
       if (data.kpiMonto !== undefined) update.kpi_bonus_amount = data.kpiMonto;
-      if (data.turno !== undefined) update.shift_type = shiftToDb[data.turno];
       const { error } = await supabase
         .from("employees")
         .update(update)
@@ -252,7 +234,7 @@ export function useHistoryRecords() {
         .from("payroll_records")
         .select(`
           *,
-          employees!inner(employee_id, full_name, monthly_base_salary, daily_discount_rate, kpi_bonus_amount, shift_type),
+          employees!inner(employee_id, full_name, monthly_base_salary, daily_discount_rate, kpi_bonus_amount),
           payroll_periods!inner(start_date, end_date, period_type, status)
         `)
         .eq("payroll_periods.status", "closed")
