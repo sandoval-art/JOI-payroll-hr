@@ -13,6 +13,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { todayLocal } from "@/lib/localDate";
+import { formatMinutesVerbose } from "@/lib/formatDuration";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -364,7 +365,7 @@ export default function EmployeeHome() {
                 </p>
                 {todayEntry.is_late && (
                   <Badge variant="destructive" className="mt-2">
-                    Late {todayEntry.late_minutes}m
+                    Late {formatMinutesVerbose(todayEntry.late_minutes)}
                   </Badge>
                 )}
               </div>
