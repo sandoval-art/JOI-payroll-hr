@@ -43,7 +43,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Pencil, ArrowUp, ArrowDown, X, Save, UserMinus, UserPlus } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, ArrowUp, ArrowDown, X, Save, UserMinus, UserPlus, Trash2, Mail } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -57,6 +57,19 @@ const FIELD_TYPE_LABELS: Record<FieldType, string> = {
 };
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const ROLE_LABELS: Record<string, string> = { tl: 'Team Lead', manager: 'Manager', client: 'Client', other: 'Other' };
+const ROLE_OPTIONS = Object.entries(ROLE_LABELS) as [string, string][];
+
+const TIMEZONE_OPTIONS = [
+  { value: 'America/Denver', label: 'Mountain Time' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time' },
+  { value: 'America/Chicago', label: 'Central Time' },
+  { value: 'America/New_York', label: 'Eastern Time' },
+  { value: 'America/Phoenix', label: 'Arizona (no DST)' },
+];
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface KPIField {
   id: string;
@@ -135,6 +148,18 @@ export default function CampaignDetail() {
   // Assign employee
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
 
+  // EOD Digest Recipients
+  const [recipientDialogOpen, setRecipientDialogOpen] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState('');
+  const [recipientRole, setRecipientRole] = useState('tl');
+  const [recipientActive, setRecipientActive] = useState(true);
+  const [recipientEmailError, setRecipientEmailError] = useState('');
+
+  // Digest Schedule
+  const [digestCutoff, setDigestCutoff] = useState('');
+  const [digestTimezone, setDigestTimezone] = useState('America/Denver');
+  const [digestDirty, setDigestDirty] = useState(false);
+
   const invalidateCampaign = () => {
     queryClient.invalidateQueries({ queryKey: ['campaign', id] });
     queryClient.invalidateQueries({ queryKey: ['campaigns-list'] });
@@ -147,11 +172,11 @@ export default function CampaignDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('campaigns')
-        .select('id, name, client_id, team_lead_id, clients(id, name, prefix)')
+        .select('id, name, client_id, team_lead_id, eod_digest_cutoff_time, eod_digest_timezone, clients(id, name, prefix)')
         .eq('id', id!)
         .single();
       if (error) throw error;
-      return data as { id: string; name: string; client_id: string; team_lead_id: string | null; clients: { id: string; name: string; prefix: string } | null };
+      return data as { id: string; name: string; client_id: string; team_lead_id: string | null; eod_digest_cutoff_time: string | null; eod_digest_timezone: string; clients: { id: string; name: string; prefix: string } | null };
     },
     enabled: !!id,
   });
@@ -428,6 +453,128 @@ export default function CampaignDetail() {
       if (error) throw error;
     },
     onSuccess: invalidateKpi,
+  });
+
+  // ===================== EOD Digest Recipients =====================
+
+  const { data: recipients = [] } = useQuery({
+    queryKey: ['eod-recipients', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('campaign_eod_recipients')
+        .select('*')
+        .eq('campaign_id', id!)
+        .order('active', { ascending: false })
+        .order('role_label')
+        .order('email');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  const invalidateRecipients = () => queryClient.invalidateQueries({ queryKey: ['eod-recipients', id] });
+
+  const addRecipientMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('campaign_eod_recipients').insert({
+        campaign_id: id!,
+        email: recipientEmail.trim().toLowerCase(),
+        role_label: recipientRole,
+        active: recipientActive,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateRecipients();
+      closeRecipientDialog();
+      toast.success('Recipient added');
+    },
+    onError: (err: Error) => {
+      if (err.message.includes('duplicate')) {
+        setRecipientEmailError('This email is already a recipient for this campaign.');
+      } else {
+        toast.error(err.message);
+      }
+    },
+  });
+
+  const toggleRecipientActiveMutation = useMutation({
+    mutationFn: async ({ recipientId, active }: { recipientId: string; active: boolean }) => {
+      const { error } = await supabase
+        .from('campaign_eod_recipients')
+        .update({ active })
+        .eq('id', recipientId);
+      if (error) throw error;
+    },
+    onSuccess: invalidateRecipients,
+  });
+
+  const deleteRecipientMutation = useMutation({
+    mutationFn: async (recipientId: string) => {
+      const { error } = await supabase
+        .from('campaign_eod_recipients')
+        .delete()
+        .eq('id', recipientId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateRecipients();
+      toast.success('Recipient removed');
+    },
+  });
+
+  function openRecipientDialog() {
+    setRecipientEmail('');
+    setRecipientRole('tl');
+    setRecipientActive(true);
+    setRecipientEmailError('');
+    setRecipientDialogOpen(true);
+  }
+
+  function closeRecipientDialog() {
+    setRecipientDialogOpen(false);
+    setRecipientEmail('');
+    setRecipientEmailError('');
+  }
+
+  function handleAddRecipient() {
+    const email = recipientEmail.trim();
+    if (!EMAIL_RE.test(email)) {
+      setRecipientEmailError('Enter a valid email address.');
+      return;
+    }
+    setRecipientEmailError('');
+    addRecipientMutation.mutate();
+  }
+
+  // ===================== Digest Schedule =====================
+
+  // Sync local state when campaign data loads
+  useEffect(() => {
+    if (campaign) {
+      setDigestCutoff(campaign.eod_digest_cutoff_time ?? '');
+      setDigestTimezone(campaign.eod_digest_timezone ?? 'America/Denver');
+      setDigestDirty(false);
+    }
+  }, [campaign]);
+
+  const saveDigestMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('campaigns')
+        .update({
+          eod_digest_cutoff_time: digestCutoff || null,
+          eod_digest_timezone: digestTimezone,
+        })
+        .eq('id', id!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateCampaign();
+      setDigestDirty(false);
+      toast.success('Digest schedule saved');
+    },
   });
 
   function openAddKpi() {
@@ -768,6 +915,166 @@ export default function CampaignDetail() {
                 </div>
               ))}
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* EOD Digest Recipients */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base">EOD Digest Recipients</CardTitle>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Who receives the daily EOD summary email for this campaign
+            </p>
+          </div>
+          <Button size="sm" onClick={openRecipientDialog}>
+            <Plus className="h-4 w-4 mr-1" />
+            Add Recipient
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {recipients.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              No recipients configured — digest will not send until at least one active recipient is added.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Active</TableHead>
+                  <TableHead className="w-[60px]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recipients.map((r) => (
+                  <TableRow key={r.id} className={r.active ? '' : 'opacity-50'}>
+                    <TableCell className="font-medium">{r.email}</TableCell>
+                    <TableCell>{ROLE_LABELS[r.role_label] ?? r.role_label}</TableCell>
+                    <TableCell>
+                      <Switch
+                        checked={r.active}
+                        onCheckedChange={(val) =>
+                          toggleRecipientActiveMutation.mutate({ recipientId: r.id, active: val })
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete recipient</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Remove {r.email} from the digest? This cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => deleteRecipientMutation.mutate(r.id)}>
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add Recipient Dialog */}
+      <Dialog open={recipientDialogOpen} onOpenChange={(open) => !open && closeRecipientDialog()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Digest Recipient</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Email</Label>
+              <Input
+                type="email"
+                placeholder="name@example.com"
+                value={recipientEmail}
+                onChange={(e) => { setRecipientEmail(e.target.value); setRecipientEmailError(''); }}
+              />
+              {recipientEmailError && (
+                <p className="text-sm text-destructive">{recipientEmailError}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Role</Label>
+              <Select value={recipientRole} onValueChange={setRecipientRole}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ROLE_OPTIONS.map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label>Active</Label>
+              <Switch checked={recipientActive} onCheckedChange={setRecipientActive} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeRecipientDialog}>Cancel</Button>
+            <Button onClick={handleAddRecipient} disabled={addRecipientMutation.isPending}>
+              {addRecipientMutation.isPending ? 'Adding...' : 'Add Recipient'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Digest Schedule */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Digest Schedule</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="digest-cutoff">Cutoff Time</Label>
+              <Input
+                id="digest-cutoff"
+                type="time"
+                value={digestCutoff}
+                onChange={(e) => { setDigestCutoff(e.target.value); setDigestDirty(true); }}
+                placeholder="No cutoff"
+              />
+              {!digestCutoff && (
+                <p className="text-xs text-muted-foreground">Empty = no digest</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="digest-tz">Timezone</Label>
+              <Select value={digestTimezone} onValueChange={(v) => { setDigestTimezone(v); setDigestDirty(true); }}>
+                <SelectTrigger id="digest-tz"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TIMEZONE_OPTIONS.map((tz) => (
+                    <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Agents must submit their EOD before this time. Digest email sends at cutoff to all active recipients.
+          </p>
+          {digestDirty && (
+            <Button onClick={() => saveDigestMutation.mutate()} disabled={saveDigestMutation.isPending}>
+              {saveDigestMutation.isPending ? 'Saving...' : 'Save Schedule'}
+            </Button>
           )}
         </CardContent>
       </Card>
