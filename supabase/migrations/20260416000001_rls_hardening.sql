@@ -231,7 +231,12 @@ CREATE POLICY "leadership_delete_employees"
 -- 4. employees_no_pay VIEW (Q1 — salary isolation for team leads)
 -- ============================================================================
 
-CREATE OR REPLACE VIEW public.employees_no_pay AS
+-- security_invoker=on ensures the view runs with the CALLING user's
+-- privileges, so the employees RLS policies above filter rows exactly
+-- as they would for a direct table query. Without this, the view would
+-- run as the view owner and bypass RLS entirely.
+CREATE OR REPLACE VIEW public.employees_no_pay
+WITH (security_invoker = on) AS
 SELECT
   id,
   employee_id,
@@ -243,11 +248,6 @@ SELECT
   reports_to,
   email
 FROM public.employees;
-
--- The view inherits the employees RLS since it's a simple view on a single
--- table with SECURITY INVOKER (the default). Team leads can SELECT from this
--- view and will only see rows allowed by the employees RLS policies above,
--- minus the salary columns.
 
 COMMENT ON VIEW public.employees_no_pay IS
   'Employees without pay columns. Use for team-lead-facing queries that must not expose salary data.';
