@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { todayLocal } from "@/lib/localDate";
+import { formatMinutesVerbose } from "@/lib/formatDuration";
 
 interface AttendanceRecord {
   id: string;
@@ -364,7 +365,7 @@ export default function Attendance() {
                       <TableCell>
                         {employee.is_late ? (
                           <Badge variant="destructive">
-                            {employee.late_minutes} min
+                            {formatMinutesVerbose(employee.late_minutes)}
                           </Badge>
                         ) : (
                           <span className="text-muted-foreground">-</span>
