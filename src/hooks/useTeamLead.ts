@@ -71,13 +71,35 @@ export function useTeamRoster(tlEmployeeId: string | null) {
     queryKey: ["team-roster", tlEmployeeId],
     queryFn: async () => {
       if (!tlEmployeeId) return [];
-      const { data, error } = await supabase
-        .from("employees")
-        .select("id, employee_id, full_name, title, campaign_id, campaigns(name)")
+
+      // Query the view (no salary columns) instead of the base table.
+      // The view has no FK so we can't use PostgREST joins; fetch
+      // campaign names in a second query and merge in memory.
+      const { data: rows, error } = await supabase
+        .from("employees_no_pay")
+        .select("id, employee_id, full_name, title, campaign_id")
         .eq("reports_to", tlEmployeeId)
         .eq("is_active", true);
       if (error) throw error;
-      return (data || []) as unknown as TeamMember[];
+      if (!rows || rows.length === 0) return [];
+
+      const campaignIds = [...new Set(rows.map((r) => r.campaign_id).filter(Boolean))] as string[];
+      let campaignMap = new Map<string, string>();
+      if (campaignIds.length > 0) {
+        const { data: camps, error: campErr } = await supabase
+          .from("campaigns")
+          .select("id, name")
+          .in("id", campaignIds);
+        if (campErr) throw campErr;
+        for (const c of camps || []) {
+          campaignMap.set(c.id, c.name);
+        }
+      }
+
+      return rows.map((r) => ({
+        ...r,
+        campaigns: r.campaign_id ? { name: campaignMap.get(r.campaign_id) ?? "" } : null,
+      })) as unknown as TeamMember[];
     },
     enabled: !!tlEmployeeId,
   });
@@ -111,7 +133,7 @@ export function useTodayTimeclockStatus(tlEmployeeId: string | null) {
 
       // 1. Team roster
       const { data: roster, error: rosterErr } = await supabase
-        .from("employees")
+        .from("employees_no_pay")
         .select("id, full_name, campaign_id")
         .eq("reports_to", tlEmployeeId)
         .eq("is_active", true);
@@ -254,7 +276,7 @@ export function usePendingTimeOffForTeam(tlEmployeeId: string | null) {
 
       // 1. Get team member IDs + names
       const { data: roster, error: rosterErr } = await supabase
-        .from("employees")
+        .from("employees_no_pay")
         .select("id, full_name")
         .eq("reports_to", tlEmployeeId)
         .eq("is_active", true);
@@ -303,7 +325,7 @@ export function useTeamEODThisWeek(tlEmployeeId: string | null) {
 
       // 1. Team roster
       const { data: roster, error: rosterErr } = await supabase
-        .from("employees")
+        .from("employees_no_pay")
         .select("id, full_name")
         .eq("reports_to", tlEmployeeId)
         .eq("is_active", true);
@@ -403,7 +425,7 @@ export function useUnderperformerAlerts(tlEmployeeId: string | null) {
 
       // 1. Team roster with campaign_id
       const { data: roster, error: rosterErr } = await supabase
-        .from("employees")
+        .from("employees_no_pay")
         .select("id, full_name, campaign_id")
         .eq("reports_to", tlEmployeeId)
         .eq("is_active", true);
