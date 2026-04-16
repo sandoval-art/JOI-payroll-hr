@@ -85,7 +85,7 @@ Owner and Admin are functionally identical today. D may spec owner-only powers l
 
 Run these in order via the Supabase SQL editor if setting up a fresh database. All files are in `supabase/migrations/`.
 
-1. `20260401165427_*.sql` — initial schema (original Lovable scaffold)
+1. `20260401165427_*.sql` — initial schema (original Supabase setup)
 2. `20260401171237_*.sql` — schema tweaks
 3. `20260401230853_*.sql` — more scaffold
 4. `20260413000001_full_setup.sql` — consolidated setup (clients, employees, payroll, time_clock, user_profiles, etc.)
