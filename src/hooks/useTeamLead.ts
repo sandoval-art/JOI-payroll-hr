@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { todayLocal } from "@/lib/localDate";
 
@@ -522,5 +522,153 @@ export function useUnderperformerAlerts(tlEmployeeId: string | null) {
       return alerts;
     },
     enabled: !!tlEmployeeId,
+  });
+}
+
+/* ================================================================== */
+/*  Hook 6 – useTLCampaigns                                           */
+/*  Campaigns where this employee is the team_lead_id.                 */
+/* ================================================================== */
+
+export interface TLCampaign {
+  id: string;
+  name: string;
+  eod_digest_cutoff_time: string | null;
+  eod_digest_timezone: string;
+}
+
+export function useTLCampaigns(employeeId: string | null) {
+  return useQuery({
+    queryKey: ["tl-campaigns", employeeId],
+    queryFn: async (): Promise<TLCampaign[]> => {
+      if (!employeeId) return [];
+      const { data, error } = await supabase
+        .from("campaigns")
+        .select("id, name, eod_digest_cutoff_time, eod_digest_timezone")
+        .eq("team_lead_id", employeeId)
+        .order("name");
+      if (error) throw error;
+      return (data ?? []) as TLCampaign[];
+    },
+    enabled: !!employeeId,
+  });
+}
+
+/* ================================================================== */
+/*  Hook 7 – useTodaysTLNote                                           */
+/*  Read today's TL note for a campaign.                               */
+/* ================================================================== */
+
+export interface TLNoteRow {
+  id: string;
+  campaign_id: string;
+  date: string;
+  note: string | null;
+  written_by: string | null;
+  updated_at: string;
+}
+
+export function useTodaysTLNote(campaignId: string | null) {
+  const today = todayLocal();
+  return useQuery({
+    queryKey: ["tl-note-today", campaignId, today],
+    queryFn: async (): Promise<TLNoteRow | null> => {
+      if (!campaignId) return null;
+      const { data, error } = await supabase
+        .from("campaign_eod_tl_notes")
+        .select("*")
+        .eq("campaign_id", campaignId)
+        .eq("date", today)
+        .maybeSingle();
+      if (error) throw error;
+      return data as TLNoteRow | null;
+    },
+    enabled: !!campaignId,
+  });
+}
+
+/* ================================================================== */
+/*  Hook 8 – useSaveTLNote                                             */
+/*  Upsert today's TL note for a campaign.                             */
+/* ================================================================== */
+
+export function useSaveTLNote() {
+  const queryClient = useQueryClient();
+  const today = todayLocal();
+
+  return useMutation({
+    mutationFn: async ({
+      campaignId,
+      note,
+      writtenBy,
+    }: {
+      campaignId: string;
+      note: string;
+      writtenBy: string;
+    }) => {
+      const { error } = await supabase
+        .from("campaign_eod_tl_notes")
+        .upsert(
+          {
+            campaign_id: campaignId,
+            date: today,
+            note,
+            written_by: writtenBy,
+          },
+          { onConflict: "campaign_id,date" }
+        );
+      if (error) throw error;
+    },
+    onSuccess: (_, { campaignId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["tl-note-today", campaignId, today],
+      });
+    },
+  });
+}
+
+/* ================================================================== */
+/*  Hook 9 – useEODProgress                                            */
+/*  How many active agents have submitted today's EOD for a campaign.  */
+/* ================================================================== */
+
+export interface EODProgress {
+  submitted: number;
+  total: number;
+}
+
+export function useEODProgress(campaignId: string | null) {
+  const today = todayLocal();
+  return useQuery({
+    queryKey: ["eod-progress", campaignId, today],
+    queryFn: async (): Promise<EODProgress> => {
+      if (!campaignId) return { submitted: 0, total: 0 };
+
+      // Active employees on this campaign
+      const { data: roster, error: rosterErr } = await supabase
+        .from("employees_no_pay")
+        .select("id")
+        .eq("campaign_id", campaignId)
+        .eq("is_active", true);
+      if (rosterErr) throw rosterErr;
+      const total = roster?.length ?? 0;
+      if (total === 0) return { submitted: 0, total: 0 };
+
+      const memberIds = roster!.map((r) => r.id);
+
+      // Distinct employees who submitted today's EOD
+      const { data: logs, error: logErr } = await supabase
+        .from("eod_logs")
+        .select("employee_id")
+        .in("employee_id", memberIds)
+        .eq("date", today);
+      if (logErr) throw logErr;
+
+      const distinctIds = new Set((logs ?? []).map((l) => l.employee_id));
+      return { submitted: distinctIds.size, total };
+    },
+    enabled: !!campaignId,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
   });
 }
