@@ -1,8 +1,22 @@
 # JOI Payroll & HR App — Handoff
 
-Last updated: 2026-04-15 (latest: Payroll Run, auto employee ID, form improvements)
+Last updated: 2026-04-16
 
 Quick reference for picking the project back up on a new machine.
+
+## ⚠️ BEFORE DEPLOYING TO VERCEL / ANY SERVER — READ THIS
+
+**The repo currently commits `.env` to git.** `.env` is tracked and sits in git history (first committed in `8eab08a`). `.gitignore` does not include `.env`. This is fine for local-only development, but it is NOT OK to deploy as-is.
+
+Do all of this before the first deploy:
+
+1. **Rotate every secret currently in `.env`** in the Supabase dashboard (anon key, service role key if present, DB password, any other keys). Assume the current values are compromised, especially if the GitHub repo is public.
+2. **Add `.env` to `.gitignore`** and untrack it: `git rm --cached .env && git commit -m "stop tracking .env"`.
+3. **Create `.env.example`** with placeholder values (VITE_SUPABASE_URL=, VITE_SUPABASE_ANON_KEY=) so future devs know what's needed.
+4. **Scrub `.env` from git history** with `git filter-repo` or BFG Repo-Cleaner. Rewriting history requires a force push and coordination if anyone else has a clone.
+5. **Put the rotated keys in Vercel's Environment Variables panel** (Project Settings → Environment Variables). Never commit them again.
+
+Skip this and your Supabase project is open to anyone who can read the repo.
 
 ## Getting set up on a new computer
 
