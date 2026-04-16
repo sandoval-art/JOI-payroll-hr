@@ -6,17 +6,13 @@ Quick reference for picking the project back up on a new machine.
 
 ## ⚠️ BEFORE DEPLOYING TO VERCEL / ANY SERVER — READ THIS
 
-**The repo currently commits `.env` to git.** `.env` is tracked and sits in git history (first committed in `8eab08a`). `.gitignore` does not include `.env`. This is fine for local-only development, but it is NOT OK to deploy as-is.
+`.env` is no longer tracked by git (untracked and added to `.gitignore`). The app reads `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from environment variables via `import.meta.env`. See `.env.example` for the required variable names.
 
-Do all of this before the first deploy:
+**Remaining steps before first deploy:**
 
-1. **Rotate every secret currently in `.env`** in the Supabase dashboard (anon key, service role key if present, DB password, any other keys). Assume the current values are compromised, especially if the GitHub repo is public.
-2. **Add `.env` to `.gitignore`** and untrack it: `git rm --cached .env && git commit -m "stop tracking .env"`.
-3. **Create `.env.example`** with placeholder values (VITE_SUPABASE_URL=, VITE_SUPABASE_ANON_KEY=) so future devs know what's needed.
-4. **Scrub `.env` from git history** with `git filter-repo` or BFG Repo-Cleaner. Rewriting history requires a force push and coordination if anyone else has a clone.
-5. **Put the rotated keys in Vercel's Environment Variables panel** (Project Settings → Environment Variables). Never commit them again.
-
-Skip this and your Supabase project is open to anyone who can read the repo.
+1. **Rotate every secret that was previously in `.env`** in the Supabase dashboard (anon key, service role key if present, DB password, any other keys). Assume the old values are compromised since they were committed in git history (first committed in `8eab08a`).
+2. **Scrub `.env` from git history** with `git filter-repo` or BFG Repo-Cleaner. Rewriting history requires a force push and coordination if anyone else has a clone.
+3. **Put the rotated keys in Vercel's Environment Variables panel** (Project Settings → Environment Variables). Never commit them again.
 
 ## Getting set up on a new computer
 
@@ -31,9 +27,11 @@ npm run dev
 
 The app runs at http://localhost:5173 (or the port Vite picks).
 
-You'll need a `.env` file at the project root with your Supabase keys. If you don't have the file, copy them from the Supabase dashboard (Project Settings → API) and create:
+You'll need a `.env` file at the project root with your Supabase keys. Copy `.env.example` and fill in the values from the Supabase dashboard (Project Settings → API):
 
 ```
+cp .env.example .env
+# Then edit .env:
 VITE_SUPABASE_URL=https://<your-project-ref>.supabase.co
 VITE_SUPABASE_ANON_KEY=<your-anon-key>
 ```
