@@ -13,6 +13,9 @@ Quick reference for picking the project back up on a new machine.
 1. **Rotate every secret that was previously in `.env`** in the Supabase dashboard (anon key, service role key if present, DB password, any other keys). Assume the old values are compromised since they were committed in git history (first committed in `8eab08a`).
 2. **Scrub `.env` from git history** with `git filter-repo` or BFG Repo-Cleaner. Rewriting history requires a force push and coordination if anyone else has a clone.
 3. **Put the rotated keys in Vercel's Environment Variables panel** (Project Settings → Environment Variables). Never commit them again.
+4. **Mystery Supabase project in history.** The pre-86d4d6b `.env` pointed at `hipxsmawxvlxjzotsgfj`, not the active JOI project. D does not recognize that ref (likely a Lovable template default). That key stays in git history until step 2 is done. Low risk since the project may not exist, but it's the same scrub step either way.
+5. **Agent browser smoke-test.** SQL-level RLS simulation passed 6/6, but a real agent walk-through in the browser is pending. Do this once a dedicated agent test account is ready.
+6. **Re-run RLS audit after any new migration that touches tables, policies, or views.** Migration file + audit doc pattern: `supabase/migrations/<stamp>_<name>.sql` + `docs/security/rls-audit-<date>.md`.
 
 ## Getting set up on a new computer
 
@@ -155,6 +158,15 @@ One-off fix files (run once, not migrations):
 - `RoleHome` now routes: leadership → Dashboard, team_lead → TeamLeadHome, agent → EmployeeHome.
 - Shift defaults already Mon-Fri in both CampaignDetail and ShiftSettings. No campaigns with all-7-day shifts found.
 
+**Recently shipped (2026-04-16 — RLS hardening + follow-ups):**
+- **RLS policy rewrite applied.** Migration `20260416000001_rls_hardening.sql` replaced 13 tables' blanket "allow authenticated" policies with role-scoped ones matching the 5-tier model. Applied live to Supabase project `jpaihltkrohdqkqlbqkf`. Rollback at `20260416000002_rls_hardening_rollback.sql`. Full audit notes in `docs/security/rls-audit-2026-04-16.md`.
+- **`employees_no_pay` view created** with `WITH (security_invoker = on)` so RLS runs under the caller's privileges instead of the view owner's. Team Lead hooks (`useTeamLead.ts`) now read from this view so salary columns can't leak even with `select("*")`.
+- **`guard_user_profile_role()` BEFORE UPDATE trigger on `user_profiles`** blocks direct role escalation. Defense in depth — RLS already has no UPDATE policy on that table for non-leadership users.
+- **PostgREST FK disambiguation.** `employees?select=*,campaigns(...)` was returning HTTP 300 (PGRST201) because `campaigns` has two FKs to `employees` (`employees.campaign_id` and `campaigns.team_lead_id`). Fixed in `src/hooks/useSupabasePayroll.ts`, `src/hooks/usePayrollComputed.ts`, `src/pages/TeamLeadHome.tsx` by writing the embed as `campaigns!employees_campaign_id_fkey(...)`.
+- **Schema name fix.** Attendance page was querying `time_clock.minutes_late` but the actual column is `late_minutes`. Renamed all 5 references in `src/pages/Attendance.tsx`.
+- **Late minutes verbose formatting.** New helper `src/lib/formatDuration.ts` → `formatMinutesVerbose()` renders `2 hours 3 minutes` (singular/plural correct, skips zero components, returns empty string for 0/null). Applied in `Attendance.tsx`, `Timeclock.tsx` (3 spots), `EmployeeHome.tsx`. `ShiftSettings.tsx` grace-period config left as-is — different UX context.
+- **Smoke-tested.** SQL role simulation 6/6 PASS for owner/TL/agent. Owner browser click-through clean on main after the embed + schema fixes landed. Agent browser test deferred to when a real test account is available.
+
 **Campaign owns shift (2026-04-16):**
 - **Shift is a campaign property, not an employee property.** One campaign = one shift pattern. `shift_settings` table is the single source of truth. `employees.shift_type` is ignored by the app (column left in DB for rollback safety, will be dropped in a follow-up).
 - Removed all reads/writes of `employees.shift_type` from: `useSupabasePayroll.ts` (mapEmployee, add/update/bulk mutations, history records), `Empleados.tsx` (form + table), `EmpleadoPerfil.tsx` (header), `EmployeeHome.tsx` (display), `useInvoices.ts` (agent query).
@@ -219,8 +231,11 @@ npx tsc --noEmit     # type-check without emitting
 
 ## Known gotchas
 
-- Supabase MCP may point at the wrong project (the-living-word rather than JOI). Prefer writing SQL migration files for the user to run manually until this is fixed.
+- Supabase MCP is verified pointing at the JOI project `jpaihltkrohdqkqlbqkf`. If a fresh session reports a different project, re-verify before running any `apply_migration` or `execute_sql` calls.
 - `.git/index.lock` can get stuck if a terminal is closed mid-commit. Fix: `rm -f .git/index.lock`.
+- **PostgREST embed ambiguity.** Any table with more than one FK to the same related table will return HTTP 300 + PGRST201 on a bare `table(...)` embed. Write the FK explicitly, e.g. `campaigns!employees_campaign_id_fkey(name)`. Current known case: `employees` ↔ `campaigns`.
+- **`time_clock` column is `late_minutes`**, not `minutes_late`. Easy transposition. Same for any new code touching the table.
+- **Views on RLS-protected tables need `WITH (security_invoker = on)`.** Postgres defaults views to run with the view owner's privileges, which bypasses RLS entirely. `employees_no_pay` sets it explicitly. If you add a new view over `employees` or any other sensitive table, set this flag or you will leak data.
 - The `employees` table has `campaign_id` (FK to `campaigns`). The `clients` table is the billing parent. A client like Torro has multiple campaigns (SLOC Weekday, MCA, etc.). Invoices roll up at the client level; agents are assigned at the campaign level.
 - shadcn Table uses `<TableHeader>` as the `<thead>` wrapper and `<TableHead>` as the `<th>` cell. Easy to swap by accident.
 - `user_profiles.role` is auto-synced from `employees.title` by a trigger (`trg_sync_user_profile_role`). Don't write to `role` directly — update `title` and let the trigger handle it.
