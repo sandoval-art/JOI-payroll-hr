@@ -27,7 +27,7 @@ export function useEmployees() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("employees")
-        .select("*, campaigns(name)")
+        .select("*, campaigns!employees_campaign_id_fkey(name)")
         .eq("is_active", true)
         .order("created_at", { ascending: true });
       if (error) throw error;

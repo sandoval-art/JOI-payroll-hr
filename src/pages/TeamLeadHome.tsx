@@ -43,7 +43,7 @@ export default function TeamLeadHome() {
     queryFn: async () => {
       const { data } = await supabase
         .from("employees")
-        .select("full_name, campaign_id, campaigns(name)")
+        .select("full_name, campaign_id, campaigns!employees_campaign_id_fkey(name)")
         .eq("id", employeeId!)
         .single();
       return data;

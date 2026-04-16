@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { formatMinutesVerbose } from "@/lib/formatDuration";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -496,7 +497,7 @@ export default function Timeclock() {
             {pastGracePeriod && (
               <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 border border-red-200 text-red-700 text-sm font-semibold">
                 <AlertCircle className="h-4 w-4" />
-                {minutesPastGrace} min past grace — clock in now
+                {formatMinutesVerbose(minutesPastGrace)} past grace — clock in now
               </div>
             )}
           </div>
@@ -550,7 +551,7 @@ export default function Timeclock() {
                   <div className="flex items-center gap-2 text-red-700">
                     <AlertCircle className="h-5 w-5" />
                     <span className="font-semibold">
-                      Late Entry: {todayEntry.late_minutes} minutes
+                      Late Entry: {formatMinutesVerbose(todayEntry.late_minutes)}
                     </span>
                   </div>
                 </div>
@@ -773,7 +774,7 @@ export default function Timeclock() {
                               Auto
                             </Badge>
                           ) : entry.is_late ? (
-                            <Badge variant="destructive">Late {entry.late_minutes}m</Badge>
+                            <Badge variant="destructive">Late {formatMinutesVerbose(entry.late_minutes)}</Badge>
                           ) : entry.clock_out ? (
                             <Badge variant="outline" className="bg-emerald-50">
                               On Time
