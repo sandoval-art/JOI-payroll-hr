@@ -57,7 +57,7 @@ export function usePayrollComputed(
       let empQuery = supabase
         .from("employees")
         .select(
-          "id, employee_id, full_name, campaign_id, monthly_base_salary, daily_discount_rate, kpi_bonus_amount, campaigns(name)"
+          "id, employee_id, full_name, campaign_id, monthly_base_salary, daily_discount_rate, kpi_bonus_amount, campaigns!employees_campaign_id_fkey(name)"
         )
         .eq("is_active", true);
 
