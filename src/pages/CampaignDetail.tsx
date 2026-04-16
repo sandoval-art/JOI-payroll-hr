@@ -59,6 +59,7 @@ const FIELD_TYPE_LABELS: Record<FieldType, string> = {
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const ROLE_LABELS: Record<string, string> = { tl: 'Team Lead', manager: 'Manager', client: 'Client', other: 'Other' };
+const ROLE_RANK: Record<string, number> = { tl: 1, manager: 2, client: 3, other: 4 };
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS) as [string, string][];
 
 const TIMEZONE_OPTIONS = [
@@ -463,12 +464,18 @@ export default function CampaignDetail() {
       const { data, error } = await supabase
         .from('campaign_eod_recipients')
         .select('*')
-        .eq('campaign_id', id!)
-        .order('active', { ascending: false })
-        .order('role_label')
-        .order('email');
+        .eq('campaign_id', id!);
       if (error) throw error;
-      return data;
+      return (data ?? []).sort((a, b) => {
+        // active rows first
+        if (a.active !== b.active) return a.active ? -1 : 1;
+        // then by role rank: TL(1) → Manager(2) → Client(3) → Other(4)
+        const ra = ROLE_RANK[a.role_label] ?? 99;
+        const rb = ROLE_RANK[b.role_label] ?? 99;
+        if (ra !== rb) return ra - rb;
+        // then alphabetical by email
+        return a.email.localeCompare(b.email);
+      });
     },
     enabled: !!id,
   });

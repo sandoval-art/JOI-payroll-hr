@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useTeamRoster,
@@ -5,18 +6,193 @@ import {
   usePendingTimeOffForTeam,
   useTeamEODThisWeek,
   useUnderperformerAlerts,
+  useTLCampaigns,
+  useTodaysTLNote,
+  useSaveTLNote,
+  useEODProgress,
+  type TLCampaign,
 } from "@/hooks/useTeamLead";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Clock, CalendarDays, TrendingUp, AlertTriangle, CheckCircle2, XCircle, UserCheck } from "lucide-react";
+import { Clock, CalendarDays, TrendingUp, AlertTriangle, CheckCircle2, XCircle, UserCheck, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { todayLocal, parseLocalDate } from "@/lib/localDate";
+
+const TZ_LABELS: Record<string, string> = {
+  "America/Denver": "Mountain",
+  "America/Los_Angeles": "Pacific",
+  "America/Chicago": "Central",
+  "America/New_York": "Eastern",
+  "America/Phoenix": "Arizona",
+};
+
+function formatCutoff(time: string | null, tz: string): string {
+  if (!time) return "";
+  const [h, m] = time.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  const mm = m > 0 ? `:${String(m).padStart(2, "0")}` : "";
+  return `${h12}${mm} ${ampm} ${TZ_LABELS[tz] ?? tz}`;
+}
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} minute${mins !== 1 ? "s" : ""} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs !== 1 ? "s" : ""} ago`;
+  return `${Math.floor(hrs / 24)} day${Math.floor(hrs / 24) !== 1 ? "s" : ""} ago`;
+}
+
+function isPastCutoff(cutoffTime: string | null, tz: string): boolean {
+  if (!cutoffTime) return false;
+  try {
+    const today = todayLocal();
+    const dtStr = `${today}T${cutoffTime}`;
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+    });
+    // Current time in the campaign's timezone
+    const parts = formatter.formatToParts(new Date());
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "0";
+    const nowMins = parseInt(get("hour")) * 60 + parseInt(get("minute"));
+    const [ch, cm] = cutoffTime.split(":").map(Number);
+    const cutoffMins = ch * 60 + (cm || 0);
+    return nowMins >= cutoffMins;
+  } catch {
+    return false;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  EOD Note Card (one per campaign)                                   */
+/* ------------------------------------------------------------------ */
+
+function EODNoteCard({
+  campaign,
+  employeeId,
+}: {
+  campaign: TLCampaign;
+  employeeId: string;
+}) {
+  const noteQuery = useTodaysTLNote(campaign.id);
+  const progress = useEODProgress(campaign.id);
+  const saveMutation = useSaveTLNote();
+
+  const [draft, setDraft] = useState("");
+  const [savedText, setSavedText] = useState("");
+
+  // Sync draft from server
+  useEffect(() => {
+    const serverNote = noteQuery.data?.note ?? "";
+    setDraft(serverNote);
+    setSavedText(serverNote);
+  }, [noteQuery.data]);
+
+  const isDirty = draft !== savedText;
+
+  const handleSave = useCallback(() => {
+    saveMutation.mutate(
+      { campaignId: campaign.id, note: draft, writtenBy: employeeId },
+      {
+        onSuccess: () => {
+          setSavedText(draft);
+          toast.success("Note saved");
+        },
+      }
+    );
+  }, [campaign.id, draft, employeeId, saveMutation]);
+
+  const cutoffLabel = formatCutoff(
+    campaign.eod_digest_cutoff_time,
+    campaign.eod_digest_timezone
+  );
+  const pastCutoff = isPastCutoff(
+    campaign.eod_digest_cutoff_time,
+    campaign.eod_digest_timezone
+  );
+
+  const prog = progress.data;
+  const lastSaved = noteQuery.data?.updated_at;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
+        <div className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-muted-foreground" />
+          <CardTitle className="text-lg">
+            Today's EOD Note — {campaign.name}
+          </CardTitle>
+        </div>
+        {cutoffLabel ? (
+          <Badge variant="outline" className="shrink-0 text-xs">
+            Cutoff: {cutoffLabel}
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="shrink-0 text-xs text-muted-foreground">
+            No cutoff set — configure in Campaign Settings
+          </Badge>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* Progress line */}
+        {prog && (
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">{prog.submitted}</span>{" "}
+            of{" "}
+            <span className="font-medium text-foreground">{prog.total}</span>{" "}
+            agents have submitted today's EOD
+          </p>
+        )}
+
+        {/* Textarea + Save */}
+        <div className="flex gap-3 items-start">
+          <Textarea
+            className="min-h-[6rem] flex-1 resize-y"
+            rows={4}
+            placeholder="Today's context — anything the recipients should know."
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+          />
+          {isDirty && (
+            <Button
+              className="shrink-0"
+              onClick={handleSave}
+              disabled={saveMutation.isPending}
+            >
+              {saveMutation.isPending ? "Saving..." : "Save Note"}
+            </Button>
+          )}
+        </div>
+
+        {/* Last saved + past cutoff */}
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">
+            {lastSaved
+              ? `Last saved ${relativeTime(lastSaved)}`
+              : "Not yet saved today"}
+          </p>
+          {pastCutoff && (
+            <p className="text-xs text-muted-foreground">
+              Cutoff has passed. Note will appear in tomorrow's morning late
+              bundle if submitted late.
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function formatTime(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -56,6 +232,7 @@ export default function TeamLeadHome() {
   const pendingTimeOff = usePendingTimeOffForTeam(employeeId ?? undefined);
   const eodWeek = useTeamEODThisWeek(employeeId ?? undefined);
   const alerts = useUnderperformerAlerts(employeeId ?? undefined);
+  const tlCampaigns = useTLCampaigns(employeeId ?? null);
 
   const firstName = tlEmployee?.full_name?.split(" ")[0] ?? "Team Lead";
   const campaignData = tlEmployee?.campaigns as { name: string } | null;
@@ -120,6 +297,15 @@ export default function TeamLeadHome() {
           {campaignName} &middot; Team of {teamSize}
         </p>
       </div>
+
+      {/* Today's EOD Note cards — one per campaign the TL leads */}
+      {tlCampaigns.data && tlCampaigns.data.length > 0 && employeeId && (
+        <div className="space-y-4">
+          {tlCampaigns.data.map((c) => (
+            <EODNoteCard key={c.id} campaign={c} employeeId={employeeId} />
+          ))}
+        </div>
+      )}
 
       {/* 2-col grid for cards 1, 2, and 4 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
