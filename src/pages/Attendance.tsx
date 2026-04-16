@@ -25,7 +25,7 @@ interface AttendanceRecord {
   clock_in: string | null;
   clock_out: string | null;
   is_late: boolean;
-  minutes_late: number | null;
+  late_minutes: number | null;
   created_at: string;
 }
 
@@ -38,7 +38,7 @@ interface EmployeeWithAttendance {
   clock_in: string | null;
   clock_out: string | null;
   is_late: boolean;
-  minutes_late: number | null;
+  late_minutes: number | null;
   is_repeat_late: boolean;
 }
 
@@ -96,7 +96,7 @@ export default function Attendance() {
 
       const { data: timeClock, error: timeClockError } = await supabase
         .from("time_clock")
-        .select("id, employee_id, clock_in, clock_out, is_late, minutes_late")
+        .select("id, employee_id, clock_in, clock_out, is_late, late_minutes")
         .eq("date", todayStr);
 
       if (timeClockError) throw timeClockError;
@@ -178,7 +178,7 @@ export default function Attendance() {
             clock_in: attendance?.clock_in || null,
             clock_out: attendance?.clock_out || null,
             is_late: attendance?.is_late || false,
-            minutes_late: attendance?.minutes_late || null,
+            late_minutes: attendance?.late_minutes || null,
             is_repeat_late: isRepeatLate,
           };
         }
@@ -364,7 +364,7 @@ export default function Attendance() {
                       <TableCell>
                         {employee.is_late ? (
                           <Badge variant="destructive">
-                            {employee.minutes_late} min
+                            {employee.late_minutes} min
                           </Badge>
                         ) : (
                           <span className="text-muted-foreground">-</span>
