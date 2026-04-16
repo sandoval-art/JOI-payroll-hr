@@ -259,7 +259,20 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      employees_no_pay: {
+        Row: {
+          id: string
+          employee_id: string
+          full_name: string
+          campaign_id: string | null
+          is_active: boolean | null
+          created_at: string | null
+          title: string | null
+          reports_to: string | null
+          email: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
