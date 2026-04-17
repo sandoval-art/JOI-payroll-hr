@@ -1,6 +1,6 @@
 # JOI Payroll & HR App — Handoff
 
-Last updated: 2026-04-16
+Last updated: 2026-04-17
 
 Quick reference for picking the project back up on a new machine.
 
@@ -105,6 +105,7 @@ Run these in order via the Supabase SQL editor if setting up a fresh database. A
 15. `20260417000001_tl_per_campaign.sql` — adds `team_lead_id` to campaigns, cascade triggers for reports_to sync
 16. `20260416000001_rls_hardening.sql` — **Security**: replaces all blanket "allow authenticated" RLS policies with role-scoped policies matching the 5-tier permission model. Creates `employees_no_pay` view for team-lead queries. See `docs/security/rls-audit-2026-04-16.md` for the full audit.
 17. `20260416000002_rls_hardening_rollback.sql` — **Emergency rollback** for the above. Restores original blanket policies. Only run if something breaks.
+18. `20260416000003_eod_digest_foundation.sql` — EOD digest tables (`campaign_eod_recipients`, `campaign_eod_tl_notes`), digest schedule columns on `campaigns`, RLS policies for both new tables.
 
 One-off fix files (run once, not migrations):
 - `supabase/fix_stale_timeclock_row.sql` — preview + delete stray same-minute clock-in/out rows caused by the pre-fix UTC date bug. Run when cleaning up before testing the timeclock on Apr 14, 2026.
@@ -158,7 +159,7 @@ One-off fix files (run once, not migrations):
 - `RoleHome` now routes: leadership → Dashboard, team_lead → TeamLeadHome, agent → EmployeeHome.
 - Shift defaults already Mon-Fri in both CampaignDetail and ShiftSettings. No campaigns with all-7-day shifts found.
 
-**Recently shipped (2026-04-16 — RLS hardening + follow-ups):**
+**Recently shipped (2026-04-17 — RLS hardening + follow-ups):**
 - **RLS policy rewrite applied.** Migration `20260416000001_rls_hardening.sql` replaced 13 tables' blanket "allow authenticated" policies with role-scoped ones matching the 5-tier model. Applied live to Supabase project `jpaihltkrohdqkqlbqkf`. Rollback at `20260416000002_rls_hardening_rollback.sql`. Full audit notes in `docs/security/rls-audit-2026-04-16.md`.
 - **`employees_no_pay` view created** with `WITH (security_invoker = on)` so RLS runs under the caller's privileges instead of the view owner's. Team Lead hooks (`useTeamLead.ts`) now read from this view so salary columns can't leak even with `select("*")`.
 - **`guard_user_profile_role()` BEFORE UPDATE trigger on `user_profiles`** blocks direct role escalation. Defense in depth — RLS already has no UPDATE policy on that table for non-leadership users.
@@ -203,6 +204,27 @@ One-off fix files (run once, not migrations):
 - EOD clock-out gate: agents can't clock out until they answer their campaign's KPI fields. The dialog lives in `src/components/ClockOutEODDialog.tsx` and is triggered from `Timeclock.tsx`. If a campaign has no active KPI fields configured, clock-out proceeds silently (no form).
 - EOD Form Builder page removed — per-campaign KPI config is now on the Campaigns → [Campaign] page.
 - `My EOD` sidebar item renamed to `My EOD History` and the page rewritten as a read-only list of the agent's past submissions.
+
+## EOD Digest System — In Progress (2026-04-17)
+
+### What shipped to main
+
+- **Migration `20260416000003_eod_digest_foundation.sql`** — added tables `campaign_eod_recipients`, `campaign_eod_tl_notes`, and columns `campaigns.eod_digest_cutoff_time`, `campaigns.eod_digest_timezone`. RLS now 63 policies across 15 tables.
+- **Admin UI on `src/pages/CampaignDetail.tsx`** — EOD Digest Recipients card (CRUD + Active toggle + role-ranked sort) and Digest Schedule card (cutoff time + timezone with 5 US zone options).
+- **TL Note card on `src/pages/TeamLeadHome.tsx`** — one card per campaign the TL leads, with cutoff badge, live progress counter (X of Y agents submitted today, 60s refetch + on focus), textarea with dirty-state Save, and past-cutoff warning text. New hooks in `src/hooks/useTeamLead.ts`: `useTLCampaigns`, `useTodaysTLNote`, `useSaveTLNote`, `useEODProgress`.
+- **Dev seed under `supabase/dev-seed/`** — `01_seed_mock_dashboard.sql` creates mock campaign `DEV_MOCK_TORRO_SLOC` with 6 mock agents, 3 weeks of `time_clock` + `eod_logs`, 5 days of TL notes, 2 recipients. `02_teardown_mock_dashboard.sql` reverses it cleanly.
+
+### Still to build (in order)
+
+1. **Daily digest edge function** — runs on pg_cron, sends per-campaign digest email at cutoff via Gmail SMTP from `EOD@justoutsource.it`. Double-send guarded by a new `eod_digest_log` table.
+2. **Morning late-EOD bundle edge function** — runs once at a configurable morning time, sends any EODs submitted after yesterday's cutoff.
+3. **Missing-EOD submission flow for agents** — handles the auto-clock-out edge case where agent didn't submit EOD.
+4. **Amend flow for submitted EODs** — edit UI + `last_edited_at` / `edit_count` columns.
+5. **TL dashboard diagnostic views** — daily bar charts, 4-week sparklines, leaderboard, monthly heatmap, coaching log. Tier 1 (self-report only) works for all campaigns; Tier 2 (client-provided conversion data) lights up only for campaigns like Torro that share data.
+
+### Pre-deploy reminder
+
+Run `supabase/dev-seed/02_teardown_mock_dashboard.sql` to remove mock data under `DEV_MOCK_TORRO_SLOC` before public launch.
 
 ## Key files to know
 
