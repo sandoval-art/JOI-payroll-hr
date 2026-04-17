@@ -317,23 +317,30 @@ export interface TeamEODSummary {
   isBottomPerformer: boolean;
 }
 
+export interface TeamEODWeekResult {
+  summaries: TeamEODSummary[];
+  /** Ordered KPI fields from campaign config — use for column headers. */
+  kpiFields: { field_name: string; field_label: string }[];
+}
+
 export function useTeamEODThisWeek(tlEmployeeId: string | null) {
   return useQuery({
     queryKey: ["team-eod-week", tlEmployeeId],
-    queryFn: async (): Promise<TeamEODSummary[]> => {
-      if (!tlEmployeeId) return [];
+    queryFn: async (): Promise<TeamEODWeekResult> => {
+      if (!tlEmployeeId) return { summaries: [], kpiFields: [] };
 
-      // 1. Team roster
+      // 1. Team roster (with campaign_id so we can check min_target)
       const { data: roster, error: rosterErr } = await supabase
         .from("employees_no_pay")
-        .select("id, full_name")
+        .select("id, full_name, campaign_id")
         .eq("reports_to", tlEmployeeId)
         .eq("is_active", true);
       if (rosterErr) throw rosterErr;
-      const members = (roster || []) as { id: string; full_name: string }[];
-      if (members.length === 0) return [];
+      const members = (roster || []) as { id: string; full_name: string; campaign_id: string | null }[];
+      if (members.length === 0) return { summaries: [], kpiFields: [] };
 
       const memberIds = members.map((m) => m.id);
+      const campaignIds = [...new Set(members.map((m) => m.campaign_id).filter(Boolean))] as string[];
 
       // 2. Compute Monday–Sunday of current week
       const todayDate = new Date(todayLocal() + "T00:00:00");
@@ -344,15 +351,54 @@ export function useTeamEODThisWeek(tlEmployeeId: string | null) {
       const mondayStr = fmtDate(monday);
       const sundayStr = fmtDate(sunday);
 
-      // 3. Fetch eod_logs in range
-      const { data: logs, error: logErr } = await supabase
-        .from("eod_logs")
-        .select("id, employee_id, date, metrics")
-        .in("employee_id", memberIds)
-        .gte("date", mondayStr)
-        .lte("date", sundayStr);
-      if (logErr) throw logErr;
-      const eodLogs = (logs || []) as EODLogRow[];
+      // 3. Fetch eod_logs in range + ALL active KPI fields in parallel
+      const [logRes, kpiRes] = await Promise.all([
+        supabase
+          .from("eod_logs")
+          .select("id, employee_id, date, metrics")
+          .in("employee_id", memberIds)
+          .gte("date", mondayStr)
+          .lte("date", sundayStr),
+        campaignIds.length > 0
+          ? supabase
+              .from("campaign_kpi_config")
+              .select("campaign_id, field_name, field_label, flag_threshold, flag_independent, display_order")
+              .in("campaign_id", campaignIds)
+              .eq("field_type", "number")
+              .eq("is_active", true)
+              .order("display_order")
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (logRes.error) throw logRes.error;
+      if (kpiRes.error) throw kpiRes.error;
+
+      const eodLogs = (logRes.data || []) as EODLogRow[];
+
+      // Build kpiFields for column headers — dedup by field_name, preserve order
+      // (if team spans multiple campaigns we keep first occurrence of each field_name)
+      const seenFieldNames = new Set<string>();
+      const kpiFields: { field_name: string; field_label: string }[] = [];
+      for (const kpi of kpiRes.data ?? []) {
+        if (!seenFieldNames.has(kpi.field_name)) {
+          seenFieldNames.add(kpi.field_name);
+          kpiFields.push({ field_name: kpi.field_name, field_label: kpi.field_label });
+        }
+      }
+
+      // Build per-campaign flag map — only fields that have flag_threshold set
+      // AND flag_independent = true. Fields with flag_independent = false (e.g.
+      // calls_made) are displayed but never trigger the flag on their own.
+      type KPIMin = { field_name: string; flag_threshold: number };
+      const kpisByCampaign = new Map<string, KPIMin[]>();
+      for (const kpi of kpiRes.data ?? []) {
+        if (kpi.flag_threshold === null || kpi.flag_threshold === undefined) continue;
+        if (kpi.flag_independent === false) continue;
+        if (!kpisByCampaign.has(kpi.campaign_id)) kpisByCampaign.set(kpi.campaign_id, []);
+        kpisByCampaign.get(kpi.campaign_id)!.push({
+          field_name: kpi.field_name,
+          flag_threshold: Number(kpi.flag_threshold),
+        });
+      }
 
       // 4. Aggregate per member
       const summaries: TeamEODSummary[] = members.map((m) => {
@@ -370,38 +416,40 @@ export function useTeamEODThisWeek(tlEmployeeId: string | null) {
           }
         }
 
+        // Flag if daily average is below flag_threshold on ANY tracked KPI.
+        // Only count days where the agent actually submitted a value for that
+        // field — old submissions that predate a field being added show null
+        // and must not be treated as zero.
+        let isBottomPerformer = false;
+        if (m.campaign_id && myLogs.length > 0) {
+          const kpis = kpisByCampaign.get(m.campaign_id) ?? [];
+          isBottomPerformer = kpis.some((kpi) => {
+            // Count only logs that actually contain this field
+            let sum = 0;
+            let count = 0;
+            for (const log of myLogs) {
+              const raw = (log.metrics as Record<string, unknown> | null)?.[kpi.field_name];
+              if (raw !== undefined && raw !== null) {
+                const n = typeof raw === "number" ? raw : parseFloat(String(raw));
+                if (!isNaN(n)) { sum += n; count++; }
+              }
+            }
+            if (count === 0) return false; // no data for this field — don't flag
+            return (sum / count) < kpi.flag_threshold;
+          });
+        }
+
         return {
           employeeId: m.id,
           fullName: m.full_name,
           submissions: myLogs.length,
           metrics: metricsTotals,
           isTopPerformer: false,
-          isBottomPerformer: false,
+          isBottomPerformer,
         };
       });
 
-      // Determine top/bottom by total of first numeric metric key
-      if (summaries.length > 1) {
-        const allKeys = [...new Set(summaries.flatMap((s) => Object.keys(s.metrics)))];
-        if (allKeys.length > 0) {
-          const primaryKey = allKeys[0];
-          let maxVal = -Infinity;
-          let minVal = Infinity;
-          let maxIdx = -1;
-          let minIdx = -1;
-
-          summaries.forEach((s, i) => {
-            const val = s.metrics[primaryKey] ?? 0;
-            if (val > maxVal) { maxVal = val; maxIdx = i; }
-            if (val < minVal) { minVal = val; minIdx = i; }
-          });
-
-          if (maxIdx >= 0) summaries[maxIdx].isTopPerformer = true;
-          if (minIdx >= 0 && minIdx !== maxIdx) summaries[minIdx].isBottomPerformer = true;
-        }
-      }
-
-      return summaries;
+      return { summaries, kpiFields };
     },
     enabled: !!tlEmployeeId,
   });
@@ -624,6 +672,322 @@ export function useSaveTLNote() {
         queryKey: ["tl-note-today", campaignId, today],
       });
     },
+  });
+}
+
+/* ================================================================== */
+/*  Hook 10 – useAgentBreakdown                                        */
+/*  Week + month daily EOD detail for an individual agent.             */
+/* ================================================================== */
+
+export interface AgentBreakdownDay {
+  date: string;        // YYYY-MM-DD
+  isCurrentWeek: boolean;
+  metrics: Record<string, number | string | boolean | null>;
+  notes: string | null;
+}
+
+export interface AgentBreakdownData {
+  employeeId: string;
+  fullName: string;
+  campaignName: string;
+  kpiFields: { field_name: string; field_label: string; field_type: string; min_target: number | null }[];
+  days: AgentBreakdownDay[]; // last 30 days, newest first
+}
+
+export function useAgentBreakdown(employeeId: string | null, campaignId: string | null) {
+  return useQuery({
+    queryKey: ["agent-breakdown", employeeId, campaignId],
+    queryFn: async (): Promise<AgentBreakdownData | null> => {
+      if (!employeeId || !campaignId) return null;
+
+      const todayDate = new Date(todayLocal() + "T00:00:00");
+      const monday = new Date(todayDate);
+      monday.setDate(todayDate.getDate() - ((todayDate.getDay() + 6) % 7));
+      const mondayStr = fmtDate(monday);
+
+      const startDate = new Date(todayDate);
+      startDate.setDate(todayDate.getDate() - 29); // 30 days inclusive
+
+      const [empRes, kpiRes, logRes] = await Promise.all([
+        supabase
+          .from("employees_no_pay")
+          .select("id, full_name, campaign_id")
+          .eq("id", employeeId)
+          .single(),
+        supabase
+          .from("campaign_kpi_config")
+          .select("field_name, field_label, field_type, min_target, display_order")
+          .eq("campaign_id", campaignId)
+          .eq("is_active", true)
+          .order("display_order"),
+        supabase
+          .from("eod_logs")
+          .select("date, metrics, notes")
+          .eq("employee_id", employeeId)
+          .gte("date", fmtDate(startDate))
+          .lte("date", todayLocal())
+          .order("date", { ascending: false }),
+      ]);
+
+      if (empRes.error) throw empRes.error;
+      if (kpiRes.error) throw kpiRes.error;
+      if (logRes.error) throw logRes.error;
+
+      const emp = empRes.data as { id: string; full_name: string; campaign_id: string } | null;
+
+      // Campaign name
+      let campaignName = "";
+      if (campaignId) {
+        const { data: camp } = await supabase
+          .from("campaigns")
+          .select("name")
+          .eq("id", campaignId)
+          .single();
+        campaignName = camp?.name ?? "";
+      }
+
+      const kpiFields = (kpiRes.data ?? []).map((k) => ({
+        field_name: k.field_name,
+        field_label: k.field_label,
+        field_type: k.field_type,
+        min_target: k.min_target !== null ? Number(k.min_target) : null,
+      }));
+
+      type LogRow = { date: string; metrics: unknown; notes: string | null };
+      const days: AgentBreakdownDay[] = (logRes.data ?? [] as LogRow[]).map((log) => {
+        const rawMetrics = (log.metrics as Record<string, unknown>) ?? {};
+        const metrics: Record<string, number | string | boolean | null> = {};
+        for (const kpi of kpiFields) {
+          const raw = rawMetrics[kpi.field_name];
+          if (raw === undefined || raw === null) {
+            metrics[kpi.field_name] = null;
+          } else if (kpi.field_type === "number") {
+            const n = typeof raw === "number" ? raw : parseFloat(String(raw));
+            metrics[kpi.field_name] = isNaN(n) ? null : n;
+          } else {
+            metrics[kpi.field_name] = String(raw);
+          }
+        }
+        return {
+          date: log.date,
+          isCurrentWeek: log.date >= mondayStr,
+          metrics,
+          notes: log.notes as string | null,
+        };
+      });
+
+      return {
+        employeeId,
+        fullName: emp?.full_name ?? "",
+        campaignName,
+        kpiFields,
+        days,
+      };
+    },
+    enabled: !!employeeId && !!campaignId,
+  });
+}
+
+/* ================================================================== */
+/*  Hook 12 – useUnderperformerTrend                                   */
+/*  4-week daily KPI trend for agents below campaign min_target.       */
+/* ================================================================== */
+
+export interface AgentTrendDay {
+  date: string;        // YYYY-MM-DD
+  value: number | null; // null = no submission that day
+  belowTarget: boolean;
+  notes: string | null; // agent's EOD notes that day
+}
+
+export interface KPITrend {
+  fieldName: string;
+  fieldLabel: string;
+  minTarget: number;
+  days: AgentTrendDay[]; // 28 entries, oldest → newest
+  daysBelow: number;
+  daysSubmitted: number;
+}
+
+export interface AgentUnderperformerTrend {
+  employeeId: string;
+  fullName: string;
+  campaignName: string;
+  kpis: KPITrend[];
+  totalDaysBelow: number; // across all KPI fields
+  recentBelowNotes: { date: string; note: string }[]; // up to 5, most recent first
+}
+
+export function useUnderperformerTrend(tlEmployeeId: string | null) {
+  return useQuery({
+    queryKey: ["team-underperformer-trend", tlEmployeeId],
+    queryFn: async (): Promise<AgentUnderperformerTrend[]> => {
+      if (!tlEmployeeId) return [];
+
+      // 1. Team roster
+      const { data: roster, error: rosterErr } = await supabase
+        .from("employees_no_pay")
+        .select("id, full_name, campaign_id")
+        .eq("reports_to", tlEmployeeId)
+        .eq("is_active", true);
+      if (rosterErr) throw rosterErr;
+      const members = (roster ?? []) as { id: string; full_name: string; campaign_id: string | null }[];
+      if (members.length === 0) return [];
+
+      const campaignIds = [
+        ...new Set(members.map((m) => m.campaign_id).filter(Boolean)),
+      ] as string[];
+      if (campaignIds.length === 0) return [];
+
+      // 2. Campaign names + KPI configs (number fields with min_target set)
+      const [campaignRes, kpiRes] = await Promise.all([
+        supabase.from("campaigns").select("id, name").in("id", campaignIds),
+        supabase
+          .from("campaign_kpi_config")
+          .select("campaign_id, field_name, field_label, min_target, display_order")
+          .in("campaign_id", campaignIds)
+          .eq("field_type", "number")
+          .eq("is_active", true)
+          .not("min_target", "is", null)
+          .order("display_order"),
+      ]);
+      if (campaignRes.error) throw campaignRes.error;
+      if (kpiRes.error) throw kpiRes.error;
+
+      const campaignNameMap = new Map(
+        (campaignRes.data ?? []).map((c) => [c.id, c.name])
+      );
+
+      type KPIConfig = {
+        field_name: string;
+        field_label: string;
+        min_target: number;
+        display_order: number;
+      };
+      const kpisByCampaign = new Map<string, KPIConfig[]>();
+      for (const kpi of kpiRes.data ?? []) {
+        if (!kpisByCampaign.has(kpi.campaign_id))
+          kpisByCampaign.set(kpi.campaign_id, []);
+        kpisByCampaign.get(kpi.campaign_id)!.push({
+          field_name: kpi.field_name,
+          field_label: kpi.field_label,
+          min_target: Number(kpi.min_target),
+          display_order: kpi.display_order ?? 0,
+        });
+      }
+
+      // 3. Last 28 days of EOD logs
+      const todayDate = new Date(todayLocal() + "T00:00:00");
+      const startDate = new Date(todayDate);
+      startDate.setDate(todayDate.getDate() - 27); // 28 days inclusive
+
+      const memberIds = members.map((m) => m.id);
+      const { data: logs, error: logErr } = await supabase
+        .from("eod_logs")
+        .select("employee_id, date, metrics, notes")
+        .in("employee_id", memberIds)
+        .gte("date", fmtDate(startDate))
+        .lte("date", todayLocal());
+      if (logErr) throw logErr;
+
+      type LogRow = {
+        employee_id: string;
+        date: string;
+        metrics: unknown;
+        notes: string | null;
+      };
+      const logIndex = new Map<string, LogRow>();
+      for (const log of (logs ?? []) as LogRow[]) {
+        logIndex.set(`${log.employee_id}__${log.date}`, log);
+      }
+
+      // Build 28-day date array, oldest first
+      const dateRange: string[] = [];
+      for (let i = 27; i >= 0; i--) {
+        const d = new Date(todayDate);
+        d.setDate(todayDate.getDate() - i);
+        dateRange.push(fmtDate(d));
+      }
+
+      // 4. Build per-agent trends
+      const trends: AgentUnderperformerTrend[] = [];
+
+      for (const m of members) {
+        const campaignKpis = m.campaign_id
+          ? kpisByCampaign.get(m.campaign_id)
+          : undefined;
+        if (!campaignKpis || campaignKpis.length === 0) continue;
+
+        const kpiTrends: KPITrend[] = [];
+        let totalDaysBelow = 0;
+        const belowNotesByDate = new Map<string, string>();
+
+        for (const kpi of campaignKpis) {
+          const days: AgentTrendDay[] = dateRange.map((date) => {
+            const log = logIndex.get(`${m.id}__${date}`);
+            if (!log) return { date, value: null, belowTarget: false, notes: null };
+
+            const metrics = (log.metrics as Record<string, unknown>) ?? {};
+            const rawVal = metrics[kpi.field_name];
+            let value: number | null = null;
+            if (rawVal !== undefined && rawVal !== null) {
+              const parsed =
+                typeof rawVal === "number" ? rawVal : parseFloat(String(rawVal));
+              if (!isNaN(parsed)) value = parsed;
+            }
+
+            const belowTarget = value !== null && value < kpi.min_target;
+            if (belowTarget && log.notes) {
+              belowNotesByDate.set(date, log.notes as string);
+            }
+            return {
+              date,
+              value,
+              belowTarget,
+              notes: log.notes as string | null,
+            };
+          });
+
+          const daysBelow = days.filter((d) => d.value !== null && d.belowTarget).length;
+          const daysSubmitted = days.filter((d) => d.value !== null).length;
+          totalDaysBelow += daysBelow;
+
+          kpiTrends.push({
+            fieldName: kpi.field_name,
+            fieldLabel: kpi.field_label,
+            minTarget: kpi.min_target,
+            days,
+            daysBelow,
+            daysSubmitted,
+          });
+        }
+
+        // Only include agents with 3+ below-target days (across any KPI)
+        if (totalDaysBelow < 3) continue;
+
+        const recentBelowNotes = [...belowNotesByDate.entries()]
+          .sort((a, b) => b[0].localeCompare(a[0]))
+          .slice(0, 5)
+          .map(([date, note]) => ({ date, note }));
+
+        trends.push({
+          employeeId: m.id,
+          fullName: m.full_name,
+          campaignName: m.campaign_id
+            ? (campaignNameMap.get(m.campaign_id) ?? "")
+            : "",
+          kpis: kpiTrends,
+          totalDaysBelow,
+          recentBelowNotes,
+        });
+      }
+
+      // Worst performers first
+      trends.sort((a, b) => b.totalDaysBelow - a.totalDaysBelow);
+      return trends;
+    },
+    enabled: !!tlEmployeeId,
   });
 }
 

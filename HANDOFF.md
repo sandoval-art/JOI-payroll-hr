@@ -107,6 +107,8 @@ Run these in order via the Supabase SQL editor if setting up a fresh database. A
 17. `20260416000002_rls_hardening_rollback.sql` — **Emergency rollback** for the above. Restores original blanket policies. Only run if something breaks.
 18. `20260416000003_eod_digest_foundation.sql` — EOD digest tables (`campaign_eod_recipients`, `campaign_eod_tl_notes`), digest schedule columns on `campaigns`, RLS policies for both new tables.
 19. `20260417000001_eod_digest_sending_infra.sql` — EOD digest sending infra: `campaigns.eod_reply_to_email` column + `eod_digest_log` table (tracks each send attempt; unique `(campaign_id, digest_date, digest_type)` guards against pg_cron double-send). RLS now 65 policies across 16 tables.
+20. `20260417000005_flag_threshold.sql` — adds `flag_threshold` column to `campaign_kpi_config`. Separates the agent-facing daily goal (`min_target`) from the TL alert floor (`flag_threshold`).
+21. `20260417000006_flag_independent.sql` — adds `flag_independent boolean DEFAULT true` to `campaign_kpi_config`. Fields with `flag_independent = false` (e.g. `calls_made`) are tracked but never trigger the TL flag independently.
 
 One-off fix files (run once, not migrations):
 - `supabase/fix_stale_timeclock_row.sql` — preview + delete stray same-minute clock-in/out rows caused by the pre-fix UTC date bug. Run when cleaning up before testing the timeclock on Apr 14, 2026.
@@ -205,6 +207,41 @@ One-off fix files (run once, not migrations):
 - EOD clock-out gate: agents can't clock out until they answer their campaign's KPI fields. The dialog lives in `src/components/ClockOutEODDialog.tsx` and is triggered from `Timeclock.tsx`. If a campaign has no active KPI fields configured, clock-out proceeds silently (no form).
 - EOD Form Builder page removed — per-campaign KPI config is now on the Campaigns → [Campaign] page.
 - `My EOD` sidebar item renamed to `My EOD History` and the page rewritten as a read-only list of the agent's past submissions.
+
+## TL Dashboard — KPI Flags & Agent Breakdown (2026-04-17)
+
+### What shipped
+
+**Migrations:**
+- `20260417000005_flag_threshold.sql` — adds `flag_threshold numeric(10,2)` to `campaign_kpi_config`. Separates the daily goal shown to agents (`min_target`) from the floor that fires the TL flag (`flag_threshold`). Both are nullable and independent.
+- `20260417000006_flag_independent.sql` — adds `flag_independent boolean NOT NULL DEFAULT true` to `campaign_kpi_config`. When `false`, the field is tracked and displayed but will never trigger the flag on its own. Seeded `calls_made` to `false` — a high CP count overrides a low dial count.
+
+**Flag logic (`src/hooks/useTeamLead.ts` — `useTeamEODThisWeek`):**
+- `isBottomPerformer` fires when a tracked KPI's **daily average** drops below `flag_threshold`.
+- Only fields with `flag_independent = true` are evaluated. `calls_made` (and any future effort-only metrics) won't raise a flag on their own.
+- Null-safe: if an agent has zero submissions containing a field (e.g. field was added after their logs), the field is skipped entirely — no false positives from old data.
+- Hook now returns `{ summaries, kpiFields }` (`TeamEODWeekResult`). `kpiFields` is an ordered array of `{ field_name, field_label }` from `campaign_kpi_config`, used for column headers.
+
+**EOD Performance table (`src/pages/TeamLeadHome.tsx`):**
+- Column headers now read from `kpiFields[i].field_label` (e.g. "Total Credit Pulls") instead of scraping raw keys from JSONB logs (which was showing "funded", "approvals", etc.).
+- Removed the Submissions column — redundant once the agent breakdown is available.
+- Agent name click toggles an inline breakdown row (`AgentBreakdownRow`) — no popup.
+- `AgentBreakdownRow` shows This Week / Last 30 Days toggle, color-coded cells (green ≥ min_target, amber < target but > 0, red = 0), and agent notes per day.
+- Flag icon (amber `Flag`) appears at the end of the row when `isBottomPerformer`. No badge text.
+- Removed Underperformer Watch card entirely.
+
+**Campaign Settings UI (`src/pages/CampaignDetail.tsx`):**
+- Number KPI fields now show two separate inputs: **Daily Goal** (`min_target`, shown to agents in the EOD form) and **Flag Below** (`flag_threshold`, TL alert floor).
+- When a flag threshold is set, a **"Triggers flag independently"** toggle appears. Off = this field won't raise a flag alone (useful for effort metrics like calls made).
+- Metric card list shows `Flag < N (not independent)` when the toggle is off, so the config is visible without opening the edit dialog.
+
+### What's next (TL dashboard)
+
+- Agent-facing performance view — agents currently have no way to see their own history outside of EOD submission.
+- EOD digest email — schedule + recipients are configurable but the edge function that sends the email hasn't been built yet.
+- Payroll calculations — timeclock data exists but pay computation for agents hasn't been wired up.
+
+---
 
 ## EOD Digest System — In Progress (2026-04-17)
 
