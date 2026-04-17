@@ -106,6 +106,7 @@ Run these in order via the Supabase SQL editor if setting up a fresh database. A
 16. `20260416000001_rls_hardening.sql` — **Security**: replaces all blanket "allow authenticated" RLS policies with role-scoped policies matching the 5-tier permission model. Creates `employees_no_pay` view for team-lead queries. See `docs/security/rls-audit-2026-04-16.md` for the full audit.
 17. `20260416000002_rls_hardening_rollback.sql` — **Emergency rollback** for the above. Restores original blanket policies. Only run if something breaks.
 18. `20260416000003_eod_digest_foundation.sql` — EOD digest tables (`campaign_eod_recipients`, `campaign_eod_tl_notes`), digest schedule columns on `campaigns`, RLS policies for both new tables.
+19. `20260417000001_eod_digest_sending_infra.sql` — EOD digest sending infra: `campaigns.eod_reply_to_email` column + `eod_digest_log` table (tracks each send attempt; unique `(campaign_id, digest_date, digest_type)` guards against pg_cron double-send). RLS now 65 policies across 16 tables.
 
 One-off fix files (run once, not migrations):
 - `supabase/fix_stale_timeclock_row.sql` — preview + delete stray same-minute clock-in/out rows caused by the pre-fix UTC date bug. Run when cleaning up before testing the timeclock on Apr 14, 2026.
@@ -209,22 +210,66 @@ One-off fix files (run once, not migrations):
 
 ### What shipped to main
 
-- **Migration `20260416000003_eod_digest_foundation.sql`** — added tables `campaign_eod_recipients`, `campaign_eod_tl_notes`, and columns `campaigns.eod_digest_cutoff_time`, `campaigns.eod_digest_timezone`. RLS now 63 policies across 15 tables.
+- **Migration `20260416000003_eod_digest_foundation.sql`** — tables `campaign_eod_recipients`, `campaign_eod_tl_notes`, columns `campaigns.eod_digest_cutoff_time`, `campaigns.eod_digest_timezone`. RLS 63 policies across 15 tables.
+- **Migration `20260417000001_eod_digest_sending_infra.sql`** — column `campaigns.eod_reply_to_email` and table `eod_digest_log` (id, campaign_id, digest_date, digest_type check `'daily'|'late_bundle'`, sent_at, recipient_count, agent_submission_count, agent_missing_count, missing_agents jsonb, dry_run default true, smtp_message_id, error; unique `(campaign_id, digest_date, digest_type)`; index on `(campaign_id, digest_date DESC)`). RLS 65 policies across 16 tables.
 - **Admin UI on `src/pages/CampaignDetail.tsx`** — EOD Digest Recipients card (CRUD + Active toggle + role-ranked sort) and Digest Schedule card (cutoff time + timezone with 5 US zone options).
-- **TL Note card on `src/pages/TeamLeadHome.tsx`** — one card per campaign the TL leads, with cutoff badge, live progress counter (X of Y agents submitted today, 60s refetch + on focus), textarea with dirty-state Save, and past-cutoff warning text. New hooks in `src/hooks/useTeamLead.ts`: `useTLCampaigns`, `useTodaysTLNote`, `useSaveTLNote`, `useEODProgress`.
+- **TL Note card on `src/pages/TeamLeadHome.tsx`** — one card per campaign the TL leads, with cutoff badge, live progress counter (X of Y agents submitted today, 60s refetch + on focus), textarea with dirty-state Save, past-cutoff warning. New hooks in `src/hooks/useTeamLead.ts`: `useTLCampaigns`, `useTodaysTLNote`, `useSaveTLNote`, `useEODProgress`.
 - **Dev seed under `supabase/dev-seed/`** — `01_seed_mock_dashboard.sql` creates mock campaign `DEV_MOCK_TORRO_SLOC` with 6 mock agents, 3 weeks of `time_clock` + `eod_logs`, 5 days of TL notes, 2 recipients. `02_teardown_mock_dashboard.sql` reverses it cleanly.
+
+### Design decisions locked in
+
+- **Delivery model:** daily digest at per-campaign cutoff. Late submissions ride in a separate "Late EOD for [date]" email the next morning. No per-submission emails.
+- **Sender:** Gmail SMTP from `EOD@justoutsource.it` (D is setting up the mailbox + App Password, requires 2FA). Nodemailer in a Supabase edge function. `Reply-To` header is the per-campaign `campaigns.eod_reply_to_email` so replies route to the right human. All campaigns share one sender for v1.
+- **Recipient visibility:** To-field (not BCC) for all recipients — matches Torro's culture where clients actively reply to motivate agents. Reply-All reaches everyone; single Reply routes to Reply-To only.
+- **Recipient list per digest:** active entries in `campaign_eod_recipients` + all active agents on the campaign.
+- **Double-send guard:** edge function writes a row to `eod_digest_log` before sending. Unique key `(campaign_id, digest_date, digest_type)` prevents pg_cron retries from spamming clients.
+- **Dry-run mode:** v1 edge function runs in dry-run (writes `eod_digest_log` with `dry_run=true`, does not actually send). Real sending flipped via env var when ready.
+- **Amend flow:** EODs editable. Edits before cutoff → reflected in digest. Edits after cutoff → ride in the next morning's late bundle with "(amended)" tag.
 
 ### Still to build (in order)
 
-1. **Daily digest edge function** — runs on pg_cron, sends per-campaign digest email at cutoff via Gmail SMTP from `EOD@justoutsource.it`. Double-send guarded by a new `eod_digest_log` table.
-2. **Morning late-EOD bundle edge function** — runs once at a configurable morning time, sends any EODs submitted after yesterday's cutoff.
-3. **Missing-EOD submission flow for agents** — handles the auto-clock-out edge case where agent didn't submit EOD.
-4. **Amend flow for submitted EODs** — edit UI + `last_edited_at` / `edit_count` columns.
-5. **TL dashboard diagnostic views** — daily bar charts, 4-week sparklines, leaderboard, monthly heatmap, coaching log. Tier 1 (self-report only) works for all campaigns; Tier 2 (client-provided conversion data) lights up only for campaigns like Torro that share data.
+1. **Prompt 5b — Reply-To email input on Campaign Detail.** Add an optional email input to the EOD Digest Schedule card that persists to `campaigns.eod_reply_to_email`. Full prompt text in "Next CT prompt" below.
+2. **Prompt 5c — Daily digest edge function (dry-run).** Supabase edge function `send-daily-eod-digest`. Triggered by pg_cron every 15 min. For each campaign whose `eod_digest_cutoff_time` just passed (in its `eod_digest_timezone`) and has no row in `eod_digest_log` for today's date + `digest_type='daily'`: pull today's `eod_logs`, today's TL note, active recipients, active agents. Format plain-text digest. Write `eod_digest_log` row with `dry_run=true`. No real send.
+3. **Prompt 5d — Real Gmail SMTP + test button.** Enable real send behind env var. Add a manual "Send Test Digest" button on CampaignDetail that emails the signed-in user only (does not hit real recipients, does not write a real `eod_digest_log` row).
+4. **Prompt 6 — Morning late-EOD bundle edge function.** Runs once at a configurable morning time. Finds EODs submitted after yesterday's cutoff, sends one "Late EOD" email, logs `digest_type='late_bundle'`.
+5. **Prompt 7 — Missing-EOD submission flow for agents.** Handles the auto-clock-out edge case where agent didn't submit EOD. Surfaces an EOD entry point on EmployeeHome for past dates that are missing.
+6. **Prompt 8 — Amend flow.** Edit UI for past EODs. Add `last_edited_at` and `edit_count` columns to `eod_logs`.
+7. **Prompt 9 — TL dashboard diagnostic views.** Tier 1 (self-report baseline — works for every campaign): daily bars, 4-week sparklines, leaderboard, monthly heatmap, coaching log. Tier 2 (only when client shares data — e.g. Torro): per-agent conversion %, deal pipeline, reconciliation. Tier 2 degrades to "No client data feed for this campaign" for HFB/BTC.
+
+### Next CT prompt — Prompt 5b (copy-paste into CT)
+
+> **Task:** On `src/pages/CampaignDetail.tsx`, add a Reply-To email input to the **EOD Digest Schedule** card (the same card that has the cutoff time input and timezone Select).
+>
+> **Branch:** create `feature/eod-digest-reply-to-ui` off main.
+>
+> **Field spec:**
+> - Label: "Reply-To Email"
+> - Helper text: "When clients or managers hit Reply on the digest, responses go to this address. Leave blank to use the sender address."
+> - Input type: email, optional (empty string → save as `null`)
+> - Persists to `campaigns.eod_reply_to_email`
+> - Validate: if not empty, must be a valid email shape. Inline error, block save until fixed or cleared.
+> - Save pattern: same as existing cutoff/timezone fields (TanStack Query mutation, toast on success, invalidate the campaign query).
+>
+> **Field order in the card:** cutoff time, timezone, reply-to email.
+>
+> **Do not touch:** the recipients table, any other card, the edge function (doesn't exist yet), or any migration — the column `campaigns.eod_reply_to_email` already exists from migration `20260417000001_eod_digest_sending_infra.sql`.
+>
+> **When done:** push the branch, open for review, do not merge.
+
+### Branch status (as of 2026-04-17)
+
+- `main` — up to date, both EOD digest schema migrations merged, admin UI live, TL note card live, dev seed applied.
+- `feature/eod-digest-schema`, `feature/eod-digest-admin-ui`, `feature/eod-tl-note-card`, `feature/dev-seed-mock-dashboard`, `feature/eod-digest-sending-infra`, `security/rls-audit` — all merged, safe to delete.
 
 ### Pre-deploy reminder
 
-Run `supabase/dev-seed/02_teardown_mock_dashboard.sql` to remove mock data under `DEV_MOCK_TORRO_SLOC` before public launch.
+- Run `supabase/dev-seed/02_teardown_mock_dashboard.sql` to remove mock data under `DEV_MOCK_TORRO_SLOC` before public launch.
+- Confirm `EOD@justoutsource.it` has 2FA enabled and a Gmail App Password generated. App Password goes in Supabase edge function env vars — never `.env.example`, never the repo.
+
+### Parked HR backlog (brainstorm after digest steps 5-6 ship)
+
+- **HR document collection with clock-in enforcement.** Required-docs checklist per employee. Missing doc → flag + notify HR + notify agent. Grace window expires → agent's clock-in button disabled until HR re-enables.
+- **Policy section on every profile.** Campaign-specific info, company policy, state-approved reglamentos. Read-only or versioned TBD. Acknowledgment tracking TBD.
 
 ## Key files to know
 
