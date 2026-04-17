@@ -10,6 +10,7 @@ import {
   useTodaysTLNote,
   useSaveTLNote,
   useEODProgress,
+  useAgentBreakdown,
   type TLCampaign,
 } from "@/hooks/useTeamLead";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Clock, CalendarDays, TrendingUp, AlertTriangle, CheckCircle2, XCircle, UserCheck, FileText } from "lucide-react";
+import { Clock, CalendarDays, TrendingUp, AlertTriangle, CheckCircle2, XCircle, FileText, Flag, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { todayLocal, parseLocalDate } from "@/lib/localDate";
 
@@ -194,6 +195,133 @@ function EODNoteCard({
   );
 }
 
+function formatTrendDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Agent Breakdown Row — inline expandable inside the EOD table       */
+/* ------------------------------------------------------------------ */
+
+function kpiCellColor(
+  value: number | string | boolean | null,
+  minTarget: number | null,
+  fieldType: string
+): string {
+  if (value === null) return "text-muted-foreground";
+  if (fieldType !== "number" || minTarget === null) return "";
+  const n = Number(value);
+  if (n >= minTarget) return "text-green-700 font-semibold";
+  if (n > 0) return "text-amber-600 font-semibold";
+  return "text-red-600 font-semibold";
+}
+
+function fmtVal(value: number | string | boolean | null, fieldType: string): string {
+  if (value === null) return "—";
+  if (fieldType === "boolean") return value ? "Yes" : "No";
+  return String(value);
+}
+
+function AgentBreakdownRow({
+  employeeId,
+  campaignId,
+  colSpan,
+}: {
+  employeeId: string;
+  campaignId: string | null;
+  colSpan: number;
+}) {
+  const breakdown = useAgentBreakdown(employeeId, campaignId);
+  const data = breakdown.data;
+  const [showMonth, setShowMonth] = useState(false);
+
+  const kpis = data?.kpiFields ?? [];
+  const weekDays = data?.days.filter((d) => d.isCurrentWeek) ?? [];
+  const monthDays = data?.days ?? [];
+  const displayDays = showMonth ? monthDays : weekDays;
+
+  return (
+    <TableRow className="bg-slate-50 hover:bg-slate-50">
+      <TableCell colSpan={colSpan} className="p-0">
+        <div className="px-4 py-3 space-y-3">
+          {breakdown.isLoading && (
+            <p className="text-xs text-muted-foreground">Loading…</p>
+          )}
+          {!breakdown.isLoading && kpis.length === 0 && (
+            <p className="text-xs text-muted-foreground">No KPI fields configured.</p>
+          )}
+          {!breakdown.isLoading && kpis.length > 0 && (
+            <>
+              {/* Week / Month toggle */}
+              <div className="flex items-center gap-3">
+                <button
+                  className={`text-xs font-medium pb-0.5 ${!showMonth ? "border-b-2 border-[#1B2A4A] text-[#1B2A4A]" : "text-muted-foreground"}`}
+                  onClick={() => setShowMonth(false)}
+                >
+                  This Week
+                </button>
+                <button
+                  className={`text-xs font-medium pb-0.5 ${showMonth ? "border-b-2 border-[#1B2A4A] text-[#1B2A4A]" : "text-muted-foreground"}`}
+                  onClick={() => setShowMonth(true)}
+                >
+                  Last 30 Days
+                </button>
+              </div>
+
+              {displayDays.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No submissions.</p>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-muted-foreground">
+                      <th className="text-left font-medium pb-1 w-20">Date</th>
+                      {kpis.map((k) => (
+                        <th key={k.field_name} className="text-left font-medium pb-1">
+                          {k.field_label}
+                          {k.min_target !== null && (
+                            <span className="ml-1 font-normal opacity-60">
+                              (min {k.min_target})
+                            </span>
+                          )}
+                        </th>
+                      ))}
+                      <th className="text-left font-medium pb-1">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayDays.map((day) => (
+                      <tr
+                        key={day.date}
+                        className={`border-t border-slate-100 ${day.isCurrentWeek && showMonth ? "bg-blue-50/50" : ""}`}
+                      >
+                        <td className="py-1 text-muted-foreground whitespace-nowrap">
+                          {formatTrendDate(day.date)}
+                        </td>
+                        {kpis.map((k) => (
+                          <td
+                            key={k.field_name}
+                            className={`py-1 ${kpiCellColor(day.metrics[k.field_name] ?? null, k.min_target, k.field_type)}`}
+                          >
+                            {fmtVal(day.metrics[k.field_name] ?? null, k.field_type)}
+                          </td>
+                        ))}
+                        <td className="py-1 text-muted-foreground max-w-[240px] truncate">
+                          {day.notes ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 function formatTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -233,6 +361,14 @@ export default function TeamLeadHome() {
   const eodWeek = useTeamEODThisWeek(employeeId ?? undefined);
   const alerts = useUnderperformerAlerts(employeeId ?? undefined);
   const tlCampaigns = useTLCampaigns(employeeId ?? null);
+
+  // Expanded agent row state
+  const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
+
+  // Build a campaignId lookup from roster data
+  const campaignIdByEmployee = new Map<string, string | null>(
+    (roster.data ?? []).map((m) => [m.id, m.campaign_id ?? null])
+  );
 
   const firstName = tlEmployee?.full_name?.split(" ")[0] ?? "Team Lead";
   const campaignData = tlEmployee?.campaigns as { name: string } | null;
@@ -275,18 +411,8 @@ export default function TeamLeadHome() {
   }
 
   // ---------- EOD metric columns ----------
-  const eodData = eodWeek.data ?? [];
-  const metricKeys: string[] = [];
-  for (const row of eodData) {
-    if (row.metrics && typeof row.metrics === "object") {
-      for (const key of Object.keys(row.metrics as Record<string, unknown>)) {
-        if (!metricKeys.includes(key) && metricKeys.length < 3) {
-          metricKeys.push(key);
-        }
-      }
-    }
-    if (metricKeys.length >= 3) break;
-  }
+  const eodData = eodWeek.data?.summaries ?? [];
+  const kpiFields = eodWeek.data?.kpiFields ?? [];
 
   return (
     <div className="space-y-6">
@@ -435,41 +561,58 @@ export default function TeamLeadHome() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Employee</TableHead>
-                    {metricKeys.map((key) => (
-                      <TableHead key={key} className="capitalize">
-                        {key.replace(/_/g, " ")}
-                      </TableHead>
+                    {kpiFields.map((kpi) => (
+                      <TableHead key={kpi.field_name}>{kpi.field_label}</TableHead>
                     ))}
-                    <TableHead>Submissions</TableHead>
+                    <TableHead className="w-8" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {eodData.map((row) => {
                     const metrics = (row.metrics ?? {}) as Record<string, unknown>;
+                    const isExpanded = expandedAgentId === row.employeeId;
+                    const colSpan = kpiFields.length + 2;
                     return (
-                      <TableRow key={row.employeeId}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{row.fullName}</span>
-                            {row.isTopPerformer && (
-                              <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-xs">
-                                Top
-                              </Badge>
-                            )}
-                            {row.isBottomPerformer && (
-                              <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 text-xs">
-                                Needs attention
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        {metricKeys.map((key) => (
-                          <TableCell key={key}>
-                            {metrics[key] != null ? String(metrics[key]) : "—"}
+                      <>
+                        <TableRow
+                          key={row.employeeId}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() =>
+                            setExpandedAgentId(isExpanded ? null : row.employeeId)
+                          }
+                        >
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium underline-offset-2 hover:underline">
+                                {row.fullName}
+                              </span>
+                              {isExpanded
+                                ? <ChevronUp className="h-3 w-3 text-muted-foreground" />
+                                : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                            </div>
                           </TableCell>
-                        ))}
-                        <TableCell>{row.submissions}</TableCell>
-                      </TableRow>
+                          {kpiFields.map((kpi) => (
+                            <TableCell key={kpi.field_name}>
+                              {metrics[kpi.field_name] != null
+                                ? String(metrics[kpi.field_name])
+                                : "—"}
+                            </TableCell>
+                          ))}
+                          <TableCell>
+                            {row.isBottomPerformer && (
+                              <Flag className="h-4 w-4 text-amber-500" title="Below target" />
+                            )}
+                          </TableCell>
+                        </TableRow>
+                        {isExpanded && (
+                          <AgentBreakdownRow
+                            key={`${row.employeeId}-detail`}
+                            employeeId={row.employeeId}
+                            campaignId={campaignIdByEmployee.get(row.employeeId) ?? null}
+                            colSpan={colSpan}
+                          />
+                        )}
+                      </>
                     );
                   })}
                 </TableBody>
@@ -515,6 +658,7 @@ export default function TeamLeadHome() {
           </CardContent>
         </Card>
       </div>
+
     </div>
   );
 }

@@ -79,6 +79,8 @@ interface KPIField {
   field_label: string;
   field_type: FieldType;
   min_target: number | null;
+  flag_threshold: number | null;
+  flag_independent: boolean;
   display_order: number;
   is_active: boolean;
   dropdown_options: string[] | null;
@@ -115,6 +117,8 @@ const emptyField = (): Omit<KPIField, 'id' | 'campaign_id' | 'display_order'> =>
   field_label: '',
   field_type: 'number',
   min_target: null,
+  flag_threshold: null,
+  flag_independent: true,
   is_active: true,
   dropdown_options: null,
   is_required: false,
@@ -158,6 +162,7 @@ export default function CampaignDetail() {
 
   // Digest Schedule
   const [digestCutoff, setDigestCutoff] = useState('');
+  const [digestMorningBundle, setDigestMorningBundle] = useState('');
   const [digestTimezone, setDigestTimezone] = useState('America/Denver');
   const [digestDirty, setDigestDirty] = useState(false);
 
@@ -173,11 +178,11 @@ export default function CampaignDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('campaigns')
-        .select('id, name, client_id, team_lead_id, eod_digest_cutoff_time, eod_digest_timezone, clients(id, name, prefix)')
+        .select('id, name, client_id, team_lead_id, eod_digest_cutoff_time, eod_morning_bundle_time, eod_digest_timezone, clients(id, name, prefix)')
         .eq('id', id!)
         .single();
       if (error) throw error;
-      return data as { id: string; name: string; client_id: string; team_lead_id: string | null; eod_digest_cutoff_time: string | null; eod_digest_timezone: string; clients: { id: string; name: string; prefix: string } | null };
+      return data as { id: string; name: string; client_id: string; team_lead_id: string | null; eod_digest_cutoff_time: string | null; eod_morning_bundle_time: string | null; eod_digest_timezone: string; clients: { id: string; name: string; prefix: string } | null };
     },
     enabled: !!id,
   });
@@ -404,6 +409,8 @@ export default function CampaignDetail() {
         field_label: fieldForm.field_label,
         field_type: fieldForm.field_type,
         min_target: fieldForm.field_type === 'number' ? fieldForm.min_target : null,
+        flag_threshold: fieldForm.field_type === 'number' ? fieldForm.flag_threshold : null,
+        flag_independent: fieldForm.field_type === 'number' ? fieldForm.flag_independent : true,
         dropdown_options: fieldForm.field_type === 'dropdown' ? fieldForm.dropdown_options : null,
         is_active: fieldForm.is_active,
         is_required: fieldForm.is_required,
@@ -561,6 +568,7 @@ export default function CampaignDetail() {
   useEffect(() => {
     if (campaign) {
       setDigestCutoff(campaign.eod_digest_cutoff_time ?? '');
+      setDigestMorningBundle(campaign.eod_morning_bundle_time ?? '');
       setDigestTimezone(campaign.eod_digest_timezone ?? 'America/Denver');
       setDigestDirty(false);
     }
@@ -572,6 +580,7 @@ export default function CampaignDetail() {
         .from('campaigns')
         .update({
           eod_digest_cutoff_time: digestCutoff || null,
+          eod_morning_bundle_time: digestMorningBundle || null,
           eod_digest_timezone: digestTimezone,
         })
         .eq('id', id!);
@@ -598,6 +607,8 @@ export default function CampaignDetail() {
       field_label: field.field_label,
       field_type: field.field_type,
       min_target: field.min_target,
+      flag_threshold: field.flag_threshold,
+      flag_independent: field.flag_independent,
       is_active: field.is_active,
       dropdown_options: field.dropdown_options,
       is_required: field.is_required,
@@ -901,7 +912,15 @@ export default function CampaignDetail() {
                       <Badge variant="outline" className="text-xs">{FIELD_TYPE_LABELS[field.field_type]}</Badge>
                       {field.is_required && <Badge variant="secondary" className="text-xs">Required</Badge>}
                       {field.field_type === 'number' && field.min_target != null && (
-                        <span className="text-xs text-muted-foreground">Target: {field.min_target}/day</span>
+                        <span className="text-xs text-muted-foreground">Goal: {field.min_target}/day</span>
+                      )}
+                      {field.field_type === 'number' && field.flag_threshold != null && (
+                        <span className="text-xs text-amber-600">
+                          Flag &lt; {field.flag_threshold}
+                          {!field.flag_independent && (
+                            <span className="text-muted-foreground"> (not independent)</span>
+                          )}
+                        </span>
                       )}
                       {field.field_type === 'dropdown' && field.dropdown_options && (
                         <span className="text-xs text-muted-foreground">{field.dropdown_options.length} options</span>
@@ -1051,33 +1070,43 @@ export default function CampaignDetail() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="digest-cutoff">Cutoff Time</Label>
+              <Label htmlFor="digest-cutoff">EOD Cutoff Time</Label>
               <Input
                 id="digest-cutoff"
                 type="time"
                 value={digestCutoff}
                 onChange={(e) => { setDigestCutoff(e.target.value); setDigestDirty(true); }}
-                placeholder="No cutoff"
               />
-              {!digestCutoff && (
-                <p className="text-xs text-muted-foreground">Empty = no digest</p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                {digestCutoff ? 'Daily digest sends at this time.' : 'Empty = no daily digest.'}
+              </p>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="digest-tz">Timezone</Label>
-              <Select value={digestTimezone} onValueChange={(v) => { setDigestTimezone(v); setDigestDirty(true); }}>
-                <SelectTrigger id="digest-tz"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {TIMEZONE_OPTIONS.map((tz) => (
-                    <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="digest-morning">Morning Bundle Time</Label>
+              <Input
+                id="digest-morning"
+                type="time"
+                value={digestMorningBundle}
+                onChange={(e) => { setDigestMorningBundle(e.target.value); setDigestDirty(true); }}
+              />
+              <p className="text-xs text-muted-foreground">
+                {digestMorningBundle
+                  ? 'Late & missing EODs from yesterday sent at this time.'
+                  : 'Empty = no morning bundle.'}
+              </p>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Agents must submit their EOD before this time. Digest email sends at cutoff to all active recipients.
-          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="digest-tz">Timezone</Label>
+            <Select value={digestTimezone} onValueChange={(v) => { setDigestTimezone(v); setDigestDirty(true); }}>
+              <SelectTrigger id="digest-tz" className="w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {TIMEZONE_OPTIONS.map((tz) => (
+                  <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {digestDirty && (
             <Button onClick={() => saveDigestMutation.mutate()} disabled={saveDigestMutation.isPending}>
               {saveDigestMutation.isPending ? 'Saving...' : 'Save Schedule'}
@@ -1111,11 +1140,34 @@ export default function CampaignDetail() {
               </Select>
             </div>
             {fieldForm.field_type === 'number' && (
-              <div className="space-y-1.5">
-                <Label>Daily Target (optional)</Label>
-                <Input type="number" min="0" placeholder="e.g. 300"
-                  value={fieldForm.min_target ?? ''}
-                  onChange={(e) => setFieldForm((p) => ({ ...p, min_target: e.target.value === '' ? null : Number(e.target.value) }))} />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Daily Goal (shown to agents)</Label>
+                  <Input type="number" min="0" placeholder="e.g. 7"
+                    value={fieldForm.min_target ?? ''}
+                    onChange={(e) => setFieldForm((p) => ({ ...p, min_target: e.target.value === '' ? null : Number(e.target.value) }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Flag Below (TL alert threshold)</Label>
+                  <Input type="number" min="0" placeholder="e.g. 4"
+                    value={fieldForm.flag_threshold ?? ''}
+                    onChange={(e) => setFieldForm((p) => ({ ...p, flag_threshold: e.target.value === '' ? null : Number(e.target.value) }))} />
+                </div>
+              </div>
+            )}
+            {fieldForm.field_type === 'number' && fieldForm.flag_threshold != null && (
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Triggers flag independently</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Off = this field alone won't raise a flag. Useful for effort metrics
+                    (e.g. calls made) where high output on another KPI should override a low count.
+                  </p>
+                </div>
+                <Switch
+                  checked={fieldForm.flag_independent}
+                  onCheckedChange={(v) => setFieldForm((p) => ({ ...p, flag_independent: v }))}
+                />
               </div>
             )}
             {fieldForm.field_type === 'dropdown' && (
