@@ -127,7 +127,7 @@ const emptyField = (): Omit<KPIField, 'id' | 'campaign_id' | 'display_order'> =>
 export default function CampaignDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isOwner, isAdmin } = useAuth();
+  const { isOwner, isAdmin, isLeadership, isTeamLead } = useAuth();
   const queryClient = useQueryClient();
 
   // Campaign info
@@ -165,6 +165,7 @@ export default function CampaignDetail() {
   const [digestMorningBundle, setDigestMorningBundle] = useState('');
   const [digestTimezone, setDigestTimezone] = useState('America/Denver');
   const [digestDirty, setDigestDirty] = useState(false);
+  const [sendingTestDigest, setSendingTestDigest] = useState(false);
 
   const invalidateCampaign = () => {
     queryClient.invalidateQueries({ queryKey: ['campaign', id] });
@@ -1111,6 +1112,35 @@ export default function CampaignDetail() {
             <Button onClick={() => saveDigestMutation.mutate()} disabled={saveDigestMutation.isPending}>
               {saveDigestMutation.isPending ? 'Saving...' : 'Save Schedule'}
             </Button>
+          )}
+          {(isLeadership || isTeamLead) && (
+            <div className="space-y-1 pt-2 border-t">
+              <Button
+                variant="outline"
+                disabled={sendingTestDigest}
+                onClick={async () => {
+                  setSendingTestDigest(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke('send-eod-digest', {
+                      body: { mode: 'test', campaign_id: id },
+                    });
+                    if (error) throw error;
+                    if (data?.error) throw new Error(data.error);
+                    toast.success(`Test digest sent to ${data.sent_to}`);
+                  } catch (err: unknown) {
+                    const msg = err instanceof Error ? err.message : 'Failed to send test digest';
+                    toast.error(msg);
+                  } finally {
+                    setSendingTestDigest(false);
+                  }
+                }}
+              >
+                {sendingTestDigest ? 'Sending...' : 'Send Test Digest'}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Sends a preview to your own email using today's data. Real recipients are not contacted. Ignores DRY_RUN.
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
