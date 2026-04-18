@@ -30,6 +30,8 @@ npm run dev
 
 The app runs at http://localhost:5173 (or the port Vite picks).
 
+**Already cloned and just need to sync?** Tell CT to read `SYNC.md` — it handles fetch, ff-merge, branch cleanup, and `npm install` in one pass.
+
 You'll need a `.env` file at the project root with your Supabase keys. Copy `.env.example` and fill in the values from the Supabase dashboard (Project Settings → API):
 
 ```
