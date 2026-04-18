@@ -376,17 +376,120 @@ async function handleMorningBundle(supabase: SupabaseClient): Promise<DigestResu
 }
 
 // ---------------------------------------------------------------------------
+// Test-send handler
+//
+// JWT-authenticated. Lets a signed-in admin/manager/owner (or the team lead
+// of the campaign) preview today's daily digest by emailing it ONLY to
+// themselves. Ignores DRY_RUN (the entire point is real delivery). Does NOT
+// write to eod_digest_log — test sends are ephemeral.
+// ---------------------------------------------------------------------------
+async function handleTestSend(
+  supabase: SupabaseClient,
+  req: Request,
+  body: { campaign_id?: string },
+): Promise<Response> {
+  const jsonHeaders = { "Content-Type": "application/json" };
+  const fail = (status: number, error: string) =>
+    new Response(JSON.stringify({ error }), { status, headers: jsonHeaders });
+
+  const campaignId = body.campaign_id;
+  if (!campaignId) return fail(400, "campaign_id is required for test mode");
+
+  // 1. Verify JWT
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const match = authHeader.match(/^Bearer (.+)$/);
+  if (!match) return fail(401, "Authorization: Bearer <jwt> required");
+  const { data: userData, error: authErr } = await supabase.auth.getUser(match[1]);
+  if (authErr || !userData?.user) return fail(401, "Invalid or expired JWT");
+  const user = userData.user;
+
+  // 2. Authorize caller for this campaign
+  const { data: profile, error: profileErr } = await supabase
+    .from("user_profiles")
+    .select("role, employee_id")
+    .eq("id", user.id)
+    .single();
+  if (profileErr || !profile) return fail(403, "No user profile found");
+  const role = profile.role as string;
+
+  if (role === "team_lead") {
+    if (!profile.employee_id) return fail(403, "Team lead profile has no linked employee");
+    const { data: campaignRow, error: campOwnerErr } = await supabase
+      .from("campaigns")
+      .select("team_lead_id")
+      .eq("id", campaignId)
+      .single();
+    if (campOwnerErr || !campaignRow) return fail(404, "Campaign not found");
+    if (campaignRow.team_lead_id !== profile.employee_id) {
+      return fail(403, "You are not the team lead for this campaign");
+    }
+  } else if (!["owner", "admin", "manager"].includes(role)) {
+    return fail(403, `Role '${role}' is not allowed to send test digests`);
+  }
+
+  const userEmail = user.email;
+  if (!userEmail) return fail(400, "Your account has no email on file; cannot send test");
+
+  // 3. Fetch campaign + today's data
+  const { data: campaign, error: campErr } = await supabase
+    .from("campaigns")
+    .select("id, name, eod_digest_cutoff_time, eod_digest_timezone, eod_morning_bundle_time")
+    .eq("id", campaignId)
+    .single();
+  if (campErr || !campaign) return fail(404, "Campaign not found");
+
+  const camp = campaign as Campaign;
+  const tz = camp.eod_digest_timezone || "America/Denver";
+  const todayInTz = getTodayInTz(tz);
+
+  const [kpiRes, agentRes, eodRes, tlNoteRes] = await Promise.all([
+    supabase.from("campaign_kpi_config").select("field_name, field_label, field_type, min_target").eq("campaign_id", campaignId).eq("is_active", true).order("display_order"),
+    supabase.from("employees").select("id, full_name").eq("campaign_id", campaignId).eq("is_active", true).order("full_name"),
+    supabase.from("eod_logs").select("employee_id, metrics, notes, created_at").eq("campaign_id", campaignId).eq("date", todayInTz),
+    supabase.from("campaign_eod_tl_notes").select("note").eq("campaign_id", campaignId).eq("date", todayInTz).maybeSingle(),
+  ]);
+  const fetchErr = [kpiRes, agentRes, eodRes].find((r) => r.error)?.error;
+  if (fetchErr) return fail(500, `Failed to load campaign data: ${fetchErr.message}`);
+
+  const kpiFields = (kpiRes.data ?? []) as KPIField[];
+  const agents = (agentRes.data ?? []) as Agent[];
+  const eodLogs = (eodRes.data ?? []) as EODLog[];
+  const tlNote = (tlNoteRes.data as { note: string | null } | null)?.note ?? null;
+
+  // 4. Render + send (always real, regardless of DRY_RUN). Do NOT log.
+  const html = buildDailyHtml(camp.name, todayInTz, kpiFields, agents, eodLogs, tlNote);
+  const subject = `[TEST \u2014 EOD Digest] ${camp.name} \u2014 ${todayInTz}`;
+  try {
+    const messageId = await sendViaGmail({ to: [userEmail], subject, html });
+    return new Response(
+      JSON.stringify({ mode: "test", sent_to: userEmail, message_id: messageId }),
+      { status: 200, headers: jsonHeaders },
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return fail(500, `Send failed: ${msg}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main handler
 // ---------------------------------------------------------------------------
 Deno.serve(async (req) => {
+  const body = await req.json().catch(() => ({})) as { type?: string; mode?: string; campaign_id?: string };
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  // Test-send mode: JWT-authenticated, bypasses cron secret.
+  if (body.mode === "test") {
+    return await handleTestSend(supabase, req, body);
+  }
+
+  // Cron mode: authenticated via x-cron-secret header.
   if (CRON_SECRET) {
     if (req.headers.get("x-cron-secret") !== CRON_SECRET) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
     }
   }
-  const body = await req.json().catch(() => ({})) as { type?: string };
   const digestType = body.type === "morning_bundle" ? "morning_bundle" : "daily";
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   try {
     const results = digestType === "morning_bundle"
       ? await handleMorningBundle(supabase)
