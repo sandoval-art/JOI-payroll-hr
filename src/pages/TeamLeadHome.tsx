@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useTeamRoster,
@@ -417,11 +418,16 @@ export default function TeamLeadHome() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Hi, {firstName}</h2>
-        <p className="text-sm text-muted-foreground">
-          {campaignName} &middot; Team of {teamSize}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Hi, {firstName}</h2>
+          <p className="text-sm text-muted-foreground">
+            {campaignName} &middot; Team of {teamSize}
+          </p>
+        </div>
+        <Button asChild variant="outline">
+          <Link to="/team-lead/dashboard">Open Dashboard</Link>
+        </Button>
       </div>
 
       {/* Today's EOD Note cards — one per campaign the TL leads */}
