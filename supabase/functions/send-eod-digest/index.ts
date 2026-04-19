@@ -39,6 +39,19 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 // ---------------------------------------------------------------------------
+// CORS
+//
+// Browser-originated calls (the "Send Test Digest" button via
+// supabase.functions.invoke) require these headers. pg_cron never does
+// a preflight so CORS is a no-op for the cron path.
+// ---------------------------------------------------------------------------
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 interface Campaign {
@@ -388,7 +401,7 @@ async function handleTestSend(
   req: Request,
   body: { campaign_id?: string },
 ): Promise<Response> {
-  const jsonHeaders = { "Content-Type": "application/json" };
+  const jsonHeaders = { "Content-Type": "application/json", ...CORS_HEADERS };
   const fail = (status: number, error: string) =>
     new Response(JSON.stringify({ error }), { status, headers: jsonHeaders });
 
@@ -475,6 +488,11 @@ async function handleTestSend(
 // Main handler
 // ---------------------------------------------------------------------------
 Deno.serve(async (req) => {
+  // CORS preflight — browsers send OPTIONS before the real POST.
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: CORS_HEADERS });
+  }
+
   const body = await req.json().catch(() => ({})) as { type?: string; mode?: string; campaign_id?: string };
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -486,7 +504,7 @@ Deno.serve(async (req) => {
   // Cron mode: authenticated via x-cron-secret header.
   if (CRON_SECRET) {
     if (req.headers.get("x-cron-secret") !== CRON_SECRET) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json", ...CORS_HEADERS } });
     }
   }
   const digestType = body.type === "morning_bundle" ? "morning_bundle" : "daily";
@@ -494,10 +512,10 @@ Deno.serve(async (req) => {
     const results = digestType === "morning_bundle"
       ? await handleMorningBundle(supabase)
       : await handleDailyDigest(supabase);
-    return new Response(JSON.stringify({ digestType, dryRun: DRY_RUN, results }), { status: 200, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ digestType, dryRun: DRY_RUN, results }), { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("Fatal error:", msg);
-    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { "Content-Type": "application/json", ...CORS_HEADERS } });
   }
 });
