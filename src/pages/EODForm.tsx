@@ -1,9 +1,10 @@
 import { Fragment, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -12,12 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ClipboardCheck, ChevronDown } from "lucide-react";
+import { ClipboardCheck, ChevronDown, Pencil } from "lucide-react";
 import { parseLocalDate } from "@/lib/localDate";
+import { useToast } from "@/hooks/use-toast";
+import { ClockOutEODDialog, KPIField, FormValues } from "@/components/ClockOutEODDialog";
 
-// Read-only history of this agent's EOD submissions.
-// New EODs are submitted from the Timeclock (triggered by Clock Out).
-// This page is for reference — "did I submit on Tuesday?" lookups.
+// Read-only history of this agent's EOD submissions — with inline edit.
 
 interface EODLog {
   id: string;
@@ -26,12 +27,31 @@ interface EODLog {
   metrics: Record<string, string | number | boolean>;
   notes: string | null;
   created_at: string;
-  campaigns: { name: string } | null;
+  edit_count: number;
+  campaigns: { name: string; eod_digest_cutoff_time: string | null; eod_digest_timezone: string } | null;
+}
+
+/** True if the campaign's cutoff time hasn't passed yet today in that timezone. */
+function isCutoffStillOpen(cutoffTime: string | null, tz: string, eodDate: string): boolean {
+  if (!cutoffTime) return false;
+  // EOD date must be today in campaign tz
+  const todayInTz = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  if (eodDate !== todayInTz) return false;
+  // Current time in tz must be before cutoff
+  const nowInTz = new Intl.DateTimeFormat("en-GB", {
+    timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }).format(new Date());
+  return nowInTz < cutoffTime;
 }
 
 export default function EODHistory() {
   const { employeeId } = useAuth();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [amendLog, setAmendLog] = useState<EODLog | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ["eod-history", employeeId],
@@ -39,7 +59,7 @@ export default function EODHistory() {
       if (!employeeId) return [];
       const { data, error } = await supabase
         .from("eod_logs")
-        .select("id, date, campaign_id, metrics, notes, created_at, campaigns(name)")
+        .select("id, date, campaign_id, metrics, notes, created_at, edit_count, campaigns(name, eod_digest_cutoff_time, eod_digest_timezone)")
         .eq("employee_id", employeeId)
         .order("date", { ascending: false })
         .limit(60);
@@ -47,6 +67,39 @@ export default function EODHistory() {
       return (data || []) as unknown as EODLog[];
     },
     enabled: !!employeeId,
+  });
+
+  // Fetch employee for campaign_id
+  const { data: employee } = useQuery({
+    queryKey: ["eod-employee", employeeId],
+    queryFn: async () => {
+      if (!employeeId) return null;
+      const { data, error } = await supabase
+        .from("employees")
+        .select("id, campaign_id")
+        .eq("id", employeeId)
+        .single();
+      if (error) throw error;
+      return data as { id: string; campaign_id: string };
+    },
+    enabled: !!employeeId,
+  });
+
+  // KPI fields for amend dialog
+  const { data: kpiFields = [] } = useQuery({
+    queryKey: ["eod-kpi-config", employee?.campaign_id],
+    queryFn: async () => {
+      if (!employee?.campaign_id) return [];
+      const { data, error } = await supabase
+        .from("campaign_kpi_config")
+        .select("*")
+        .eq("campaign_id", employee.campaign_id)
+        .eq("is_active", true)
+        .order("display_order", { ascending: true });
+      if (error) throw error;
+      return (data || []) as KPIField[];
+    },
+    enabled: !!employee?.campaign_id,
   });
 
   if (!employeeId) {
@@ -95,12 +148,19 @@ export default function EODHistory() {
                     <TableHead>Campaign</TableHead>
                     <TableHead>Submitted At</TableHead>
                     <TableHead className="text-right">Fields</TableHead>
+                    <TableHead className="w-20" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {logs.map((log) => {
                     const fieldCount = Object.keys(log.metrics || {}).length;
                     const open = expandedId === log.id;
+                    const tz = log.campaigns?.eod_digest_timezone || "America/Denver";
+                    const canEdit = isCutoffStillOpen(
+                      log.campaigns?.eod_digest_cutoff_time ?? null,
+                      tz,
+                      log.date,
+                    );
                     return (
                       <Fragment key={log.id}>
                         <TableRow
@@ -119,6 +179,11 @@ export default function EODHistory() {
                               day: "numeric",
                               year: "numeric",
                             })}
+                            {log.edit_count > 0 && (
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                edited {log.edit_count}x
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline">{log.campaigns?.name || "—"}</Badge>
@@ -130,10 +195,21 @@ export default function EODHistory() {
                             })}
                           </TableCell>
                           <TableCell className="text-right text-sm">{fieldCount}</TableCell>
+                          <TableCell>
+                            {canEdit && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => { e.stopPropagation(); setAmendLog(log); }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </TableCell>
                         </TableRow>
                         {open && (
                           <TableRow key={`${log.id}-detail`}>
-                            <TableCell colSpan={5} className="bg-muted/30">
+                            <TableCell colSpan={6} className="bg-muted/30">
                               <div className="py-2 space-y-2">
                                 {Object.entries(log.metrics || {}).map(([k, v]) => (
                                   <div key={k} className="flex justify-between text-sm">
@@ -162,6 +238,26 @@ export default function EODHistory() {
           )}
         </CardContent>
       </Card>
+
+      {/* Amend dialog */}
+      {amendLog && employee?.campaign_id && (
+        <ClockOutEODDialog
+          open={!!amendLog}
+          onOpenChange={(o) => { if (!o) setAmendLog(null); }}
+          employeeId={employeeId}
+          campaignId={employee.campaign_id}
+          campaignName={amendLog.campaigns?.name}
+          kpiFields={kpiFields}
+          amendLogId={amendLog.id}
+          initialValues={amendLog.metrics as FormValues}
+          initialNotes={amendLog.notes ?? undefined}
+          onSubmitted={() => {
+            setAmendLog(null);
+            toast({ title: "EOD updated" });
+            queryClient.invalidateQueries({ queryKey: ["eod-history"] });
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -37,7 +37,7 @@ export interface KPIField {
   is_required: boolean;
 }
 
-type FormValues = Record<string, string | number | boolean>;
+export type FormValues = Record<string, string | number | boolean>;
 
 interface Props {
   open: boolean;
@@ -51,6 +51,12 @@ interface Props {
   /** When set, the dialog submits an EOD for this date instead of today and
    *  marks the time_clock row as eod_completed. No clock-out side-effect. */
   backfillDate?: string;
+  /** When set, the dialog edits an existing EOD log row instead of inserting. */
+  amendLogId?: string;
+  /** Pre-filled metric values for amend mode. */
+  initialValues?: FormValues;
+  /** Pre-filled notes for amend mode. */
+  initialNotes?: string;
 }
 
 /**
@@ -58,6 +64,8 @@ interface Props {
  * before the clock-out is recorded. The caller is responsible for:
  *  - Only rendering this when kpiFields.length > 0 and no EOD submitted today.
  *  - Firing the actual clock-out mutation in onSubmitted.
+ *
+ * Also supports amend mode (amendLogId) for editing existing EODs.
  */
 export function ClockOutEODDialog({
   open,
@@ -68,41 +76,60 @@ export function ClockOutEODDialog({
   kpiFields,
   onSubmitted,
   backfillDate,
+  amendLogId,
+  initialValues,
+  initialNotes,
 }: Props) {
   const [values, setValues] = useState<FormValues>({});
   const [notes, setNotes] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Initialize defaults whenever the field list changes
+  // Initialize defaults (or pre-fill for amend mode)
   useEffect(() => {
-    const initial: FormValues = {};
-    kpiFields.forEach((f) => {
-      initial[f.field_name] = f.field_type === "boolean" ? false : "";
-    });
-    setValues(initial);
-    setNotes("");
+    if (amendLogId && initialValues) {
+      setValues(initialValues);
+      setNotes(initialNotes ?? "");
+    } else {
+      const initial: FormValues = {};
+      kpiFields.forEach((f) => {
+        initial[f.field_name] = f.field_type === "boolean" ? false : "";
+      });
+      setValues(initial);
+      setNotes("");
+    }
     setErrors({});
-  }, [kpiFields]);
+  }, [kpiFields, amendLogId, initialValues, initialNotes]);
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const date = backfillDate ?? todayLocal();
-      const { error } = await supabase.from("eod_logs").insert({
-        employee_id: employeeId,
-        date,
-        campaign_id: campaignId,
-        metrics: values,
-        notes: notes || null,
-      });
-      if (error) throw error;
+      if (amendLogId) {
+        // Amend mode: update existing row via RPC
+        const { error } = await supabase.rpc("amend_eod_log", {
+          p_log_id: amendLogId,
+          p_metrics: values,
+          p_notes: notes || null,
+        });
+        if (error) throw error;
+      } else {
+        // Insert mode (backfill uses backfillDate, normal uses today)
+        const date = backfillDate ?? todayLocal();
+        const { error } = await supabase.from("eod_logs").insert({
+          employee_id: employeeId,
+          date,
+          campaign_id: campaignId,
+          metrics: values,
+          notes: notes || null,
+        });
+        if (error) throw error;
 
-      if (backfillDate) {
-        const { error: tcErr } = await supabase
-          .from("time_clock")
-          .update({ eod_completed: true })
-          .eq("employee_id", employeeId)
-          .eq("date", backfillDate);
-        if (tcErr) throw tcErr;
+        if (backfillDate) {
+          const { error: tcErr } = await supabase
+            .from("time_clock")
+            .update({ eod_completed: true })
+            .eq("employee_id", employeeId)
+            .eq("date", backfillDate);
+          if (tcErr) throw tcErr;
+        }
       }
     },
     onSuccess: () => {
@@ -150,10 +177,13 @@ export function ClockOutEODDialog({
     <Dialog open={open} onOpenChange={(o) => !submitMutation.isPending && onOpenChange(o)}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{backfillDate ? "Backfill EOD Report" : "End of Day Report"}</DialogTitle>
+          <DialogTitle>{amendLogId ? "Edit EOD Report" : backfillDate ? "Backfill EOD Report" : "End of Day Report"}</DialogTitle>
           <DialogDescription>
-            {backfillDate
+            {amendLogId
+              ? <>Update your submitted numbers{campaignName ? <> for {campaignName}</> : null}.</>
+              : backfillDate
               ? <>Submit your numbers for {new Date(`${backfillDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}.</>
+
               : campaignName ? <>Submit your {campaignName} numbers to clock out.</> : <>Submit your numbers to clock out.</>}
           </DialogDescription>
         </DialogHeader>
@@ -272,7 +302,7 @@ export function ClockOutEODDialog({
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
-            {submitMutation.isPending ? "Submitting..." : backfillDate ? "Submit EOD" : "Submit & Clock Out"}
+            {submitMutation.isPending ? "Submitting..." : amendLogId ? "Update EOD" : backfillDate ? "Submit EOD" : "Submit & Clock Out"}
           </Button>
         </DialogFooter>
       </DialogContent>

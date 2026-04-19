@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -14,7 +15,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, CheckCircle, Calendar } from "lucide-react";
+import { AlertTriangle, CheckCircle, Calendar, Pencil } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { ClockOutEODDialog, KPIField, FormValues } from "@/components/ClockOutEODDialog";
 
 const CAMPAIGNS = [
   { id: "all", name: "Todas" },
@@ -42,6 +45,7 @@ interface EODLog {
   metrics: Record<string, number | string>;
   notes: string | null;
   created_at: string;
+  edit_count: number;
   employees: { full_name: string };
 }
 
@@ -66,6 +70,9 @@ export default function Performance() {
     new Date().toISOString().split("T")[0]
   );
   const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
+  const [amendLog, setAmendLog] = useState<EODLog | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Check authorization
   useEffect(() => {
@@ -89,6 +96,7 @@ export default function Performance() {
           metrics,
           notes,
           created_at,
+          edit_count,
           employees:employee_id (full_name)
         `
         )
@@ -130,6 +138,23 @@ export default function Performance() {
       return (data || []) as KPIConfig[];
     },
     enabled: user?.role !== "employee",
+  });
+
+  // Full KPI fields for the amend dialog (keyed by campaign)
+  const { data: fullKpiFields = [] } = useQuery({
+    queryKey: ["perf-kpi-full", amendLog?.campaign_id],
+    queryFn: async () => {
+      if (!amendLog?.campaign_id) return [];
+      const { data, error } = await supabase
+        .from("campaign_kpi_config")
+        .select("*")
+        .eq("campaign_id", amendLog.campaign_id)
+        .eq("is_active", true)
+        .order("display_order", { ascending: true });
+      if (error) throw error;
+      return (data || []) as KPIField[];
+    },
+    enabled: !!amendLog?.campaign_id,
   });
 
   // Group KPI configs by campaign
@@ -327,13 +352,14 @@ export default function Performance() {
                         <TableHead className="text-center font-semibold">
                           Submitted At
                         </TableHead>
+                        <TableHead className="w-16" />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {displayedEmployees.length === 0 ? (
                         <TableRow>
                           <TableCell
-                            colSpan={currentKPIs.length + 3}
+                            colSpan={currentKPIs.length + 4}
                             className="text-center py-8 text-gray-500"
                           >
                             No data to display
@@ -359,6 +385,11 @@ export default function Performance() {
                                   {isGrayed && (
                                     <Badge variant="secondary">
                                       No report
+                                    </Badge>
+                                  )}
+                                  {submitted && submitted.edit_count > 0 && (
+                                    <Badge variant="outline" className="text-xs">
+                                      edited {submitted.edit_count}x
                                     </Badge>
                                   )}
                                 </div>
@@ -416,6 +447,17 @@ export default function Performance() {
                                     )
                                   : "—"}
                               </TableCell>
+                              <TableCell>
+                                {submitted && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setAmendLog(submitted)}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </TableCell>
                             </TableRow>
                           );
                         })
@@ -428,6 +470,25 @@ export default function Performance() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Amend dialog */}
+      {amendLog && (
+        <ClockOutEODDialog
+          open={!!amendLog}
+          onOpenChange={(o) => { if (!o) setAmendLog(null); }}
+          employeeId={amendLog.employee_id}
+          campaignId={amendLog.campaign_id}
+          kpiFields={fullKpiFields}
+          amendLogId={amendLog.id}
+          initialValues={amendLog.metrics as FormValues}
+          initialNotes={amendLog.notes ?? undefined}
+          onSubmitted={() => {
+            setAmendLog(null);
+            toast({ title: "EOD updated" });
+            queryClient.invalidateQueries({ queryKey: ["eod_logs"] });
+          }}
+        />
+      )}
     </div>
   );
 }
