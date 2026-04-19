@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
   BarChart,
@@ -17,6 +17,8 @@ import { formatMinutesVerbose } from "@/lib/formatDuration";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { ClockOutEODDialog, KPIField } from "@/components/ClockOutEODDialog";
 import {
   Clock,
   Coffee,
@@ -96,9 +98,30 @@ function elapsedString(fromIso: string, now: Date) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+/** "YYYY-MM-DD" for today in the given IANA timezone. */
+function todayInTz(tz: string): string {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+/** Subtract `days` from a "YYYY-MM-DD" string. */
+function subtractDays(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() - days);
+  return todayLocal(dt);
+}
+
 export default function EmployeeHome() {
   const { user, employeeId } = useAuth();
   const [now, setNow] = useState(new Date());
+  const [backfillDate, setBackfillDate] = useState<string | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30000);
@@ -121,21 +144,23 @@ export default function EmployeeHome() {
     enabled: !!employeeId,
   });
 
-  // Campaign name
-  const { data: campaignName } = useQuery({
+  // Campaign name + timezone
+  const { data: campaign } = useQuery({
     queryKey: ["home-campaign", employee?.campaign_id],
     queryFn: async () => {
       if (!employee?.campaign_id) return null;
       const { data, error } = await supabase
         .from("campaigns")
-        .select("name")
+        .select("name, eod_digest_timezone")
         .eq("id", employee.campaign_id)
         .maybeSingle();
       if (error) return null;
-      return (data?.name as string) || null;
+      return data as { name: string; eod_digest_timezone: string } | null;
     },
     enabled: !!employee?.campaign_id,
   });
+  const campaignName = campaign?.name ?? null;
+  const campaignTz = campaign?.eod_digest_timezone || "America/Denver";
 
   // Today's entry
   const { data: todayEntry } = useQuery({
@@ -210,6 +235,43 @@ export default function EmployeeHome() {
     enabled: !!employeeId,
   });
 
+  // Missing EODs: auto-clocked-out shifts without EOD submission
+  const twoDaysAgo = subtractDays(todayInTz(campaignTz), 2);
+  const { data: missingEods = [] } = useQuery({
+    queryKey: ["home-missing-eods", employeeId, twoDaysAgo],
+    queryFn: async () => {
+      if (!employeeId) return [];
+      const { data, error } = await supabase
+        .from("time_clock")
+        .select("id, date, auto_clocked_out, eod_completed")
+        .eq("employee_id", employeeId)
+        .eq("auto_clocked_out", true)
+        .eq("eod_completed", false)
+        .order("date", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return (data || []) as { id: string; date: string; auto_clocked_out: boolean; eod_completed: boolean }[];
+    },
+    enabled: !!employeeId,
+  });
+
+  // KPI fields for the backfill dialog
+  const { data: kpiFields = [] } = useQuery({
+    queryKey: ["home-kpi-config", employee?.campaign_id],
+    queryFn: async () => {
+      if (!employee?.campaign_id) return [];
+      const { data, error } = await supabase
+        .from("campaign_kpi_config")
+        .select("*")
+        .eq("campaign_id", employee.campaign_id)
+        .eq("is_active", true)
+        .order("display_order", { ascending: true });
+      if (error) throw error;
+      return (data || []) as KPIField[];
+    },
+    enabled: !!employee?.campaign_id,
+  });
+
   // ---------- Derived ----------
   const firstName = (employee?.full_name || user?.email || "there").split(" ")[0];
   const isClockedIn = !!todayEntry && !todayEntry.clock_out;
@@ -271,6 +333,73 @@ export default function EmployeeHome() {
           {statusBadge.label}
         </Badge>
       </div>
+
+      {/* Missing EOD banner */}
+      {missingEods.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-amber-900">
+              <AlertCircle className="h-5 w-5" />
+              Missing EOD Submissions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {missingEods.map((row) => {
+              const isActionable = row.date >= twoDaysAgo;
+              const dateLabel = new Date(`${row.date}T00:00:00`).toLocaleDateString("en-US", {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              });
+              return (
+                <div
+                  key={row.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-white px-4 py-2"
+                >
+                  <span className="text-sm font-medium">{dateLabel}</span>
+                  {isActionable ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setBackfillDate(row.date)}
+                    >
+                      Submit EOD for {dateLabel}
+                    </Button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      Contact your TL to submit EODs older than 2 days.
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Backfill EOD dialog */}
+      {backfillDate && employee?.campaign_id && (
+        <ClockOutEODDialog
+          open={!!backfillDate}
+          onOpenChange={(o) => { if (!o) setBackfillDate(null); }}
+          employeeId={employeeId!}
+          campaignId={employee.campaign_id}
+          campaignName={campaignName ?? undefined}
+          kpiFields={kpiFields}
+          backfillDate={backfillDate}
+          onSubmitted={() => {
+            const dateLabel = new Date(`${backfillDate}T00:00:00`).toLocaleDateString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            });
+            setBackfillDate(null);
+            toast({ title: `EOD submitted for ${dateLabel}` });
+            queryClient.invalidateQueries({ queryKey: ["home-missing-eods"] });
+            queryClient.invalidateQueries({ queryKey: ["home-eod"] });
+          }}
+        />
+      )}
 
       {/* Today panel + Quick actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

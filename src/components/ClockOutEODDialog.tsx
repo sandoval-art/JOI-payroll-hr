@@ -48,6 +48,9 @@ interface Props {
   kpiFields: KPIField[];
   /** Called after EOD submission succeeds — parent should fire the actual clock-out. */
   onSubmitted: () => void;
+  /** When set, the dialog submits an EOD for this date instead of today and
+   *  marks the time_clock row as eod_completed. No clock-out side-effect. */
+  backfillDate?: string;
 }
 
 /**
@@ -64,6 +67,7 @@ export function ClockOutEODDialog({
   campaignName,
   kpiFields,
   onSubmitted,
+  backfillDate,
 }: Props) {
   const [values, setValues] = useState<FormValues>({});
   const [notes, setNotes] = useState("");
@@ -82,15 +86,24 @@ export function ClockOutEODDialog({
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const today = todayLocal();
+      const date = backfillDate ?? todayLocal();
       const { error } = await supabase.from("eod_logs").insert({
         employee_id: employeeId,
-        date: today,
+        date,
         campaign_id: campaignId,
         metrics: values,
         notes: notes || null,
       });
       if (error) throw error;
+
+      if (backfillDate) {
+        const { error: tcErr } = await supabase
+          .from("time_clock")
+          .update({ eod_completed: true })
+          .eq("employee_id", employeeId)
+          .eq("date", backfillDate);
+        if (tcErr) throw tcErr;
+      }
     },
     onSuccess: () => {
       onSubmitted();
@@ -137,9 +150,11 @@ export function ClockOutEODDialog({
     <Dialog open={open} onOpenChange={(o) => !submitMutation.isPending && onOpenChange(o)}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>End of Day Report</DialogTitle>
+          <DialogTitle>{backfillDate ? "Backfill EOD Report" : "End of Day Report"}</DialogTitle>
           <DialogDescription>
-            {campaignName ? <>Submit your {campaignName} numbers to clock out.</> : <>Submit your numbers to clock out.</>}
+            {backfillDate
+              ? <>Submit your numbers for {new Date(`${backfillDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}.</>
+              : campaignName ? <>Submit your {campaignName} numbers to clock out.</> : <>Submit your numbers to clock out.</>}
           </DialogDescription>
         </DialogHeader>
 
@@ -257,7 +272,7 @@ export function ClockOutEODDialog({
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
-            {submitMutation.isPending ? "Submitting..." : "Submit & Clock Out"}
+            {submitMutation.isPending ? "Submitting..." : backfillDate ? "Submit EOD" : "Submit & Clock Out"}
           </Button>
         </DialogFooter>
       </DialogContent>
