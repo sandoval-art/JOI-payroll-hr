@@ -4,7 +4,7 @@ import type { Employee, PayrollConfig, PayrollResult } from "@/types/payroll";
 import { calcularNomina } from "@/types/payroll";
 
 // Map DB row to frontend Employee
-function mapEmployee(row: any): Employee & { _campaignId?: string; _campaignName?: string } {
+function mapEmployee(row: any): Employee & { _campaignId?: string; _campaignName?: string; _curp?: string | null; _rfc?: string | null; _address?: string | null; _phone?: string | null; _bankClabe?: string | null } {
   return {
     id: row.employee_id,
     nombre: row.full_name,
@@ -16,6 +16,11 @@ function mapEmployee(row: any): Employee & { _campaignId?: string; _campaignName
     _uuid: row.id,
     _campaignId: row.campaign_id || undefined,
     _campaignName: row.campaigns?.name || undefined,
+    _curp: row.curp ?? null,
+    _rfc: row.rfc ?? null,
+    _address: row.address ?? null,
+    _phone: row.phone ?? null,
+    _bankClabe: row.bank_clabe ?? null,
   };
 }
 
@@ -102,6 +107,12 @@ export function useUpdateEmployee() {
       if (data.sueldoBase !== undefined) update.monthly_base_salary = data.sueldoBase;
       if (data.descuentoPorDia !== undefined) update.daily_discount_rate = data.descuentoPorDia;
       if (data.kpiMonto !== undefined) update.kpi_bonus_amount = data.kpiMonto;
+      // A1: personal & tax fields (column names match directly)
+      if ((data as any).curp !== undefined) update.curp = (data as any).curp;
+      if ((data as any).rfc !== undefined) update.rfc = (data as any).rfc;
+      if ((data as any).address !== undefined) update.address = (data as any).address;
+      if ((data as any).phone !== undefined) update.phone = (data as any).phone;
+      if ((data as any).bank_clabe !== undefined) update.bank_clabe = (data as any).bank_clabe;
       const { error } = await supabase
         .from("employees")
         .update(update)
