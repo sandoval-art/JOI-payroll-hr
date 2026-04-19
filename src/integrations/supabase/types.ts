@@ -232,8 +232,11 @@ export type Database = {
       }
       employees: {
         Row: {
+          address: string | null
+          bank_clabe: string | null
           campaign_id: string | null
           created_at: string | null
+          curp: string | null
           daily_discount_rate: number | null
           email: string | null
           employee_id: string
@@ -242,13 +245,18 @@ export type Database = {
           is_active: boolean | null
           kpi_bonus_amount: number | null
           monthly_base_salary: number | null
+          phone: string | null
           reports_to: string | null
+          rfc: string | null
           shift_type: string | null
           title: string
         }
         Insert: {
+          address?: string | null
+          bank_clabe?: string | null
           campaign_id?: string | null
           created_at?: string | null
+          curp?: string | null
           daily_discount_rate?: number | null
           email?: string | null
           employee_id: string
@@ -257,13 +265,18 @@ export type Database = {
           is_active?: boolean | null
           kpi_bonus_amount?: number | null
           monthly_base_salary?: number | null
+          phone?: string | null
           reports_to?: string | null
+          rfc?: string | null
           shift_type?: string | null
           title?: string
         }
         Update: {
+          address?: string | null
+          bank_clabe?: string | null
           campaign_id?: string | null
           created_at?: string | null
+          curp?: string | null
           daily_discount_rate?: number | null
           email?: string | null
           employee_id?: string
@@ -272,7 +285,9 @@ export type Database = {
           is_active?: boolean | null
           kpi_bonus_amount?: number | null
           monthly_base_salary?: number | null
+          phone?: string | null
           reports_to?: string | null
+          rfc?: string | null
           shift_type?: string | null
           title?: string
         }

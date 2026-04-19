@@ -132,3 +132,7 @@ All design questions resolved as of 2026-04-19. Build is unblocked for A and B1/
 ## What's parked / not happening yet
 
 Nothing on the original six-item list got dropped except the "policy section without ack tracking" version. If ack tracking ends up being too heavy for the first pass, revisit whether to ship a Drive folder link as a stopgap instead of building C half-way.
+
+## Followups
+
+- **Harden RLS on employees table for sensitive fields (curp, rfc, bank_clabe).** Currently protected at UI layer only — any authenticated user can read/modify another employee's tax info via direct Supabase calls. Should be tightened so agents can only SELECT their own row, and only leadership roles (admin/manager/owner) can UPDATE. Added during A1 (2026-04-19).

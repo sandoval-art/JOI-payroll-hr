@@ -10,10 +10,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+
+// ── A1: Personal & Tax Info validation ──────────────────────────────
+const CURP_RE = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
+const RFC_RE = /^[A-Z&Ñ]{4}\d{6}[A-Z0-9]{3}$/;
+const CLABE_RE = /^\d{18}$/;
+const PHONE_RE = /^\d{10}$/;
+
+function validateTaxFields(fields: { curp: string; rfc: string; phone: string; bank_clabe: string }) {
+  const errors: Record<string, string> = {};
+  if (fields.curp && !CURP_RE.test(fields.curp)) errors.curp = "CURP must be 18 characters (e.g. GARC850101HDFRRL09)";
+  if (fields.rfc && !RFC_RE.test(fields.rfc)) errors.rfc = "RFC must be 13 characters (e.g. GARC850101AB3)";
+  if (fields.bank_clabe && !CLABE_RE.test(fields.bank_clabe)) errors.bank_clabe = "CLABE must be exactly 18 digits";
+  if (fields.phone) {
+    const digits = fields.phone.replace(/[\s\-]/g, "");
+    if (!PHONE_RE.test(digits)) errors.phone = "Phone must be 10 digits";
+  }
+  return errors;
+}
 
 const fmt = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "MXN" });
 
@@ -112,6 +130,44 @@ export default function EmpleadoPerfil() {
     );
   };
 
+  // ── A1: Personal & Tax Info state ───────────────────────────────
+  const [taxForm, setTaxForm] = useState({
+    curp: (emp as any)._curp || "",
+    rfc: (emp as any)._rfc || "",
+    address: (emp as any)._address || "",
+    phone: (emp as any)._phone || "",
+    bank_clabe: (emp as any)._bankClabe || "",
+  });
+  const [taxErrors, setTaxErrors] = useState<Record<string, string>>({});
+
+  // Sync when emp data loads/changes
+  useEffect(() => {
+    setTaxForm({
+      curp: (emp as any)._curp || "",
+      rfc: (emp as any)._rfc || "",
+      address: (emp as any)._address || "",
+      phone: (emp as any)._phone || "",
+      bank_clabe: (emp as any)._bankClabe || "",
+    });
+  }, [(emp as any)._curp, (emp as any)._rfc, (emp as any)._address, (emp as any)._phone, (emp as any)._bankClabe]);
+
+  const saveTaxFields = () => {
+    const normalized = { ...taxForm, phone: taxForm.phone.replace(/[\s\-]/g, "") };
+    const errors = validateTaxFields(normalized);
+    setTaxErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    updateEmployee.mutate(
+      { employeeId: emp.id, data: normalized as any },
+      {
+        onSuccess: () => {
+          toast.success("Personal info saved");
+          queryClient.invalidateQueries({ queryKey: ["employees"] });
+        },
+      }
+    );
+  };
+
   return (
     <div className="space-y-6 max-w-4xl">
       <Button variant="ghost" onClick={() => navigate("/empleados")}>
@@ -168,6 +224,77 @@ export default function EmpleadoPerfil() {
               <Label className="text-muted-foreground text-xs">Supervisor</Label>
               <p className="text-sm">{supervisorName || "—"}</p>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* A1: Personal & Tax Info */}
+        <Card>
+          <CardHeader><CardTitle className="text-lg">Personal & Tax Info</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {isLeadership ? (
+              <>
+                <div className="grid gap-2">
+                  <Label>CURP</Label>
+                  <Input
+                    value={taxForm.curp}
+                    onChange={(e) => setTaxForm((f) => ({ ...f, curp: e.target.value.toUpperCase() }))}
+                    placeholder="GARC850101HDFRRL09"
+                    maxLength={18}
+                  />
+                  {taxErrors.curp && <p className="text-xs text-destructive">{taxErrors.curp}</p>}
+                </div>
+                <div className="grid gap-2">
+                  <Label>RFC</Label>
+                  <Input
+                    value={taxForm.rfc}
+                    onChange={(e) => setTaxForm((f) => ({ ...f, rfc: e.target.value.toUpperCase() }))}
+                    placeholder="GARC850101AB3"
+                    maxLength={13}
+                  />
+                  {taxErrors.rfc && <p className="text-xs text-destructive">{taxErrors.rfc}</p>}
+                </div>
+                <div className="grid gap-2">
+                  <Label>Address</Label>
+                  <Input
+                    value={taxForm.address}
+                    onChange={(e) => setTaxForm((f) => ({ ...f, address: e.target.value }))}
+                    placeholder="Calle, Colonia, Ciudad, CP"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Phone</Label>
+                  <Input
+                    value={taxForm.phone}
+                    onChange={(e) => setTaxForm((f) => ({ ...f, phone: e.target.value }))}
+                    placeholder="33 1234 5678"
+                    maxLength={15}
+                  />
+                  {taxErrors.phone && <p className="text-xs text-destructive">{taxErrors.phone}</p>}
+                </div>
+                <div className="grid gap-2">
+                  <Label>Bank CLABE</Label>
+                  <Input
+                    value={taxForm.bank_clabe}
+                    onChange={(e) => setTaxForm((f) => ({ ...f, bank_clabe: e.target.value.replace(/\D/g, "") }))}
+                    placeholder="012345678901234567"
+                    maxLength={18}
+                  />
+                  {taxErrors.bank_clabe && <p className="text-xs text-destructive">{taxErrors.bank_clabe}</p>}
+                </div>
+                <Button onClick={saveTaxFields} disabled={updateEmployee.isPending} className="w-full">
+                  <Save className="mr-2 h-4 w-4" />
+                  {updateEmployee.isPending ? "Saving..." : "Save Personal Info"}
+                </Button>
+              </>
+            ) : (
+              <div className="space-y-3">
+                <ReadOnlyField label="CURP" value={(emp as any)._curp} />
+                <ReadOnlyField label="RFC" value={(emp as any)._rfc} />
+                <ReadOnlyField label="Address" value={(emp as any)._address} />
+                <ReadOnlyField label="Phone" value={(emp as any)._phone} />
+                <ReadOnlyField label="Bank CLABE" value={(emp as any)._bankClabe} />
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -231,6 +358,15 @@ function Row({ label, value, negative }: { label: string; value: string; negativ
     <div className="flex justify-between text-sm">
       <span className="text-muted-foreground">{label}</span>
       <span className={negative ? "text-destructive" : ""}>{value}</span>
+    </div>
+  );
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="grid gap-1">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-sm">{value || "—"}</span>
     </div>
   );
 }

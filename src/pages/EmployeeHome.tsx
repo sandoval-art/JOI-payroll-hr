@@ -135,11 +135,11 @@ export default function EmployeeHome() {
       if (!employeeId) return null;
       const { data, error } = await supabase
         .from("employees")
-        .select("id, full_name, campaign_id")
+        .select("id, full_name, campaign_id, curp, rfc, address, phone, bank_clabe")
         .eq("id", employeeId)
         .single();
       if (error) throw error;
-      return data as { id: string; full_name: string; campaign_id: string };
+      return data as { id: string; full_name: string; campaign_id: string; curp: string | null; rfc: string | null; address: string | null; phone: string | null; bank_clabe: string | null };
     },
     enabled: !!employeeId,
   });
@@ -552,6 +552,49 @@ export default function EmployeeHome() {
           accent={minutesLate > 0 ? "text-red-600" : undefined}
         />
       </div>
+
+      {/* A1: Personal & Tax Info (read-only for agent) */}
+      {employee && (employee.curp || employee.rfc || employee.address || employee.phone || employee.bank_clabe) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">My Info</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {employee.curp && (
+                <div className="grid gap-1">
+                  <span className="text-xs text-muted-foreground">CURP</span>
+                  <span className="text-sm font-medium">{employee.curp}</span>
+                </div>
+              )}
+              {employee.rfc && (
+                <div className="grid gap-1">
+                  <span className="text-xs text-muted-foreground">RFC</span>
+                  <span className="text-sm font-medium">{employee.rfc}</span>
+                </div>
+              )}
+              {employee.phone && (
+                <div className="grid gap-1">
+                  <span className="text-xs text-muted-foreground">Phone</span>
+                  <span className="text-sm font-medium">{employee.phone}</span>
+                </div>
+              )}
+              {employee.address && (
+                <div className="grid gap-1">
+                  <span className="text-xs text-muted-foreground">Address</span>
+                  <span className="text-sm font-medium">{employee.address}</span>
+                </div>
+              )}
+              {employee.bank_clabe && (
+                <div className="grid gap-1">
+                  <span className="text-xs text-muted-foreground">Bank CLABE</span>
+                  <span className="text-sm font-medium">{employee.bank_clabe}</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Weekly chart */}
       <Card>
