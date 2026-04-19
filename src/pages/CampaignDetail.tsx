@@ -164,6 +164,8 @@ export default function CampaignDetail() {
   const [digestCutoff, setDigestCutoff] = useState('');
   const [digestMorningBundle, setDigestMorningBundle] = useState('');
   const [digestTimezone, setDigestTimezone] = useState('America/Denver');
+  const [digestReplyTo, setDigestReplyTo] = useState('');
+  const [digestReplyToError, setDigestReplyToError] = useState('');
   const [digestDirty, setDigestDirty] = useState(false);
   const [sendingTestDigest, setSendingTestDigest] = useState(false);
 
@@ -179,11 +181,11 @@ export default function CampaignDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('campaigns')
-        .select('id, name, client_id, team_lead_id, eod_digest_cutoff_time, eod_morning_bundle_time, eod_digest_timezone, clients(id, name, prefix)')
+        .select('id, name, client_id, team_lead_id, eod_digest_cutoff_time, eod_morning_bundle_time, eod_digest_timezone, eod_reply_to_email, clients(id, name, prefix)')
         .eq('id', id!)
         .single();
       if (error) throw error;
-      return data as { id: string; name: string; client_id: string; team_lead_id: string | null; eod_digest_cutoff_time: string | null; eod_morning_bundle_time: string | null; eod_digest_timezone: string; clients: { id: string; name: string; prefix: string } | null };
+      return data as { id: string; name: string; client_id: string; team_lead_id: string | null; eod_digest_cutoff_time: string | null; eod_morning_bundle_time: string | null; eod_digest_timezone: string; eod_reply_to_email: string | null; clients: { id: string; name: string; prefix: string } | null };
     },
     enabled: !!id,
   });
@@ -571,6 +573,8 @@ export default function CampaignDetail() {
       setDigestCutoff(campaign.eod_digest_cutoff_time ?? '');
       setDigestMorningBundle(campaign.eod_morning_bundle_time ?? '');
       setDigestTimezone(campaign.eod_digest_timezone ?? 'America/Denver');
+      setDigestReplyTo(campaign.eod_reply_to_email ?? '');
+      setDigestReplyToError('');
       setDigestDirty(false);
     }
   }, [campaign]);
@@ -583,6 +587,7 @@ export default function CampaignDetail() {
           eod_digest_cutoff_time: digestCutoff || null,
           eod_morning_bundle_time: digestMorningBundle || null,
           eod_digest_timezone: digestTimezone,
+          eod_reply_to_email: digestReplyTo.trim() || null,
         })
         .eq('id', id!);
       if (error) throw error;
@@ -593,6 +598,16 @@ export default function CampaignDetail() {
       toast.success('Digest schedule saved');
     },
   });
+
+  function handleSaveDigest() {
+    const replyTo = digestReplyTo.trim();
+    if (replyTo && !EMAIL_RE.test(replyTo)) {
+      setDigestReplyToError('Enter a valid email address or leave blank.');
+      return;
+    }
+    setDigestReplyToError('');
+    saveDigestMutation.mutate();
+  }
 
   function openAddKpi() {
     setEditingField(null);
@@ -1108,8 +1123,28 @@ export default function CampaignDetail() {
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="digest-reply-to">Reply-To Email</Label>
+            <Input
+              id="digest-reply-to"
+              type="email"
+              placeholder="name@example.com"
+              value={digestReplyTo}
+              onChange={(e) => {
+                setDigestReplyTo(e.target.value);
+                setDigestReplyToError('');
+                setDigestDirty(true);
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              When clients or managers hit Reply on the digest, responses go to this address. Leave blank to use the sender address.
+            </p>
+            {digestReplyToError && (
+              <p className="text-sm text-destructive">{digestReplyToError}</p>
+            )}
+          </div>
           {digestDirty && (
-            <Button onClick={() => saveDigestMutation.mutate()} disabled={saveDigestMutation.isPending}>
+            <Button onClick={handleSaveDigest} disabled={saveDigestMutation.isPending}>
               {saveDigestMutation.isPending ? 'Saving...' : 'Save Schedule'}
             </Button>
           )}
