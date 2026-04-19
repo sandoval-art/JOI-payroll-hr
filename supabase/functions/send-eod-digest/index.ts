@@ -80,6 +80,7 @@ interface EODLog {
   metrics: Record<string, unknown> | null;
   notes: string | null;
   created_at: string;
+  last_edited_at: string | null;
 }
 
 type DigestResult = {
@@ -218,22 +219,24 @@ function buildMorningBundleHtml(
   campaignName: string,
   date: string,
   kpiFields: KPIField[],
-  lateFilers: EODLog[],
-  lateFilersAgents: Agent[],
+  bundleLogs: EODLog[],
+  bundleAgents: Agent[],
   stillMissing: Agent[],
+  amendedEmployeeIds: Set<string> = new Set(),
 ): string {
   const [y, m, d] = date.split("-").map(Number);
   const dateLabel = new Date(y, m - 1, d).toLocaleDateString("en-US", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
   const numericKpis = kpiFields.filter((f) => f.field_type === "number");
-  const lateMap = new Map(lateFilers.map((l) => [l.employee_id, l]));
+  const logMap = new Map(bundleLogs.map((l) => [l.employee_id, l]));
   const kpiHeaders = numericKpis
     .map((k) => `<th style="padding:8px 12px;text-align:left;background:${NAVY};color:white;white-space:nowrap;">${k.field_label}</th>`)
     .join("");
-  const lateRows = lateFilersAgents.map((agent) => {
-    const log = lateMap.get(agent.id)!;
+  const bundleRows = bundleAgents.map((agent) => {
+    const log = logMap.get(agent.id)!;
     const metrics = log.metrics ?? null;
+    const isAmended = amendedEmployeeIds.has(agent.id);
     const kpiCells = numericKpis.map((kpi) => {
       const val = metrics !== null ? (metrics[kpi.field_name] as number | undefined) : undefined;
       const below = kpi.min_target !== null && val !== undefined && val < kpi.min_target;
@@ -241,19 +244,22 @@ function buildMorningBundleHtml(
       return `<td style="padding:8px 12px;border-bottom:1px solid ${BORDER};${cellStyle}">${val !== undefined ? String(val) : "\u2014"}${below ? `&nbsp;<span style="font-size:11px;">&#9888;</span>` : ""}</td>`;
     }).join("");
     const submittedAt = new Date(log.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-    return `<tr style="background:white;"><td style="padding:8px 12px;border-bottom:1px solid ${BORDER};font-weight:500;white-space:nowrap;">${agent.full_name}</td>${kpiCells}<td style="padding:8px 12px;border-bottom:1px solid ${BORDER};color:#6B7280;white-space:nowrap;font-size:12px;">Submitted ${submittedAt}</td></tr>`;
+    const nameLabel = isAmended
+      ? `${agent.full_name} <span style="color:${ORANGE};font-size:11px;font-weight:600;">(amended)</span>`
+      : agent.full_name;
+    return `<tr style="background:white;"><td style="padding:8px 12px;border-bottom:1px solid ${BORDER};font-weight:500;white-space:nowrap;">${nameLabel}</td>${kpiCells}<td style="padding:8px 12px;border-bottom:1px solid ${BORDER};color:#6B7280;white-space:nowrap;font-size:12px;">Submitted ${submittedAt}</td></tr>`;
   }).join("");
-  const lateSection = lateFilers.length > 0
-    ? `<h3 style="margin:0 0 12px;color:${NAVY};font-size:14px;font-weight:600;">Late Submissions (${lateFilers.length})</h3><div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:480px;"><thead><tr><th style="padding:8px 12px;text-align:left;background:${NAVY};color:white;">Agent</th>${kpiHeaders}<th style="padding:8px 12px;text-align:left;background:${NAVY};color:white;">Submitted At</th></tr></thead><tbody>${lateRows}</tbody></table></div>`
+  const bundleSection = bundleLogs.length > 0
+    ? `<h3 style="margin:0 0 12px;color:${NAVY};font-size:14px;font-weight:600;">Late / Amended Submissions (${bundleLogs.length})</h3><div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:480px;"><thead><tr><th style="padding:8px 12px;text-align:left;background:${NAVY};color:white;">Agent</th>${kpiHeaders}<th style="padding:8px 12px;text-align:left;background:${NAVY};color:white;">Submitted At</th></tr></thead><tbody>${bundleRows}</tbody></table></div>`
     : "";
   const missingSection = stillMissing.length > 0
-    ? `<div style="margin-top:${lateFilers.length > 0 ? "24px" : "0"};"><h3 style="margin:0 0 12px;color:${NAVY};font-size:14px;font-weight:600;">Still Missing (${stillMissing.length})</h3><div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;padding:12px 16px;"><p style="margin:0;color:#7F1D1D;font-size:13px;">${stillMissing.map((a) => a.full_name).join(", ")}</p></div></div>`
+    ? `<div style="margin-top:${bundleLogs.length > 0 ? "24px" : "0"};"><h3 style="margin:0 0 12px;color:${NAVY};font-size:14px;font-weight:600;">Still Missing (${stillMissing.length})</h3><div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;padding:12px 16px;"><p style="margin:0;color:#7F1D1D;font-size:13px;">${stillMissing.map((a) => a.full_name).join(", ")}</p></div></div>`
     : "";
   return emailShell({
     title: `Late EOD Bundle \u2014 ${campaignName}`, label: "Late EOD Bundle", campaignName,
     dateLabel: `${dateLabel} (yesterday)`,
-    summaryHtml: `${lateFilers.length} late submission${lateFilers.length !== 1 ? "s" : ""} &nbsp;&middot;&nbsp; ${stillMissing.length > 0 ? `<span style="color:#DC2626;">${stillMissing.length} still missing</span>` : `<span style="color:#15803D;">No outstanding missing</span>`}`,
-    bodyHtml: `${lateSection}${missingSection}`,
+    summaryHtml: `${bundleLogs.length} late/amended submission${bundleLogs.length !== 1 ? "s" : ""} &nbsp;&middot;&nbsp; ${stillMissing.length > 0 ? `<span style="color:#DC2626;">${stillMissing.length} still missing</span>` : `<span style="color:#15803D;">No outstanding missing</span>`}`,
+    bodyHtml: `${bundleSection}${missingSection}`,
   });
 }
 
@@ -333,7 +339,7 @@ async function handleDailyDigest(supabase: SupabaseClient): Promise<DigestResult
     const [kpiRes, agentRes, eodRes, tlNoteRes, recipientRes] = await Promise.all([
       supabase.from("campaign_kpi_config").select("field_name, field_label, field_type, min_target").eq("campaign_id", c.id).eq("is_active", true).order("display_order"),
       supabase.from("employees").select("id, full_name").eq("campaign_id", c.id).eq("is_active", true).order("full_name"),
-      supabase.from("eod_logs").select("employee_id, metrics, notes, created_at").eq("campaign_id", c.id).eq("date", todayInTz),
+      supabase.from("eod_logs").select("employee_id, metrics, notes, created_at, last_edited_at").eq("campaign_id", c.id).eq("date", todayInTz),
       supabase.from("campaign_eod_tl_notes").select("note").eq("campaign_id", c.id).eq("date", todayInTz).maybeSingle(),
       supabase.from("campaign_eod_recipients").select("email").eq("campaign_id", c.id).eq("active", true),
     ]);
@@ -376,11 +382,13 @@ async function handleMorningBundle(supabase: SupabaseClient): Promise<DigestResu
     const { data: existing } = await supabase.from("eod_digest_log").select("id").eq("campaign_id", c.id).eq("digest_date", todayInTz).eq("digest_type", "morning_bundle").is("error", null).maybeSingle();
     if (existing) { results.push({ campaign: c.name, status: "skipped" }); continue; }
     const cutoffUtc = getCutoffAsUtc(yesterday, c.eod_digest_cutoff_time!, tz);
-    const [kpiRes, agentRes, eodRes, recipientRes] = await Promise.all([
+    const [kpiRes, agentRes, eodRes, recipientRes, dailyDigestRes] = await Promise.all([
       supabase.from("campaign_kpi_config").select("field_name, field_label, field_type, min_target").eq("campaign_id", c.id).eq("is_active", true).order("display_order"),
       supabase.from("employees").select("id, full_name").eq("campaign_id", c.id).eq("is_active", true).order("full_name"),
-      supabase.from("eod_logs").select("employee_id, metrics, notes, created_at").eq("campaign_id", c.id).eq("date", yesterday),
+      supabase.from("eod_logs").select("employee_id, metrics, notes, created_at, last_edited_at").eq("campaign_id", c.id).eq("date", yesterday),
       supabase.from("campaign_eod_recipients").select("email").eq("campaign_id", c.id).eq("active", true),
+      // Fetch the daily digest sent_at to detect post-digest amendments
+      supabase.from("eod_digest_log").select("sent_at").eq("campaign_id", c.id).eq("digest_date", yesterday).eq("digest_type", "daily").is("error", null).maybeSingle(),
     ]);
     const fetchErr = [kpiRes, agentRes, eodRes, recipientRes].find((r) => r.error)?.error;
     if (fetchErr) { results.push({ campaign: c.name, status: "error", error: fetchErr.message }); continue; }
@@ -388,18 +396,33 @@ async function handleMorningBundle(supabase: SupabaseClient): Promise<DigestResu
     const agents = (agentRes.data ?? []) as Agent[];
     const allYesterdayLogs = (eodRes.data ?? []) as EODLog[];
     const recipients = (recipientRes.data ?? []) as { email: string }[];
+    const dailySentAt = dailyDigestRes.data?.sent_at ? new Date(dailyDigestRes.data.sent_at as string) : null;
+
     const lateLogs = allYesterdayLogs.filter((l) => new Date(l.created_at) > cutoffUtc);
+    // Detect amended EODs: edited after the daily digest was sent
+    const amendedLogs = dailySentAt
+      ? allYesterdayLogs.filter((l) => l.last_edited_at && new Date(l.last_edited_at) > dailySentAt)
+      : [];
+    const amendedEmployeeIds = new Set(amendedLogs.map((l) => l.employee_id));
+    // Include amended EODs in the bundle even if they weren't late
+    const bundleLogs = [...lateLogs];
+    for (const al of amendedLogs) {
+      if (!bundleLogs.some((bl) => bl.employee_id === al.employee_id)) {
+        bundleLogs.push(al);
+      }
+    }
+
     const submittedIds = new Set(allYesterdayLogs.map((l) => l.employee_id));
     const stillMissing = agents.filter((a) => !submittedIds.has(a.id));
     // Nothing to report — don't log (allows natural re-check next run)
-    if (lateLogs.length === 0 && stillMissing.length === 0) {
+    if (bundleLogs.length === 0 && stillMissing.length === 0) {
       results.push({ campaign: c.name, status: "nothing_to_report" }); continue;
     }
     if (recipients.length === 0) { results.push({ campaign: c.name, status: "no_recipients" }); continue; }
-    const lateAgentIds = new Set(lateLogs.map((l) => l.employee_id));
-    const lateFilersAgents = agents.filter((a) => lateAgentIds.has(a.id));
-    const logBase = { campaign_id: c.id, digest_date: todayInTz, digest_type: "morning_bundle", recipient_count: recipients.length, agent_submission_count: lateLogs.length, agent_missing_count: stillMissing.length, missing_agents: stillMissing.map((a) => ({ id: a.id, full_name: a.full_name })) };
-    const result = await sendAndLog(supabase, logBase, { to: recipients.map((r) => r.email), subject: `[Late EOD Bundle] ${c.name} \u2014 ${yesterday}`, html: buildMorningBundleHtml(c.name, yesterday, kpiFields, lateLogs, lateFilersAgents, stillMissing) });
+    const bundleAgentIds = new Set(bundleLogs.map((l) => l.employee_id));
+    const bundleAgents = agents.filter((a) => bundleAgentIds.has(a.id));
+    const logBase = { campaign_id: c.id, digest_date: todayInTz, digest_type: "morning_bundle", recipient_count: recipients.length, agent_submission_count: bundleLogs.length, agent_missing_count: stillMissing.length, missing_agents: stillMissing.map((a) => ({ id: a.id, full_name: a.full_name })) };
+    const result = await sendAndLog(supabase, logBase, { to: recipients.map((r) => r.email), subject: `[Late EOD Bundle] ${c.name} \u2014 ${yesterday}`, html: buildMorningBundleHtml(c.name, yesterday, kpiFields, bundleLogs, bundleAgents, stillMissing, amendedEmployeeIds) });
     results.push({ campaign: c.name, ...result, dryRun: DRY_RUN });
   }
   return results;
@@ -475,7 +498,7 @@ async function handleTestSend(
   const [kpiRes, agentRes, eodRes, tlNoteRes] = await Promise.all([
     supabase.from("campaign_kpi_config").select("field_name, field_label, field_type, min_target").eq("campaign_id", campaignId).eq("is_active", true).order("display_order"),
     supabase.from("employees").select("id, full_name").eq("campaign_id", campaignId).eq("is_active", true).order("full_name"),
-    supabase.from("eod_logs").select("employee_id, metrics, notes, created_at").eq("campaign_id", campaignId).eq("date", todayInTz),
+    supabase.from("eod_logs").select("employee_id, metrics, notes, created_at, last_edited_at").eq("campaign_id", campaignId).eq("date", todayInTz),
     supabase.from("campaign_eod_tl_notes").select("note").eq("campaign_id", campaignId).eq("date", todayInTz).maybeSingle(),
   ]);
   const fetchErr = [kpiRes, agentRes, eodRes].find((r) => r.error)?.error;
