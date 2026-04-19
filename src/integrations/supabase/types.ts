@@ -561,6 +561,36 @@ export type Database = {
           },
         ]
       }
+      required_document_types: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          is_active: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shift_settings: {
         Row: {
           campaign_id: string

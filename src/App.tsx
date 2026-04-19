@@ -28,6 +28,7 @@ import PayrollRun from "@/pages/PayrollRun";
 import TeamLeadHome from "@/pages/TeamLeadHome";
 import TLDashboard from "@/pages/TLDashboard";
 import Account from "@/pages/Account";
+import DocumentTypes from "@/pages/DocumentTypes";
 import { RequireLeadership, RequireTeamLeadOrAbove } from "@/components/RequireRole";
 
 const queryClient = new QueryClient();
@@ -108,6 +109,7 @@ const App = () => (
                     <Route path="/campaigns" element={<RequireLeadership><Campaigns /></RequireLeadership>} />
                     <Route path="/campaigns/:id" element={<RequireLeadership><CampaignDetail /></RequireLeadership>} />
                     <Route path="/payroll-run" element={<RequireLeadership><PayrollRun /></RequireLeadership>} />
+                    <Route path="/settings/document-types" element={<RequireLeadership><DocumentTypes /></RequireLeadership>} />
                     <Route path="/account" element={<Account />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
