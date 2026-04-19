@@ -31,6 +31,7 @@ Required documents:
 
 Enforcement layer:
 - If a required doc is missing, agent sees a flag on their profile and HR gets notified.
+- **Notifications go out both in-app AND via email** (in-app for day-to-day visibility, email so it doesn't get missed during onboarding).
 - **Grace window is UI-controlled** per agent (HR sets the duration for special circumstances instead of a hardcoded value).
 - If grace window expires, clock-in button is auto-disabled until HR manually re-enables.
 - **A doc counts as "submitted" once HR has approved it.** Upload alone isn't enough.
@@ -90,6 +91,8 @@ Per-agent view of:
 
 **Must ship with acknowledgment tracking.** Agent clicks "I've read and agree," timestamp + version get stored. Without ack tracking, this is just a PDF viewer with no legal value and nobody will click it. Not worth building a half-version.
 
+**Ack versioning:** when a doc gets updated (new version of the reglamento, etc.), agents re-ack the new version. **Old acks are retained, not invalidated** — a new ack record is created alongside the old one. HR can see the full history of what each agent has acknowledged and when. Protects the legal trail in disputes.
+
 ## Effort vs value
 
 | Feature | Value | Effort | Notes |
@@ -124,17 +127,7 @@ Per-agent view of:
 
 ## Open questions to answer before building
 
-Remaining open questions after the 2026-04-19 discussion.
-
-**For A:**
-- Notification channel when a doc is missing — in-app only, or email too?
-
-**For B:**
-- Carta and acta templates are being sourced (legal review). Blocker on B2/B3 build, not a design question.
-
-**For C:**
-- What triggers a new ack requirement — any edit to the doc, or only when a version is marked as major?
-- Are older acks retained for history, or does a new version invalidate old ones?
+All design questions resolved as of 2026-04-19. Build is unblocked for A and B1/B4. B2/B3 is gated on JOI receiving legal-approved carta and acta templates (external work, not a design question).
 
 ## What's parked / not happening yet
 
