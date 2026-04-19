@@ -26,6 +26,7 @@ import Campaigns from "@/pages/Campaigns";
 import CampaignDetail from "@/pages/CampaignDetail";
 import PayrollRun from "@/pages/PayrollRun";
 import TeamLeadHome from "@/pages/TeamLeadHome";
+import TLDashboard from "@/pages/TLDashboard";
 import Account from "@/pages/Account";
 import { RequireLeadership, RequireTeamLeadOrAbove } from "@/components/RequireRole";
 
@@ -102,6 +103,7 @@ const App = () => (
                     <Route path="/solicitudes" element={<TimeOff />} />
                     <Route path="/asistencia" element={<RequireTeamLeadOrAbove><Attendance /></RequireTeamLeadOrAbove>} />
                     <Route path="/desempeno" element={<RequireTeamLeadOrAbove><Performance /></RequireTeamLeadOrAbove>} />
+                    <Route path="/team-lead/dashboard" element={<RequireTeamLeadOrAbove><TLDashboard /></RequireTeamLeadOrAbove>} />
                     <Route path="/settings/shifts" element={<RequireTeamLeadOrAbove><ShiftSettings /></RequireTeamLeadOrAbove>} />
                     <Route path="/campaigns" element={<RequireLeadership><Campaigns /></RequireLeadership>} />
                     <Route path="/campaigns/:id" element={<RequireLeadership><CampaignDetail /></RequireLeadership>} />
