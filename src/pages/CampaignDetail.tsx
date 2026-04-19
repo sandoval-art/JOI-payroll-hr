@@ -161,13 +161,15 @@ export default function CampaignDetail() {
   const [recipientEmailError, setRecipientEmailError] = useState('');
 
   // Digest Schedule
-  const [digestCutoff, setDigestCutoff] = useState('');
+  // digestCutoff kept for backward compat (column not dropped) but no longer editable
+  const [digestCutoff] = useState('');
   const [digestMorningBundle, setDigestMorningBundle] = useState('');
   const [digestTimezone, setDigestTimezone] = useState('America/Denver');
   const [digestReplyTo, setDigestReplyTo] = useState('');
   const [digestReplyToError, setDigestReplyToError] = useState('');
   const [digestDirty, setDigestDirty] = useState(false);
   const [sendingTestDigest, setSendingTestDigest] = useState(false);
+  const [sendingManualDigest, setSendingManualDigest] = useState(false);
 
   const invalidateCampaign = () => {
     queryClient.invalidateQueries({ queryKey: ['campaign', id] });
@@ -570,7 +572,6 @@ export default function CampaignDetail() {
   // Sync local state when campaign data loads
   useEffect(() => {
     if (campaign) {
-      setDigestCutoff(campaign.eod_digest_cutoff_time ?? '');
       setDigestMorningBundle(campaign.eod_morning_bundle_time ?? '');
       setDigestTimezone(campaign.eod_digest_timezone ?? 'America/Denver');
       setDigestReplyTo(campaign.eod_reply_to_email ?? '');
@@ -1084,33 +1085,27 @@ export default function CampaignDetail() {
           <CardTitle className="text-base">Digest Schedule</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="digest-cutoff">EOD Cutoff Time</Label>
-              <Input
-                id="digest-cutoff"
-                type="time"
-                value={digestCutoff}
-                onChange={(e) => { setDigestCutoff(e.target.value); setDigestDirty(true); }}
-              />
-              <p className="text-xs text-muted-foreground">
-                {digestCutoff ? 'Daily digest sends at this time.' : 'Empty = no daily digest.'}
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="digest-morning">Morning Bundle Time</Label>
-              <Input
-                id="digest-morning"
-                type="time"
-                value={digestMorningBundle}
-                onChange={(e) => { setDigestMorningBundle(e.target.value); setDigestDirty(true); }}
-              />
-              <p className="text-xs text-muted-foreground">
-                {digestMorningBundle
-                  ? 'Late & missing EODs from yesterday sent at this time.'
-                  : 'Empty = no morning bundle.'}
-              </p>
-            </div>
+          <div className="space-y-1.5 rounded-md bg-muted/50 p-3">
+            <p className="text-sm font-medium">Daily Digest Trigger</p>
+            <p className="text-xs text-muted-foreground">
+              Auto-fires 5 min after today's latest shift ends (shift end + grace + 5 min).
+              Configure shifts on the <a href="/settings/shifts" className="underline">Shift Settings</a> page.
+              No shifts today = no digest.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="digest-morning">Morning Bundle Time</Label>
+            <Input
+              id="digest-morning"
+              type="time"
+              value={digestMorningBundle}
+              onChange={(e) => { setDigestMorningBundle(e.target.value); setDigestDirty(true); }}
+            />
+            <p className="text-xs text-muted-foreground">
+              {digestMorningBundle
+                ? 'Late & missing EODs from yesterday sent at this time.'
+                : 'Empty = no morning bundle.'}
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="digest-tz">Timezone</Label>
@@ -1174,6 +1169,44 @@ export default function CampaignDetail() {
               </Button>
               <p className="text-xs text-muted-foreground">
                 Sends a preview to your own email using today's data. Real recipients are not contacted. Ignores DRY_RUN.
+              </p>
+            </div>
+          )}
+          {(isLeadership || isTeamLead) && (
+            <div className="space-y-1 pt-2 border-t">
+              <Button
+                variant="destructive"
+                disabled={sendingManualDigest}
+                onClick={async () => {
+                  if (!window.confirm('This will send a real digest to all recipients. Continue?')) return;
+                  setSendingManualDigest(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke('send-eod-digest', {
+                      body: { mode: 'manual_fire', campaign_id: id },
+                    });
+                    if (error) throw error;
+                    if (data?.error) throw new Error(data.error);
+                    if (data?.status === 'already_sent_today') {
+                      toast.info('Digest was already sent today for this campaign.');
+                    } else if (data?.status === 'sent' || data?.status === 'dry_run') {
+                      toast.success(`Digest sent to ${data.dryRun ? '(dry run) ' : ''}${data.campaign}`);
+                    } else if (data?.status === 'no_recipients') {
+                      toast.info('No active recipients configured for this campaign.');
+                    } else {
+                      toast.success('Digest fired.');
+                    }
+                  } catch (err: unknown) {
+                    const msg = err instanceof Error ? err.message : 'Failed to send digest';
+                    toast.error(msg);
+                  } finally {
+                    setSendingManualDigest(false);
+                  }
+                }}
+              >
+                {sendingManualDigest ? 'Sending...' : 'Send Digest Now'}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Fires the real daily digest to all active recipients immediately. Use on days the team wrapped early or if the auto-trigger missed.
               </p>
             </div>
           )}
