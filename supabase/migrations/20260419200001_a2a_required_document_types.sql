@@ -39,17 +39,15 @@ CREATE POLICY "leadership_insert_required_document_types"
   FOR INSERT
   WITH CHECK (public.is_leadership());
 
--- Leadership can update
+-- Leadership can update (includes soft-delete via is_active = false)
 CREATE POLICY "leadership_update_required_document_types"
   ON public.required_document_types
   FOR UPDATE
   USING (public.is_leadership());
 
--- Leadership can delete (soft-delete via is_active is preferred, but allow hard delete for cleanup)
-CREATE POLICY "leadership_delete_required_document_types"
-  ON public.required_document_types
-  FOR DELETE
-  USING (public.is_leadership());
+-- No DELETE policy — hard delete is intentionally blocked.
+-- A2b's employee_documents will FK to this table; hard delete would orphan
+-- historical records. Use is_active = false (soft-delete) instead.
 
 -- ============================================================================
 -- SEED DATA
