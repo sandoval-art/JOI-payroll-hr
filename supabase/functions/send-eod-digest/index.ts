@@ -63,6 +63,15 @@ interface Campaign {
   eod_morning_bundle_time: string | null;
 }
 
+/** Row from campaigns_digest_fire_times() RPC. */
+interface CampaignFireTime {
+  campaign_id: string;
+  campaign_name: string;
+  eod_digest_timezone: string;
+  eod_morning_bundle_time: string | null;
+  digest_fire_time: string; // "HH:MM:SS"
+}
+
 interface KPIField {
   field_name: string;
   field_label: string;
@@ -321,44 +330,57 @@ async function sendAndLog(supabase: SupabaseClient, logBase: Record<string, unkn
 }
 
 // ---------------------------------------------------------------------------
-// Daily digest handler
+// Shared: build + send daily digest for one campaign on a given date.
+// Used by handleDailyDigest (cron) and handleManualFire (button).
+// ---------------------------------------------------------------------------
+async function sendDailyDigestForCampaign(
+  supabase: SupabaseClient,
+  campaignId: string,
+  campaignName: string,
+  todayInTz: string,
+): Promise<DigestResult> {
+  const [kpiRes, agentRes, eodRes, tlNoteRes, recipientRes] = await Promise.all([
+    supabase.from("campaign_kpi_config").select("field_name, field_label, field_type, min_target").eq("campaign_id", campaignId).eq("is_active", true).order("display_order"),
+    supabase.from("employees").select("id, full_name").eq("campaign_id", campaignId).eq("is_active", true).order("full_name"),
+    supabase.from("eod_logs").select("employee_id, metrics, notes, created_at").eq("campaign_id", campaignId).eq("date", todayInTz),
+    supabase.from("campaign_eod_tl_notes").select("note").eq("campaign_id", campaignId).eq("date", todayInTz).maybeSingle(),
+    supabase.from("campaign_eod_recipients").select("email").eq("campaign_id", campaignId).eq("active", true),
+  ]);
+  const fetchErr = [kpiRes, agentRes, eodRes, recipientRes].find((r) => r.error)?.error;
+  if (fetchErr) return { campaign: campaignName, status: "error", error: fetchErr.message };
+  const kpiFields = (kpiRes.data ?? []) as KPIField[];
+  const agents = (agentRes.data ?? []) as Agent[];
+  const eodLogs = (eodRes.data ?? []) as EODLog[];
+  const tlNote = (tlNoteRes.data as { note: string | null } | null)?.note ?? null;
+  const recipients = (recipientRes.data ?? []) as { email: string }[];
+  const submittedIds = new Set(eodLogs.map((l) => l.employee_id));
+  const missingAgents = agents.filter((a) => !submittedIds.has(a.id));
+  if (recipients.length === 0) {
+    await supabase.from("eod_digest_log").upsert({ campaign_id: campaignId, digest_date: todayInTz, digest_type: "daily", recipient_count: 0, agent_submission_count: agents.length - missingAgents.length, agent_missing_count: missingAgents.length, missing_agents: missingAgents.map((a) => ({ id: a.id, full_name: a.full_name })), dry_run: DRY_RUN, error: "no_recipients" }, { onConflict: "campaign_id,digest_date,digest_type" });
+    return { campaign: campaignName, status: "no_recipients" };
+  }
+  const logBase = { campaign_id: campaignId, digest_date: todayInTz, digest_type: "daily", recipient_count: recipients.length, agent_submission_count: agents.length - missingAgents.length, agent_missing_count: missingAgents.length, missing_agents: missingAgents.map((a) => ({ id: a.id, full_name: a.full_name })) };
+  const result = await sendAndLog(supabase, logBase, { to: recipients.map((r) => r.email), subject: `[EOD Digest] ${campaignName} \u2014 ${todayInTz}`, html: buildDailyHtml(campaignName, todayInTz, kpiFields, agents, eodLogs, tlNote) });
+  return { campaign: campaignName, ...result, dryRun: DRY_RUN };
+}
+
+// ---------------------------------------------------------------------------
+// Daily digest handler — auto-trigger from shift_settings via RPC
 // ---------------------------------------------------------------------------
 async function handleDailyDigest(supabase: SupabaseClient): Promise<DigestResult[]> {
-  const { data: campaigns, error } = await supabase
-    .from("campaigns")
-    .select("id, name, eod_digest_cutoff_time, eod_digest_timezone, eod_morning_bundle_time")
-    .not("eod_digest_cutoff_time", "is", null);
+  // Get campaigns with today's auto-derived fire time from shift_settings
+  const { data: rows, error } = await supabase.rpc("campaigns_digest_fire_times");
   if (error) throw error;
   const results: DigestResult[] = [];
-  for (const c of (campaigns ?? []) as Campaign[]) {
-    const tz = c.eod_digest_timezone || "America/Denver";
-    if (!hasTimePassed(c.eod_digest_cutoff_time!, tz)) continue;
+  for (const row of (rows ?? []) as CampaignFireTime[]) {
+    const tz = row.eod_digest_timezone || "America/Denver";
+    if (!hasTimePassed(row.digest_fire_time, tz)) continue;
     const todayInTz = getTodayInTz(tz);
-    const { data: existing } = await supabase.from("eod_digest_log").select("id").eq("campaign_id", c.id).eq("digest_date", todayInTz).eq("digest_type", "daily").is("error", null).maybeSingle();
-    if (existing) { results.push({ campaign: c.name, status: "skipped" }); continue; }
-    const [kpiRes, agentRes, eodRes, tlNoteRes, recipientRes] = await Promise.all([
-      supabase.from("campaign_kpi_config").select("field_name, field_label, field_type, min_target").eq("campaign_id", c.id).eq("is_active", true).order("display_order"),
-      supabase.from("employees").select("id, full_name").eq("campaign_id", c.id).eq("is_active", true).order("full_name"),
-      supabase.from("eod_logs").select("employee_id, metrics, notes, created_at, last_edited_at").eq("campaign_id", c.id).eq("date", todayInTz),
-      supabase.from("campaign_eod_tl_notes").select("note").eq("campaign_id", c.id).eq("date", todayInTz).maybeSingle(),
-      supabase.from("campaign_eod_recipients").select("email").eq("campaign_id", c.id).eq("active", true),
-    ]);
-    const fetchErr = [kpiRes, agentRes, eodRes, recipientRes].find((r) => r.error)?.error;
-    if (fetchErr) { results.push({ campaign: c.name, status: "error", error: fetchErr.message }); continue; }
-    const kpiFields = (kpiRes.data ?? []) as KPIField[];
-    const agents = (agentRes.data ?? []) as Agent[];
-    const eodLogs = (eodRes.data ?? []) as EODLog[];
-    const tlNote = (tlNoteRes.data as { note: string | null } | null)?.note ?? null;
-    const recipients = (recipientRes.data ?? []) as { email: string }[];
-    const submittedIds = new Set(eodLogs.map((l) => l.employee_id));
-    const missingAgents = agents.filter((a) => !submittedIds.has(a.id));
-    if (recipients.length === 0) {
-      await supabase.from("eod_digest_log").upsert({ campaign_id: c.id, digest_date: todayInTz, digest_type: "daily", recipient_count: 0, agent_submission_count: agents.length - missingAgents.length, agent_missing_count: missingAgents.length, missing_agents: missingAgents.map((a) => ({ id: a.id, full_name: a.full_name })), dry_run: DRY_RUN, error: "no_recipients" }, { onConflict: "campaign_id,digest_date,digest_type" });
-      results.push({ campaign: c.name, status: "no_recipients" }); continue;
-    }
-    const logBase = { campaign_id: c.id, digest_date: todayInTz, digest_type: "daily", recipient_count: recipients.length, agent_submission_count: agents.length - missingAgents.length, agent_missing_count: missingAgents.length, missing_agents: missingAgents.map((a) => ({ id: a.id, full_name: a.full_name })) };
-    const result = await sendAndLog(supabase, logBase, { to: recipients.map((r) => r.email), subject: `[EOD Digest] ${c.name} \u2014 ${todayInTz}`, html: buildDailyHtml(c.name, todayInTz, kpiFields, agents, eodLogs, tlNote) });
-    results.push({ campaign: c.name, ...result, dryRun: DRY_RUN });
+    // Double-send guard
+    const { data: existing } = await supabase.from("eod_digest_log").select("id").eq("campaign_id", row.campaign_id).eq("digest_date", todayInTz).eq("digest_type", "daily").is("error", null).maybeSingle();
+    if (existing) { results.push({ campaign: row.campaign_name, status: "skipped" }); continue; }
+    const result = await sendDailyDigestForCampaign(supabase, row.campaign_id, row.campaign_name, todayInTz);
+    results.push(result);
   }
   return results;
 }
@@ -525,6 +547,63 @@ async function handleTestSend(
 }
 
 // ---------------------------------------------------------------------------
+// Manual-fire handler
+//
+// JWT-authenticated like test-send, but sends to real recipients, logs to
+// eod_digest_log, and respects DRY_RUN. Double-send guarded.
+// ---------------------------------------------------------------------------
+async function handleManualFire(
+  supabase: SupabaseClient,
+  req: Request,
+  body: { campaign_id?: string },
+): Promise<Response> {
+  const jsonHeaders = { "Content-Type": "application/json", ...CORS_HEADERS };
+  const fail = (status: number, error: string) =>
+    new Response(JSON.stringify({ error }), { status, headers: jsonHeaders });
+
+  const campaignId = body.campaign_id;
+  if (!campaignId) return fail(400, "campaign_id is required for manual_fire mode");
+
+  // 1. Verify JWT
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const match = authHeader.match(/^Bearer (.+)$/);
+  if (!match) return fail(401, "Authorization: Bearer <jwt> required");
+  const { data: userData, error: authErr } = await supabase.auth.getUser(match[1]);
+  if (authErr || !userData?.user) return fail(401, "Invalid or expired JWT");
+
+  // 2. Authorize
+  const { data: profile, error: profileErr } = await supabase
+    .from("user_profiles").select("role, employee_id").eq("id", userData.user.id).single();
+  if (profileErr || !profile) return fail(403, "No user profile found");
+  const role = profile.role as string;
+  if (role === "team_lead") {
+    if (!profile.employee_id) return fail(403, "Team lead has no linked employee");
+    const { data: cr } = await supabase.from("campaigns").select("team_lead_id").eq("id", campaignId).single();
+    if (!cr || cr.team_lead_id !== profile.employee_id) return fail(403, "Not your campaign");
+  } else if (!["owner", "admin", "manager"].includes(role)) {
+    return fail(403, `Role '${role}' cannot fire digests`);
+  }
+
+  // 3. Fetch campaign for name + tz
+  const { data: campaign, error: campErr } = await supabase
+    .from("campaigns").select("id, name, eod_digest_timezone").eq("id", campaignId).single();
+  if (campErr || !campaign) return fail(404, "Campaign not found");
+  const tz = (campaign as { eod_digest_timezone: string }).eod_digest_timezone || "America/Denver";
+  const todayInTz = getTodayInTz(tz);
+
+  // 4. Double-send guard
+  const { data: existing } = await supabase.from("eod_digest_log").select("id")
+    .eq("campaign_id", campaignId).eq("digest_date", todayInTz).eq("digest_type", "daily").is("error", null).maybeSingle();
+  if (existing) {
+    return new Response(JSON.stringify({ status: "already_sent_today" }), { status: 200, headers: jsonHeaders });
+  }
+
+  // 5. Send the real digest
+  const result = await sendDailyDigestForCampaign(supabase, campaignId, (campaign as { name: string }).name, todayInTz);
+  return new Response(JSON.stringify(result), { status: 200, headers: jsonHeaders });
+}
+
+// ---------------------------------------------------------------------------
 // Main handler
 // ---------------------------------------------------------------------------
 Deno.serve(async (req) => {
@@ -539,6 +618,11 @@ Deno.serve(async (req) => {
   // Test-send mode: JWT-authenticated, bypasses cron secret.
   if (body.mode === "test") {
     return await handleTestSend(supabase, req, body);
+  }
+
+  // Manual-fire mode: JWT-authenticated, sends to real recipients.
+  if (body.mode === "manual_fire") {
+    return await handleManualFire(supabase, req, body);
   }
 
   // Cron mode: authenticated via x-cron-secret header.
