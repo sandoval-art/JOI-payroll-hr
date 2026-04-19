@@ -39,12 +39,20 @@ Visibility: HR / Manager / Owner see everything. Agent sees their own record onl
 
 ### B. HR records on agents
 
-Progressive discipline flow plus attendance documentation. All HR/Manager/Owner-only, everything surfaces in HR's admin area for the agent.
+Progressive discipline flow plus attendance documentation. All HR/Manager/Owner-only by default, everything surfaces in HR's admin area for the agent.
 
 Mexican progressive discipline goes: **verbal warning → carta de compromiso → acta administrativa.** The app mirrors that escalation.
 
-**B1. Verbal warning log (TL/Manager):**
-TL or Manager records a verbal warning they've already given the agent. Date/timestamp auto-applied. Free-form text: what was said, context, any commitments. Stays in-app — no printed doc, no signature. Visible to the person who wrote it and HR.
+**B1. Notes and verbal warnings log (TL/Manager):**
+
+Two entry types on a shared log:
+
+- **Internal note** — TL/Manager jots down an observation, pattern, or concern. Not a formal disciplinary step. Visible to TL/Manager who wrote it, and to HR.
+- **Verbal warning** — formal step 1 of progressive discipline. TL/Manager logs a verbal warning they've already delivered to the agent. Date/timestamp auto-applied. **Goes to HR's queue/notifications** so HR is aware of every verbal on record (feeds the escalation picture when a carta or acta comes later).
+
+Entry fields: type (note vs verbal), agent, narrative, timestamp (auto).
+
+**Agent visibility toggle:** each entry has a checkbox HR can flip to make it visible on the agent's own profile. Default is hidden from agent; HR decides case by case whether to expose. Useful when HR wants the agent to be formally on notice vs. when the log is internal-only.
 
 **B2. Carta de compromiso request (TL/Manager → HR):**
 TL or Manager files a request for HR to write a carta de compromiso. Form fields:
@@ -56,15 +64,21 @@ The request lands in HR's queue. HR opens it in a split-view editor:
 - **Left side:** TL/Manager's original narrative (read-only, always visible).
 - **Right side:** formal carta template HR fills in with court-defensible language.
 
-HR never has to jump between screens to reference the source narrative. Generated carta is stored on the agent's record and printable for in-person signing by the agent. Signed copy gets scanned back and attached.
+HR never tab-switches to reference the source narrative. **Only HR generates the final PDF**, prints it, runs the in-person signing, and uploads the signed scan back onto the agent's profile. TLs can request; HR is the sole document custodian.
+
+When HR finalizes and uploads the signed scan, the TL/Manager who filed the request gets notified in-app. The agent is told in-person at signing, not via app notification.
 
 **B3. Acta administrativa request (TL/Manager → HR):**
-Same flow as B2 but for actas. Same split-view editor pattern. Acta template captures witness names and signature blocks per Mexican legal requirements. Printed → signed in person by agent and witnesses → scanned back into the agent's file.
+Same flow as B2 but for actas. **TLs can file acta requests** — but same as B2, HR is the only one who writes the formal acta, generates the PDF, runs signing, and uploads the signed copy. Acta template captures witness names and signature blocks per Mexican legal requirements.
+
+Same notification pattern as B2: HR pings the requester when it's done.
 
 **B4. Attendance incident categorization:**
 The EOD digest already knows who didn't clock in. What the TL adds is the *reason*: late, called in sick, no-call/no-show, medical leave, etc. Plus supporting docs (doctor's note for medical leave). This hangs off the existing EOD data — it's not a separate reporting flow from scratch.
 
 **HR admin view for an agent** surfaces all four in chronological order so HR can see the escalation pattern (3 verbals → carta → acta) at a glance. Attendance incidents show on the same timeline.
+
+**Note on templates:** JOI is sourcing the carta and acta templates separately (legal review). The app is built to accept uploaded/configured templates rather than hardcoding the legal text. Don't ship B2/B3 until the templates are ready.
 
 ### C. Policy + docs shelf
 
@@ -81,14 +95,14 @@ Per-agent view of:
 | Feature | Value | Effort | Notes |
 |---|---|---|---|
 | A — Compliance profile | HIGH | MEDIUM-HIGH | Legally required in MX. Build in layers (see below). |
-| B — HR records | HIGH | MEDIUM | Bigger than originally scoped (4 sub-features). Big legal payoff for terminations. |
+| B — HR records | HIGH | MEDIUM | 4 sub-features. Big legal payoff for terminations. B2/B3 blocked on legal templates. |
 | C — Docs shelf with ack | MEDIUM | LOW | Only worth it with ack tracking. |
 
 ## Pushbacks that shaped the plan
 
 1. **Policy section without ack tracking was dropped.** A PDF viewer nobody reads gives a false sense of "we told them" and can actually hurt in a dispute. Ack tracking is the whole point.
 
-2. **No unilateral formal write-ups by TL/Manager.** TLs can only log verbal warnings themselves. Cartas and actas are a *request to HR*, and HR writes the formal document. This separates "what happened" (TL knows) from "legal language" (HR knows) and prevents TLs from accidentally generating docs that don't hold up in court.
+2. **No unilateral formal docs by TL/Manager.** TLs can log verbals themselves and can request cartas/actas, but the formal PDF generation, in-person signing, and scan-back are HR-only. HR is the sole custodian of legally formatted documents.
 
 3. **Split-view editor for carta/acta writing.** HR sees TL's narrative on one side, writes the formal version on the other. No tab-switching.
 
@@ -96,13 +110,15 @@ Per-agent view of:
 
 5. **Compliance profile gets built in layers, not one big feature.** Shipping CURP/RFC/CLABE fields alone is a half-day of work and immediately useful. Enforcement logic takes longer and shouldn't block the data collection starting.
 
+6. **B2/B3 blocked on legal templates.** Rather than invent the carta/acta legal text in-app, the templates come from outside (legal review). App design supports uploadable/configurable templates. Don't ship B2/B3 until JOI has approved templates in hand.
+
 ## Build order
 
 1. **A1 — Tax/personal info fields on profile.** Fastest win. Form + DB columns. Ship this first.
 2. **A2 — Required docs upload + checklist (HR-uploaded, global list, HR-approved = submitted).** Supabase Storage + RLS.
-3. **B1 — Verbal warning log.** Simplest part of B. Single table, single form, shows on agent record.
+3. **B1 — Notes + verbal warnings log (with type field + agent-visibility toggle + HR notification on verbals).** Single table with a type enum.
 4. **B4 — Attendance incident categorization.** Rides on existing EOD data.
-5. **B2/B3 — Carta + acta request flow with split-view editor.** Bigger than B1/B4. Build together since they share the request/editor pattern.
+5. **B2/B3 — Carta + acta request flow with split-view editor + template engine + signed-scan upload.** Bigger. Blocked on templates being ready.
 6. **A3 — Grace window (UI-controlled) + clock-in lock.** The enforcement layer. Needs A1 and A2 done first.
 7. **C — Policy shelf with ack tracking.** Last, and only if ack tracking is part of it.
 
@@ -114,11 +130,7 @@ Remaining open questions after the 2026-04-19 discussion.
 - Notification channel when a doc is missing — in-app only, or email too?
 
 **For B:**
-- Does JOI already have a carta template and acta template from legal, or does the app need to define the format from scratch?
-- Who can file a carta/acta request — TL + Manager, or Manager + Owner only? (Assumed TL can request verbals for themselves, but carta/acta escalation might be Manager+.)
-- Does the agent see their own verbal warning log, or is it HR/TL-internal only?
-- When HR finishes the formal carta/acta, does the agent get notified inside the app, or is it purely an in-person delivery?
-- Signed carta/acta scan-back — who uploads the scanned signed copy, HR only?
+- Carta and acta templates are being sourced (legal review). Blocker on B2/B3 build, not a design question.
 
 **For C:**
 - What triggers a new ack requirement — any edit to the doc, or only when a version is marked as major?
