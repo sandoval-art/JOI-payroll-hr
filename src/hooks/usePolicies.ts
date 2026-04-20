@@ -336,3 +336,74 @@ export async function getPolicyFileSignedUrl(filePath: string): Promise<string> 
   if (error) throw error;
   return data.signedUrl;
 }
+
+// ── C2: Agent-facing hooks ────────────────────────────────────────────
+
+const MY_ACKS_KEY = "my-policy-acks";
+
+export function useMyPolicyAcks() {
+  return useQuery({
+    queryKey: [MY_ACKS_KEY],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("policy_acknowledgments")
+        .select("policy_document_version_id, acknowledged_at");
+      if (error) throw error;
+      return (data || []) as { policy_document_version_id: string; acknowledged_at: string }[];
+    },
+  });
+}
+
+export function useAcknowledgePolicy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      versionId,
+      employeeId,
+    }: {
+      versionId: string;
+      employeeId: string;
+    }) => {
+      const { error } = await supabase
+        .from("policy_acknowledgments")
+        .upsert(
+          {
+            employee_id: employeeId,
+            policy_document_version_id: versionId,
+            acknowledged_at: new Date().toISOString(),
+          },
+          { onConflict: "employee_id,policy_document_version_id" }
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [MY_ACKS_KEY] });
+      qc.invalidateQueries({ queryKey: ["agent-policy-acks"] });
+    },
+  });
+}
+
+/**
+ * Returns policies applicable to the current user (by their campaign + role).
+ * Uses the same data as usePolicies() but filters client-side for the
+ * personal view — ensures leadership on /policies only sees policies that
+ * actually apply to them individually.
+ */
+export function useMyApplicablePolicies(employeeCampaignId: string | null, employeeRole: string | undefined) {
+  const { data: allPolicies = [], isLoading } = usePolicies();
+
+  const applicable = allPolicies.filter((p) => {
+    if (!p.is_active) return false;
+    // Campaign filter
+    if (!p.is_global && p.scoped_campaign_ids) {
+      if (!employeeCampaignId || !p.scoped_campaign_ids.includes(employeeCampaignId)) return false;
+    }
+    // Role filter
+    if (p.applicable_roles && employeeRole) {
+      if (!p.applicable_roles.includes(employeeRole)) return false;
+    }
+    return true;
+  });
+
+  return { data: applicable, isLoading };
+}

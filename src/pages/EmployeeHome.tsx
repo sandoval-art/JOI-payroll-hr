@@ -40,7 +40,8 @@ import { ShieldX, ShieldAlert } from "lucide-react";
 import { ACCEPTED_DOCUMENT_TYPES, ACCEPTED_DOCUMENT_EXTENSIONS, MAX_DOCUMENT_SIZE_BYTES } from "@/lib/documentUpload";
 import { useAgentLogEntries } from "@/hooks/useAgentLog";
 import { useAgentIncidents, getIncidentDocSignedUrl, INCIDENT_TYPE_LABELS, type IncidentType } from "@/hooks/useAttendanceIncidents";
-import { FileWarning, StickyNote, Eye } from "lucide-react";
+import { useMyApplicablePolicies, useMyPolicyAcks } from "@/hooks/usePolicies";
+import { FileWarning, StickyNote, Eye, ScrollText } from "lucide-react";
 
 interface TimeClockEntry {
   id: string;
@@ -146,11 +147,11 @@ export default function EmployeeHome() {
       if (!employeeId) return null;
       const { data, error } = await supabase
         .from("employees")
-        .select("id, full_name, campaign_id, curp, rfc, address, phone, bank_clabe")
+        .select("id, full_name, campaign_id, title, curp, rfc, address, phone, bank_clabe")
         .eq("id", employeeId)
         .single();
       if (error) throw error;
-      return data as { id: string; full_name: string; campaign_id: string; curp: string | null; rfc: string | null; address: string | null; phone: string | null; bank_clabe: string | null };
+      return data as { id: string; full_name: string; campaign_id: string; title: string; curp: string | null; rfc: string | null; address: string | null; phone: string | null; bank_clabe: string | null };
     },
     enabled: !!employeeId,
   });
@@ -285,6 +286,17 @@ export default function EmployeeHome() {
 
   const compliance = useComplianceStatus(employeeId);
 
+  // C2: Policies to review count
+  const { data: myPolicies = [] } = useMyApplicablePolicies(
+    employee?.campaign_id ?? null,
+    employee?.title
+  );
+  const { data: myAcks = [] } = useMyPolicyAcks();
+  const ackedVersionIds = new Set(myAcks.map((a) => a.policy_document_version_id));
+  const unackedPolicyCount = myPolicies.filter(
+    (p) => p.current_version && !ackedVersionIds.has(p.current_version.id)
+  ).length;
+
   // ---------- Derived ----------
   const firstName = (employee?.full_name || user?.email || "there").split(" ")[0];
   const isClockedIn = !!todayEntry && !todayEntry.clock_out;
@@ -346,6 +358,23 @@ export default function EmployeeHome() {
           {statusBadge.label}
         </Badge>
       </div>
+
+      {/* C2: Policies to review */}
+      {unackedPolicyCount > 0 && (
+        <Card className="border-amber-300 bg-amber-50">
+          <CardContent className="pt-6 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <ScrollText className="h-5 w-5 text-amber-600" />
+              <p className="text-sm font-medium text-amber-800">
+                {unackedPolicyCount} polic{unackedPolicyCount === 1 ? "y" : "ies"} to review
+              </p>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/policies">Review now</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* A3a: Compliance banner */}
       {compliance.isLocked && (

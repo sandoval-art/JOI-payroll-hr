@@ -41,6 +41,7 @@ const leadershipItems = [
   { title: "Payroll History", url: "/historial", icon: History },
   { title: "Invoices (USD)", url: "/facturas", icon: FileText },
   { title: "Campaigns", url: "/campaigns", icon: Building2 },
+  { title: "My Policies", url: "/policies", icon: ScrollText },
 ];
 
 const hrItems = [
@@ -48,7 +49,7 @@ const hrItems = [
   { title: "Performance", url: "/desempeno", icon: BarChart3 },
   { title: "Time Off Requests", url: "/solicitudes", icon: CalendarDays },
   { title: "Document Types", url: "/settings/document-types", icon: FileCheck },
-  { title: "Policies", url: "/settings/policies", icon: ScrollText },
+  { title: "Manage Policies", url: "/settings/policies", icon: ScrollText },
   { title: "My Timeclock", url: "/reloj", icon: Timer },
   { title: "My EOD History", url: "/eod", icon: ClipboardCheck },
 ];
@@ -59,6 +60,7 @@ const teamLeadItems = [
   { title: "My Team", url: "/asistencia", icon: Users },
   { title: "Time Off Requests", url: "/solicitudes", icon: CalendarDays },
   { title: "Shift Settings", url: "/settings/shifts", icon: Settings },
+  { title: "My Policies", url: "/policies", icon: ScrollText },
   { title: "My Timeclock", url: "/reloj", icon: Timer },
   { title: "My EOD History", url: "/eod", icon: ClipboardCheck },
 ];
@@ -67,6 +69,7 @@ const teamLeadItems = [
 const agentItems = [
   { title: "My Timeclock", url: "/reloj", icon: Timer },
   { title: "My EOD History", url: "/eod", icon: ClipboardCheck },
+  { title: "My Policies", url: "/policies", icon: ScrollText },
   { title: "My Requests", url: "/solicitudes", icon: CalendarDays },
 ];
 
