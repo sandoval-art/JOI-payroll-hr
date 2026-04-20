@@ -142,28 +142,34 @@ export function useCreatePolicy() {
         .single();
       if (pErr) throw pErr;
 
-      // Upload file
+      // Upload file + create v1; clean up policy row on failure
       const safeName = sanitizeFilename(file.name);
-      const filePath = `${policy.id}/v1-${safeName}`;
-      const { error: uploadErr } = await supabase.storage
-        .from("policy-documents")
-        .upload(filePath, file, { upsert: false });
-      if (uploadErr) throw uploadErr;
+      const filePath = `${policy.id}/${Date.now()}-${safeName}`;
+      try {
+        const { error: uploadErr } = await supabase.storage
+          .from("policy-documents")
+          .upload(filePath, file, { upsert: false });
+        if (uploadErr) throw uploadErr;
 
-      // Create v1
-      const { error: vErr } = await supabase
-        .from("policy_document_versions")
-        .insert({
-          policy_document_id: policy.id,
-          version_number: 1,
-          file_path: filePath,
-          file_name: file.name,
-          mime_type: file.type,
-          file_size_bytes: file.size,
-          uploaded_by: uploadedBy,
-          change_notes: changeNotes || null,
-        });
-      if (vErr) throw vErr;
+        const { error: vErr } = await supabase
+          .from("policy_document_versions")
+          .insert({
+            policy_document_id: policy.id,
+            version_number: 1,
+            file_path: filePath,
+            file_name: file.name,
+            mime_type: file.type,
+            file_size_bytes: file.size,
+            uploaded_by: uploadedBy,
+            change_notes: changeNotes || null,
+          });
+        if (vErr) throw vErr;
+      } catch (err) {
+        // Clean up orphan policy row + best-effort remove uploaded file
+        await supabase.from("policy_documents").delete().eq("id", policy.id);
+        await supabase.storage.from("policy-documents").remove([filePath]);
+        throw err;
+      }
 
       return policy as PolicyDocument;
     },
@@ -203,41 +209,41 @@ export function usePublishNewVersion() {
       file,
       changeNotes,
       uploadedBy,
-      currentMaxVersion,
     }: {
       policyId: string;
       file: File;
       changeNotes?: string;
       uploadedBy: string;
-      currentMaxVersion: number;
     }) => {
       validateFile(file);
 
-      const nextVersion = currentMaxVersion + 1;
       const safeName = sanitizeFilename(file.name);
-      const filePath = `${policyId}/v${nextVersion}-${safeName}`;
+      const filePath = `${policyId}/${Date.now()}-${safeName}`;
 
+      // Upload file first
       const { error: uploadErr } = await supabase.storage
         .from("policy-documents")
         .upload(filePath, file, { upsert: false });
       if (uploadErr) throw uploadErr;
 
-      const { data, error } = await supabase
-        .from("policy_document_versions")
-        .insert({
-          policy_document_id: policyId,
-          version_number: nextVersion,
-          file_path: filePath,
-          file_name: file.name,
-          mime_type: file.type,
-          file_size_bytes: file.size,
-          uploaded_by: uploadedBy,
-          change_notes: changeNotes || null,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      return data as PolicyDocumentVersion;
+      // Atomic version insert via RPC (server computes version_number)
+      try {
+        const { data, error } = await supabase.rpc("insert_policy_version", {
+          p_policy_id: policyId,
+          p_file_path: filePath,
+          p_file_name: file.name,
+          p_mime_type: file.type,
+          p_file_size_bytes: file.size,
+          p_uploaded_by: uploadedBy,
+          p_change_notes: changeNotes || null,
+        });
+        if (error) throw error;
+        return data as PolicyDocumentVersion;
+      } catch (err) {
+        // Clean up orphaned storage file on RPC failure
+        await supabase.storage.from("policy-documents").remove([filePath]);
+        throw err;
+      }
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: [POLICIES_KEY] });
