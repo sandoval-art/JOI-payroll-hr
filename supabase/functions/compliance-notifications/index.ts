@@ -602,14 +602,18 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Daily mode: authenticated via x-cron-secret header.
-  if (CRON_SECRET) {
-    if (req.headers.get("x-cron-secret") !== CRON_SECRET) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: jsonHeaders,
-      });
-    }
+  // Daily mode: authenticated via x-cron-secret header. Fail closed.
+  if (!CRON_SECRET) {
+    return new Response(
+      JSON.stringify({ error: "CRON_SECRET not configured" }),
+      { status: 500, headers: jsonHeaders }
+    );
+  }
+  if (req.headers.get("x-cron-secret") !== CRON_SECRET) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: jsonHeaders,
+    });
   }
 
   try {

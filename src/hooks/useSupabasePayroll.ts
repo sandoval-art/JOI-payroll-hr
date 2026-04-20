@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Employee, PayrollConfig, PayrollResult } from "@/types/payroll";
+import type { Employee, EmployeeWithMeta, PayrollConfig, PayrollResult } from "@/types/payroll";
 import { calcularNomina } from "@/types/payroll";
 
 // Map DB row to frontend Employee
-function mapEmployee(row: any): Employee & { _campaignId?: string; _campaignName?: string; _curp?: string | null; _rfc?: string | null; _address?: string | null; _phone?: string | null; _bankClabe?: string | null; _complianceGraceUntil?: string | null } {
+function mapEmployee(row: any): EmployeeWithMeta {
   return {
     id: row.employee_id,
     nombre: row.full_name,
@@ -102,20 +102,20 @@ export function useAddEmployeesBulk() {
 export function useUpdateEmployee() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ employeeId, data }: { employeeId: string; data: Partial<Employee> }) => {
-      const update: any = {};
+    mutationFn: async ({ employeeId, data }: { employeeId: string; data: Partial<EmployeeWithMeta> & { curp?: string; rfc?: string; address?: string; phone?: string; bank_clabe?: string; compliance_grace_until?: string | null } }) => {
+      const update: Record<string, unknown> = {};
       if (data.nombre !== undefined) update.full_name = data.nombre;
       if (data.sueldoBase !== undefined) update.monthly_base_salary = data.sueldoBase;
       if (data.descuentoPorDia !== undefined) update.daily_discount_rate = data.descuentoPorDia;
       if (data.kpiMonto !== undefined) update.kpi_bonus_amount = data.kpiMonto;
       // A1: personal & tax fields (column names match directly)
-      if ((data as any).curp !== undefined) update.curp = (data as any).curp;
-      if ((data as any).rfc !== undefined) update.rfc = (data as any).rfc;
-      if ((data as any).address !== undefined) update.address = (data as any).address;
-      if ((data as any).phone !== undefined) update.phone = (data as any).phone;
-      if ((data as any).bank_clabe !== undefined) update.bank_clabe = (data as any).bank_clabe;
+      if (data.curp !== undefined) update.curp = data.curp;
+      if (data.rfc !== undefined) update.rfc = data.rfc;
+      if (data.address !== undefined) update.address = data.address;
+      if (data.phone !== undefined) update.phone = data.phone;
+      if (data.bank_clabe !== undefined) update.bank_clabe = data.bank_clabe;
       // A3a: compliance grace deadline
-      if ((data as any).compliance_grace_until !== undefined) update.compliance_grace_until = (data as any).compliance_grace_until;
+      if (data.compliance_grace_until !== undefined) update.compliance_grace_until = data.compliance_grace_until;
       const { error } = await supabase
         .from("employees")
         .update(update)

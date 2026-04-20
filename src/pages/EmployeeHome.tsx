@@ -31,7 +31,8 @@ import {
   Timer,
   FileText,
 } from "lucide-react";
-import { useEmployeeDocuments, type DocumentWithType } from "@/hooks/useEmployeeDocuments";
+import { useEmployeeDocuments } from "@/hooks/useEmployeeDocuments";
+import { DocumentStatusBadge } from "@/components/DocumentStatusBadge";
 import { useComplianceStatus } from "@/hooks/useComplianceStatus";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ShieldX, ShieldAlert } from "lucide-react";
@@ -801,14 +802,6 @@ function StatCard({
 
 // ── A2b: My Documents (agent read-only) ─────────────────────────────
 
-function docStatusBadge(doc: DocumentWithType["document"]) {
-  if (!doc) return <Badge variant="outline" className="bg-muted text-muted-foreground">Not submitted</Badge>;
-  if (doc.status === "pending_review") return <Badge variant="outline" className="bg-amber-50 text-amber-800">Pending review</Badge>;
-  if (doc.status === "approved") return <Badge variant="outline" className="bg-emerald-50 text-emerald-800">Approved</Badge>;
-  if (doc.status === "rejected") return <Badge variant="destructive">Rejected</Badge>;
-  return null;
-}
-
 function MyDocumentsCard({ employeeId }: { employeeId: string | null }) {
   const { data: rows = [], isLoading } = useEmployeeDocuments(employeeId ?? undefined);
 
@@ -848,7 +841,7 @@ function MyDocumentsCard({ employeeId }: { employeeId: string | null }) {
                   </div>
                 )}
               </div>
-              {docStatusBadge(doc)}
+              <DocumentStatusBadge document={doc} missingLabel="Not submitted" />
             </li>
           ))}
         </ul>
