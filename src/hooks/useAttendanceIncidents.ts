@@ -87,23 +87,45 @@ export function useCreateIncident() {
         if (uploadError) throw uploadError;
       }
 
-      const { data, error } = await supabase
+      // Try INSERT first; fall back to UPDATE on unique violation.
+      // This preserves created_by (original attributor) and
+      // supporting_doc_path (existing doc) when re-categorizing.
+      const { data: inserted, error: insertErr } = await supabase
         .from("attendance_incidents")
-        .upsert(
-          {
-            employee_id: employeeId,
-            date,
-            incident_type: incidentType,
-            notes: notes?.trim() || null,
-            supporting_doc_path: supportingDocPath,
-            created_by: creatorEmployeeId,
-          },
-          { onConflict: "employee_id,date" }
-        )
+        .insert({
+          employee_id: employeeId,
+          date,
+          incident_type: incidentType,
+          notes: notes?.trim() || null,
+          supporting_doc_path: supportingDocPath,
+          created_by: creatorEmployeeId,
+        })
         .select("*, creator:created_by(full_name)")
         .single();
-      if (error) throw error;
-      return data as AttendanceIncident;
+
+      if (!insertErr) return inserted as AttendanceIncident;
+
+      // 23505 = unique_violation — row already exists for (employee_id, date)
+      if (insertErr.code !== "23505") throw insertErr;
+
+      // UPDATE existing row: preserve created_by, conditionally preserve supporting_doc_path
+      const updatePayload: Record<string, unknown> = {
+        incident_type: incidentType,
+        notes: notes?.trim() || null,
+      };
+      if (supportingDocPath !== null) {
+        updatePayload.supporting_doc_path = supportingDocPath;
+      }
+
+      const { data: updated, error: updateErr } = await supabase
+        .from("attendance_incidents")
+        .update(updatePayload)
+        .eq("employee_id", employeeId)
+        .eq("date", date)
+        .select("*, creator:created_by(full_name)")
+        .single();
+      if (updateErr) throw updateErr;
+      return updated as AttendanceIncident;
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: [QUERY_KEY, vars.employeeId] });
