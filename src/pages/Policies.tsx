@@ -116,14 +116,12 @@ export default function Policies() {
 
   const handlePublishVersion = () => {
     if (!versionTarget || !versionFile || !authEmployeeId) return;
-    const currentMax = versionTarget.current_version?.version_number ?? 0;
     publishVersion.mutate(
       {
         policyId: versionTarget.id,
         file: versionFile,
         changeNotes: versionNotes.trim() || undefined,
         uploadedBy: authEmployeeId,
-        currentMaxVersion: currentMax,
       },
       {
         onSuccess: () => {
