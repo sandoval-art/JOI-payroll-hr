@@ -10,10 +10,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Save } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, Save, Upload, Check, X, Eye, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  useEmployeeDocuments,
+  useUploadDocument,
+  useReviewDocument,
+  getDocumentSignedUrl,
+  type DocumentWithType,
+} from "@/hooks/useEmployeeDocuments";
 
 // ── A1: Personal & Tax Info validation ──────────────────────────────
 const CURP_RE = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
@@ -326,6 +336,9 @@ export default function EmpleadoPerfil() {
 
       </div>
 
+      {/* A2b: Required Documents — leadership only */}
+      {isLeadership && <RequiredDocumentsCard employeeId={emp._uuid} />}
+
       <Card>
         <CardHeader><CardTitle className="text-lg">Biweekly Breakdown</CardTitle></CardHeader>
         <CardContent>
@@ -368,5 +381,203 @@ function ReadOnlyField({ label, value }: { label: string; value: string | null }
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className="text-sm">{value || "—"}</span>
     </div>
+  );
+}
+
+// ── A2b: Required Documents Card (leadership only) ──────────────────
+
+const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+function statusBadge(doc: DocumentWithType["document"]) {
+  if (!doc) return <Badge variant="outline" className="bg-muted text-muted-foreground">Missing</Badge>;
+  if (doc.status === "pending_review") return <Badge variant="outline" className="bg-amber-50 text-amber-800">Pending review</Badge>;
+  if (doc.status === "approved") return <Badge variant="outline" className="bg-emerald-50 text-emerald-800">Approved</Badge>;
+  if (doc.status === "rejected") return <Badge variant="destructive">Rejected</Badge>;
+  return null;
+}
+
+function RequiredDocumentsCard({ employeeId }: { employeeId: string }) {
+  const { data: rows = [], isLoading } = useEmployeeDocuments(employeeId);
+  const uploadDoc = useUploadDocument();
+  const reviewDoc = useReviewDocument();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadTarget, setUploadTarget] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<{ id: string; employeeId: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // reset so same file can be re-selected
+    if (!file || !uploadTarget) return;
+
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      toast.error("Unsupported file type. Please upload PDF, JPG, or PNG.");
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error("File too large. Maximum size is 10 MB.");
+      return;
+    }
+
+    uploadDoc.mutate(
+      { employeeId, documentTypeId: uploadTarget, file },
+      {
+        onSuccess: () => {
+          toast.success("Document uploaded");
+          setUploadTarget(null);
+        },
+        onError: (err) => toast.error(`Upload failed: ${(err as Error).message}`),
+      }
+    );
+  };
+
+  const triggerUpload = (typeId: string) => {
+    setUploadTarget(typeId);
+    fileInputRef.current?.click();
+  };
+
+  const handleApprove = (docId: string) => {
+    reviewDoc.mutate(
+      { documentId: docId, employeeId, status: "approved" },
+      {
+        onSuccess: () => toast.success("Document approved"),
+        onError: (err) => toast.error(`Approval failed: ${(err as Error).message}`),
+      }
+    );
+  };
+
+  const handleReject = () => {
+    if (!rejectTarget) return;
+    if (!rejectReason.trim()) {
+      toast.error("Please provide a rejection reason.");
+      return;
+    }
+    reviewDoc.mutate(
+      { documentId: rejectTarget.id, employeeId: rejectTarget.employeeId, status: "rejected", rejectionReason: rejectReason.trim() },
+      {
+        onSuccess: () => {
+          toast.success("Document rejected");
+          setRejectTarget(null);
+          setRejectReason("");
+        },
+        onError: (err) => toast.error(`Rejection failed: ${(err as Error).message}`),
+      }
+    );
+  };
+
+  const handleView = async (filePath: string) => {
+    try {
+      const url = await getDocumentSignedUrl(filePath);
+      window.open(url, "_blank");
+    } catch {
+      toast.error("Failed to generate view link");
+    }
+  };
+
+  if (isLoading) return null;
+  if (rows.length === 0) return null;
+
+  return (
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Required Documents</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {rows.map(({ type, document: doc }) => (
+            <div key={type.id} className="flex flex-col gap-2 rounded-lg border p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm">{type.name}</p>
+                  {type.description && (
+                    <p className="text-xs text-muted-foreground">{type.description}</p>
+                  )}
+                </div>
+                {statusBadge(doc)}
+              </div>
+
+              {/* File info when doc exists */}
+              {doc && (
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="truncate max-w-[200px]">{doc.file_name}</span>
+                  <span>·</span>
+                  <span>{new Date(doc.uploaded_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => handleView(doc.file_path)}>
+                    <Eye className="mr-1 h-3 w-3" /> View
+                  </Button>
+                </div>
+              )}
+
+              {/* Rejection reason */}
+              {doc?.status === "rejected" && doc.rejection_reason && (
+                <p className="text-xs text-destructive">Reason: {doc.rejection_reason}</p>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-2 mt-1">
+                {!doc && (
+                  <Button size="sm" variant="outline" onClick={() => triggerUpload(type.id)} disabled={uploadDoc.isPending}>
+                    <Upload className="mr-1 h-3 w-3" /> Upload
+                  </Button>
+                )}
+                {doc?.status === "pending_review" && (
+                  <>
+                    <Button size="sm" variant="outline" className="text-emerald-700" onClick={() => handleApprove(doc.id)} disabled={reviewDoc.isPending}>
+                      <Check className="mr-1 h-3 w-3" /> Approve
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-destructive" onClick={() => setRejectTarget({ id: doc.id, employeeId })} disabled={reviewDoc.isPending}>
+                      <X className="mr-1 h-3 w-3" /> Reject
+                    </Button>
+                  </>
+                )}
+                {doc?.status === "approved" && (
+                  <Button size="sm" variant="outline" onClick={() => triggerUpload(type.id)} disabled={uploadDoc.isPending}>
+                    <RefreshCw className="mr-1 h-3 w-3" /> Replace
+                  </Button>
+                )}
+                {doc?.status === "rejected" && (
+                  <Button size="sm" variant="outline" onClick={() => triggerUpload(type.id)} disabled={uploadDoc.isPending}>
+                    <Upload className="mr-1 h-3 w-3" /> Re-upload
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Rejection reason dialog */}
+      <Dialog open={!!rejectTarget} onOpenChange={(o) => { if (!o) { setRejectTarget(null); setRejectReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Document</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label>Reason for rejection</Label>
+            <Textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Explain why this document was rejected..."
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setRejectTarget(null); setRejectReason(""); }}>Cancel</Button>
+            <Button variant="destructive" onClick={handleReject} disabled={reviewDoc.isPending}>
+              {reviewDoc.isPending ? "Rejecting..." : "Reject"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
