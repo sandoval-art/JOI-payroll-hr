@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Save, Upload, Check, X, Eye, EyeOff, RefreshCw, ShieldCheck, ShieldAlert, ShieldX, CalendarClock, Trash2, Plus, FileWarning, StickyNote, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Save, Upload, Check, X, Eye, EyeOff, RefreshCw, ShieldCheck, ShieldAlert, ShieldX, CalendarClock, Trash2, Plus, FileWarning, StickyNote, AlertTriangle, Pencil, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useEffect, useState, useRef } from "react";
@@ -28,6 +28,15 @@ import {
 } from "@/hooks/useEmployeeDocuments";
 import { DocumentStatusBadge } from "@/components/DocumentStatusBadge";
 import { ACCEPTED_DOCUMENT_TYPES, ACCEPTED_DOCUMENT_EXTENSIONS, MAX_DOCUMENT_SIZE_BYTES } from "@/lib/documentUpload";
+import {
+  useAgentIncidents,
+  useCreateIncident,
+  useUpdateIncident,
+  getIncidentDocSignedUrl,
+  INCIDENT_TYPE_LABELS,
+  type IncidentType,
+  type AttendanceIncident,
+} from "@/hooks/useAttendanceIncidents";
 
 // ── A1: Personal & Tax Info validation ──────────────────────────────
 const CURP_RE = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
@@ -378,6 +387,11 @@ export default function EmpleadoPerfil() {
           authorEmployeeId={authEmployeeId}
           isLeadership={isLeadership}
         />
+      )}
+
+      {/* B4: Attendance Incidents — leadership + TL on own campaign */}
+      {(isLeadership || (isTeamLead && campaignId)) && (
+        <AttendanceIncidentsCard agentId={emp._uuid!} employeeId={emp._uuid!} />
       )}
 
       {/* Biweekly Breakdown — leadership only */}
@@ -965,6 +979,214 @@ function AgentLogCard({
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleCreate} disabled={createEntry.isPending || !noteText.trim()}>
               {createEntry.isPending ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ── B4: Attendance Incidents Card ─────────────────────────────────────
+
+const INCIDENT_COLORS: Record<IncidentType, string> = {
+  no_call_no_show: "bg-red-100 text-red-800 border-red-200",
+  late: "bg-amber-100 text-amber-800 border-amber-200",
+  sick: "bg-amber-100 text-amber-800 border-amber-200",
+  medical_leave: "bg-amber-100 text-amber-800 border-amber-200",
+  personal: "bg-blue-100 text-blue-800 border-blue-200",
+  bereavement: "bg-blue-100 text-blue-800 border-blue-200",
+  other: "bg-gray-100 text-gray-800 border-gray-200",
+};
+
+const INCIDENT_TYPES: IncidentType[] = ["late", "sick", "no_call_no_show", "medical_leave", "personal", "bereavement", "other"];
+
+function AttendanceIncidentsCard({ agentId, employeeId }: { agentId: string; employeeId: string }) {
+  const { data: incidents = [], isLoading } = useAgentIncidents(agentId);
+  const createIncident = useCreateIncident();
+  const updateIncident = useUpdateIncident();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<AttendanceIncident | null>(null);
+  const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
+  const [formType, setFormType] = useState<IncidentType>("late");
+  const [formNotes, setFormNotes] = useState("");
+  const [formFile, setFormFile] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const openCreate = () => {
+    setEditTarget(null);
+    setFormDate(new Date().toISOString().split("T")[0]);
+    setFormType("late");
+    setFormNotes("");
+    setFormFile(null);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (incident: AttendanceIncident) => {
+    setEditTarget(incident);
+    setFormDate(incident.date);
+    setFormType(incident.incident_type);
+    setFormNotes(incident.notes || "");
+    setFormFile(null);
+    setDialogOpen(true);
+  };
+
+  const handleSave = () => {
+    if (editTarget) {
+      updateIncident.mutate(
+        {
+          id: editTarget.id,
+          employeeId,
+          incidentType: formType,
+          notes: formNotes || null,
+          file: formFile || undefined,
+        },
+        {
+          onSuccess: () => {
+            toast.success("Incident updated");
+            setDialogOpen(false);
+          },
+          onError: (err) => toast.error((err as Error).message),
+        }
+      );
+    } else {
+      createIncident.mutate(
+        {
+          employeeId,
+          date: formDate,
+          incidentType: formType,
+          notes: formNotes || undefined,
+          file: formFile || undefined,
+        },
+        {
+          onSuccess: () => {
+            toast.success("Incident logged");
+            setDialogOpen(false);
+          },
+          onError: (err) => toast.error((err as Error).message),
+        }
+      );
+    }
+  };
+
+  const handleViewDoc = async (filePath: string) => {
+    try {
+      const url = await getIncidentDocSignedUrl(filePath);
+      window.open(url, "_blank");
+    } catch {
+      toast.error("Failed to generate view link");
+    }
+  };
+
+  const isSaving = createIncident.isPending || updateIncident.isPending;
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Attendance Incidents
+            </CardTitle>
+            <Button size="sm" variant="outline" onClick={openCreate}>
+              <Plus className="mr-1 h-3 w-3" /> Log incident
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
+          {!isLoading && incidents.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">No attendance incidents on record.</p>
+          )}
+          {incidents.map((incident) => (
+            <div key={incident.id} className="flex items-start justify-between gap-3 border-l-2 border-muted pl-3">
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className={`text-xs ${INCIDENT_COLORS[incident.incident_type]}`}>
+                    {INCIDENT_TYPE_LABELS[incident.incident_type]}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(incident.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                  {incident.creator?.full_name && (
+                    <span className="text-xs text-muted-foreground">— {incident.creator.full_name}</span>
+                  )}
+                </div>
+                {incident.notes && <p className="text-sm">{incident.notes}</p>}
+                {incident.supporting_doc_path && (
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => handleViewDoc(incident.supporting_doc_path!)}>
+                    <Eye className="mr-1 h-3 w-3" /> View document
+                  </Button>
+                )}
+              </div>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => openEdit(incident)}>
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Log / Edit incident dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) setDialogOpen(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editTarget ? "Edit Incident" : "Log Incident"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="incident-date">Date</Label>
+              <Input
+                id="incident-date"
+                type="date"
+                value={formDate}
+                onChange={(e) => setFormDate(e.target.value)}
+                disabled={!!editTarget}
+                max={new Date().toISOString().split("T")[0]}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Type</Label>
+              <select
+                value={formType}
+                onChange={(e) => setFormType(e.target.value as IncidentType)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {INCIDENT_TYPES.map((t) => (
+                  <option key={t} value={t}>{INCIDENT_TYPE_LABELS[t]}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="incident-notes">Notes</Label>
+              <Textarea
+                id="incident-notes"
+                value={formNotes}
+                onChange={(e) => setFormNotes(e.target.value)}
+                placeholder="Context or details..."
+                rows={3}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Supporting document (optional)</Label>
+              <input
+                ref={fileRef}
+                type="file"
+                accept={ACCEPTED_DOCUMENT_EXTENSIONS}
+                className="text-sm file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm file:font-medium"
+                onChange={(e) => setFormFile(e.target.files?.[0] || null)}
+              />
+              {editTarget?.supporting_doc_path && !formFile && (
+                <p className="text-xs text-muted-foreground">Existing document attached. Upload a new file to replace.</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} disabled={isSaving || !formDate}>
+              {isSaving ? "Saving..." : editTarget ? "Update" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
