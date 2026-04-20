@@ -13,11 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Save, Upload, Check, X, Eye, RefreshCw, ShieldCheck, ShieldAlert, ShieldX, CalendarClock, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Upload, Check, X, Eye, EyeOff, RefreshCw, ShieldCheck, ShieldAlert, ShieldX, CalendarClock, Trash2, Plus, FileWarning, StickyNote, AlertTriangle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useEffect, useState, useRef } from "react";
 import { useComplianceStatus } from "@/hooks/useComplianceStatus";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAgentLogEntries, useCreateAgentLogEntry, useToggleEntryVisibility, type AgentLogEntry } from "@/hooks/useAgentLog";
 import {
   useEmployeeDocuments,
   useUploadDocument,
@@ -56,7 +58,7 @@ export default function EmpleadoPerfil() {
   const createPeriod = useCreatePeriod();
   const { data: records = [] } = usePayrollRecords(activePeriod?.id);
   const queryClient = useQueryClient();
-  const { isLeadership } = useAuth();
+  const { isLeadership, isTeamLead, employeeId: authEmployeeId } = useAuth();
 
   // A3a: compliance status for this employee (uses DB uuid)
   const empRecord = employees.find((e) => e.id === id);
@@ -360,6 +362,16 @@ export default function EmpleadoPerfil() {
 
       {/* A2b: Required Documents — leadership only */}
       {isLeadership && <RequiredDocumentsCard employeeId={emp._uuid} />}
+
+      {/* B1: Notes & Verbal Warnings — leadership + TL on own campaign */}
+      {(isLeadership || (isTeamLead && campaignId)) && (
+        <AgentLogCard
+          agentId={emp._uuid!}
+          campaignId={campaignId}
+          authorEmployeeId={authEmployeeId}
+          isLeadership={isLeadership}
+        />
+      )}
 
       <Card>
         <CardHeader><CardTitle className="text-lg">Biweekly Breakdown</CardTitle></CardHeader>
@@ -734,6 +746,213 @@ function RequiredDocumentsCard({ employeeId }: { employeeId: string }) {
             <Button variant="outline" onClick={() => { setRejectTarget(null); setRejectReason(""); }}>Cancel</Button>
             <Button variant="destructive" onClick={handleReject} disabled={reviewDoc.isPending}>
               {reviewDoc.isPending ? "Rejecting..." : "Reject"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ── B1: Notes & Verbal Warnings Card ──────────────────────────────────
+
+function AgentLogCard({
+  agentId,
+  campaignId,
+  authorEmployeeId,
+  isLeadership,
+}: {
+  agentId: string;
+  campaignId: string | null;
+  authorEmployeeId: string | null;
+  isLeadership: boolean;
+}) {
+  const { data: entries = [], isLoading } = useAgentLogEntries(agentId);
+  const createEntry = useCreateAgentLogEntry();
+  const toggleVisibility = useToggleEntryVisibility();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [entryType, setEntryType] = useState<"note" | "verbal_warning">("note");
+  const [noteText, setNoteText] = useState("");
+  const [shareWithAgent, setShareWithAgent] = useState(false);
+
+  const warningCount = entries.filter((e) => e.entry_type === "verbal_warning").length;
+  const canCreate = !!campaignId && !!authorEmployeeId;
+
+  const handleCreate = () => {
+    if (!campaignId || !authorEmployeeId || !noteText.trim()) return;
+    createEntry.mutate(
+      {
+        agentId,
+        entryType,
+        note: noteText.trim(),
+        campaignId,
+        authorId: authorEmployeeId,
+        visibleToAgent: isLeadership ? shareWithAgent : false,
+      },
+      {
+        onSuccess: () => {
+          toast.success(entryType === "verbal_warning" ? "Verbal warning recorded" : "Note added");
+          setDialogOpen(false);
+          setNoteText("");
+          setEntryType("note");
+          setShareWithAgent(false);
+        },
+        onError: (err) => toast.error((err as Error).message),
+      }
+    );
+  };
+
+  const handleToggleVisibility = (entry: AgentLogEntry) => {
+    toggleVisibility.mutate(
+      { id: entry.id, agentId, visibleToAgent: !entry.visible_to_agent },
+      {
+        onSuccess: () => toast.success(entry.visible_to_agent ? "Hidden from agent" : "Shared with agent"),
+        onError: (err) => toast.error((err as Error).message),
+      }
+    );
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <StickyNote className="h-5 w-5" />
+              Notes & Verbal Warnings
+            </CardTitle>
+            {canCreate && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setEntryType("note");
+                  setNoteText("");
+                  setShareWithAgent(false);
+                  setDialogOpen(true);
+                }}
+              >
+                <Plus className="mr-1 h-3 w-3" /> Add entry
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {warningCount > 0 && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <p className="text-sm font-medium text-amber-800">
+                {warningCount} verbal warning{warningCount !== 1 ? "s" : ""} on record
+              </p>
+            </div>
+          )}
+
+          {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
+          {!isLoading && entries.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">No entries yet.</p>
+          )}
+
+          {entries.length > 0 && (
+            <ul className="space-y-3">
+              {entries.map((entry) => (
+                <li key={entry.id} className="border-l-2 border-muted pl-3 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {entry.entry_type === "verbal_warning" ? (
+                      <Badge variant="destructive" className="text-xs"><FileWarning className="mr-1 h-3 w-3" />Verbal Warning</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs"><StickyNote className="mr-1 h-3 w-3" />Note</Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(entry.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      — {entry.author?.full_name ?? "Unknown"}
+                    </span>
+                    {entry.visible_to_agent ? (
+                      <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700"><Eye className="mr-1 h-3 w-3" />Visible to agent</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs bg-muted text-muted-foreground"><EyeOff className="mr-1 h-3 w-3" />Internal</Badge>
+                    )}
+                  </div>
+                  <p className="text-sm">{entry.note}</p>
+                  {isLeadership && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => handleToggleVisibility(entry)}
+                      disabled={toggleVisibility.isPending}
+                    >
+                      {entry.visible_to_agent ? "Hide from agent" : "Share with agent"}
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add entry dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) setDialogOpen(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Log Entry</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="entry-type"
+                    checked={entryType === "note"}
+                    onChange={() => setEntryType("note")}
+                    className="accent-primary"
+                  />
+                  <span className="text-sm">Note</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="entry-type"
+                    checked={entryType === "verbal_warning"}
+                    onChange={() => setEntryType("verbal_warning")}
+                    className="accent-primary"
+                  />
+                  <span className="text-sm">Verbal Warning</span>
+                </label>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="entry-note">Details</Label>
+              <Textarea
+                id="entry-note"
+                autoFocus
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                placeholder="Describe the note or warning..."
+                rows={4}
+              />
+            </div>
+            {isLeadership && (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={shareWithAgent}
+                  onChange={(e) => setShareWithAgent(e.target.checked)}
+                  className="accent-primary"
+                />
+                <span className="text-sm">Share with agent</span>
+              </label>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={createEntry.isPending || !noteText.trim()}>
+              {createEntry.isPending ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

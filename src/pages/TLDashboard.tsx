@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import {
-  BarChart3, Users, AlertCircle, TrendingUp, Calendar, MessageSquarePlus, Loader2,
+  BarChart3, Users, AlertCircle, TrendingUp, Calendar, MessageSquarePlus, Loader2, FileWarning, StickyNote,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -88,6 +88,7 @@ interface CoachingNote {
   id: string;
   agent_id: string;
   author_id: string;
+  entry_type: "note" | "verbal_warning";
   note: string;
   created_at: string;
   author: { full_name: string } | null;
@@ -186,7 +187,7 @@ export default function TLDashboard() {
     queryFn: async () => {
       if (!activeCampaignId) return [];
       const { data, error } = await supabase.from("agent_coaching_notes")
-        .select("id, agent_id, author_id, note, created_at, author:author_id(full_name)")
+        .select("id, agent_id, author_id, entry_type, note, created_at, author:author_id(full_name)")
         .eq("campaign_id", activeCampaignId)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -567,7 +568,7 @@ export default function TLDashboard() {
 
       {/* Coaching Log */}
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><MessageSquarePlus className="h-5 w-5" />Coaching Log</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><MessageSquarePlus className="h-5 w-5" />Agent Log</CardTitle></CardHeader>
         <CardContent>
           {agents.length === 0 ? (
             <p className="text-muted-foreground text-center py-6">No agents.</p>
@@ -584,15 +585,20 @@ export default function TLDashboard() {
                       </Button>
                     </div>
                     {notes.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No coaching notes yet.</p>
+                      <p className="text-xs text-muted-foreground">No log entries yet.</p>
                     ) : (
                       <ul className="space-y-2">
                         {notes.slice(0, 5).map((n) => (
                           <li key={n.id} className="text-sm border-l-2 border-muted pl-3">
-                            <p className="text-muted-foreground text-xs">
-                              {n.author?.full_name ?? "Unknown"} — {new Date(n.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                            </p>
-                            <p>{n.note}</p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              {n.entry_type === "verbal_warning" ? (
+                                <Badge variant="destructive" className="text-[10px] px-1.5 py-0"><FileWarning className="mr-0.5 h-2.5 w-2.5" />Warning</Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0"><StickyNote className="mr-0.5 h-2.5 w-2.5" />Note</Badge>
+                              )}
+                              <span>{n.author?.full_name ?? "Unknown"} — {new Date(n.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                            </div>
+                            <p className="mt-0.5">{n.note}</p>
                           </li>
                         ))}
                       </ul>
