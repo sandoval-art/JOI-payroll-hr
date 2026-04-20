@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
@@ -30,12 +30,14 @@ import {
   AlertCircle,
   Timer,
   FileText,
+  Upload,
 } from "lucide-react";
-import { useEmployeeDocuments } from "@/hooks/useEmployeeDocuments";
+import { useEmployeeDocuments, useUploadDocument } from "@/hooks/useEmployeeDocuments";
 import { DocumentStatusBadge } from "@/components/DocumentStatusBadge";
 import { useComplianceStatus } from "@/hooks/useComplianceStatus";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ShieldX, ShieldAlert } from "lucide-react";
+import { ACCEPTED_DOCUMENT_TYPES, ACCEPTED_DOCUMENT_EXTENSIONS, MAX_DOCUMENT_SIZE_BYTES } from "@/lib/documentUpload";
 
 interface TimeClockEntry {
   id: string;
@@ -800,52 +802,127 @@ function StatCard({
   );
 }
 
-// ── A2b: My Documents (agent read-only) ─────────────────────────────
+// ── A2c: My Documents (agent self-serve upload) ───────────────────────
 
 function MyDocumentsCard({ employeeId }: { employeeId: string | null }) {
   const { data: rows = [], isLoading } = useEmployeeDocuments(employeeId ?? undefined);
+  const uploadDoc = useUploadDocument();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadTarget, setUploadTarget] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !uploadTarget || !employeeId) return;
+
+    if (!ACCEPTED_DOCUMENT_TYPES.includes(file.type)) {
+      toast({ title: "Unsupported file type", description: "Please upload PDF, JPG, or PNG.", variant: "destructive" });
+      return;
+    }
+    if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
+      toast({ title: "File too large", description: "Maximum size is 10 MB.", variant: "destructive" });
+      return;
+    }
+
+    uploadDoc.mutate(
+      { employeeId, documentTypeId: uploadTarget, file },
+      {
+        onSuccess: () => {
+          toast({ title: "Document uploaded", description: "Waiting for HR review." });
+          setUploadTarget(null);
+        },
+        onError: () => {
+          toast({ title: "Unable to upload", description: "Contact HR.", variant: "destructive" });
+          setUploadTarget(null);
+        },
+      }
+    );
+  };
+
+  const triggerUpload = (typeId: string) => {
+    setUploadTarget(typeId);
+    fileInputRef.current?.click();
+  };
 
   if (isLoading || rows.length === 0) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <FileText className="h-5 w-5" />
-          My Documents
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="divide-y">
-          {rows.map(({ type, document: doc }) => (
-            <li key={type.id} className="py-3 flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium">{type.name}</p>
-                {!doc && (
-                  <p className="text-xs text-muted-foreground">Not submitted yet</p>
-                )}
-                {doc?.status === "approved" && doc.reviewed_at && (
-                  <p className="text-xs text-muted-foreground">
-                    Approved {new Date(doc.reviewed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                  </p>
-                )}
-                {doc?.status === "pending_review" && (
-                  <p className="text-xs text-muted-foreground">Waiting for HR review</p>
-                )}
-                {doc?.status === "rejected" && (
-                  <div>
-                    {doc.rejection_reason && (
-                      <p className="text-xs text-destructive">Reason: {doc.rejection_reason}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-0.5">Talk to HR to resolve</p>
-                  </div>
-                )}
-              </div>
-              <DocumentStatusBadge document={doc} missingLabel="Not submitted" />
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={ACCEPTED_DOCUMENT_EXTENSIONS}
+        className="hidden"
+        aria-label="Upload document"
+        onChange={handleFileSelect}
+      />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <FileText className="h-5 w-5" />
+            My Documents
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="divide-y">
+            {rows.map(({ type, document: doc }) => (
+              <li key={type.id} className="py-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{type.name}</p>
+                  {type.description && (
+                    <p className="text-xs text-muted-foreground">{type.description}</p>
+                  )}
+                  {!doc && (
+                    <p className="text-xs text-muted-foreground mt-1">Not submitted yet</p>
+                  )}
+                  {doc?.status === "approved" && doc.reviewed_at && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Approved {new Date(doc.reviewed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </p>
+                  )}
+                  {doc?.status === "pending_review" && (
+                    <p className="text-xs text-muted-foreground mt-1">Waiting for HR review</p>
+                  )}
+                  {doc?.status === "rejected" && (
+                    <div className="mt-1">
+                      {doc.rejection_reason && (
+                        <p className="text-xs text-destructive">Reason: {doc.rejection_reason}</p>
+                      )}
+                    </div>
+                  )}
+                  {/* Upload / Re-upload buttons */}
+                  {!doc && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2"
+                      onClick={() => triggerUpload(type.id)}
+                      disabled={uploadDoc.isPending}
+                    >
+                      <Upload className="mr-1 h-3 w-3" />
+                      {uploadDoc.isPending && uploadTarget === type.id ? "Uploading..." : "Upload"}
+                    </Button>
+                  )}
+                  {doc?.status === "rejected" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2"
+                      onClick={() => triggerUpload(type.id)}
+                      disabled={uploadDoc.isPending}
+                    >
+                      <Upload className="mr-1 h-3 w-3" />
+                      {uploadDoc.isPending && uploadTarget === type.id ? "Uploading..." : "Re-upload"}
+                    </Button>
+                  )}
+                </div>
+                <DocumentStatusBadge document={doc} missingLabel="Not submitted" />
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+    </>
   );
 }
