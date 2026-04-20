@@ -39,7 +39,8 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ShieldX, ShieldAlert } from "lucide-react";
 import { ACCEPTED_DOCUMENT_TYPES, ACCEPTED_DOCUMENT_EXTENSIONS, MAX_DOCUMENT_SIZE_BYTES } from "@/lib/documentUpload";
 import { useAgentLogEntries } from "@/hooks/useAgentLog";
-import { FileWarning, StickyNote } from "lucide-react";
+import { useAgentIncidents, getIncidentDocSignedUrl, INCIDENT_TYPE_LABELS, type IncidentType } from "@/hooks/useAttendanceIncidents";
+import { FileWarning, StickyNote, Eye } from "lucide-react";
 
 interface TimeClockEntry {
   id: string;
@@ -644,6 +645,9 @@ export default function EmployeeHome() {
       {/* B1: HR Log — agent-visible entries only */}
       <AgentHRLogCard employeeId={employeeId} />
 
+      {/* B4: Attendance History — agent read-only */}
+      <AgentAttendanceCard employeeId={employeeId} />
+
       {/* Weekly chart */}
       <Card>
         <CardHeader>
@@ -963,6 +967,67 @@ function AgentHRLogCard({ employeeId }: { employeeId: string | null }) {
                 </span>
               </div>
               <p className="text-sm">{entry.note}</p>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── B4: My Attendance History (agent read-only) ───────────────────────
+
+const INCIDENT_BADGE_COLORS: Record<IncidentType, string> = {
+  no_call_no_show: "bg-red-100 text-red-800",
+  late: "bg-amber-100 text-amber-800",
+  sick: "bg-amber-100 text-amber-800",
+  medical_leave: "bg-amber-100 text-amber-800",
+  personal: "bg-blue-100 text-blue-800",
+  bereavement: "bg-blue-100 text-blue-800",
+  other: "bg-gray-100 text-gray-800",
+};
+
+function AgentAttendanceCard({ employeeId }: { employeeId: string | null }) {
+  const { data: incidents = [], isLoading } = useAgentIncidents(employeeId);
+  const { toast } = useToast();
+
+  if (isLoading || incidents.length === 0) return null;
+
+  const handleViewDoc = async (filePath: string) => {
+    try {
+      const url = await getIncidentDocSignedUrl(filePath);
+      window.open(url, "_blank");
+    } catch {
+      toast({ title: "Failed to generate view link", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <Clock className="h-5 w-5" />
+          My Attendance History
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-3">
+          {incidents.map((incident) => (
+            <li key={incident.id} className="border-l-2 border-muted pl-3 space-y-1">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={`text-xs ${INCIDENT_BADGE_COLORS[incident.incident_type]}`}>
+                  {INCIDENT_TYPE_LABELS[incident.incident_type]}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(incident.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                </span>
+              </div>
+              {incident.notes && <p className="text-sm">{incident.notes}</p>}
+              {incident.supporting_doc_path && (
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => handleViewDoc(incident.supporting_doc_path!)}>
+                  <Eye className="mr-1 h-3 w-3" /> View document
+                </Button>
+              )}
             </li>
           ))}
         </ul>
