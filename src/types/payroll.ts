@@ -11,6 +11,18 @@ export interface Employee {
   _uuid?: string; // Supabase internal UUID
 }
 
+/** Employee with metadata fields populated by mapEmployee (from DB joins) */
+export interface EmployeeWithMeta extends Employee {
+  _campaignId?: string;
+  _campaignName?: string;
+  _curp?: string | null;
+  _rfc?: string | null;
+  _address?: string | null;
+  _phone?: string | null;
+  _bankClabe?: string | null;
+  _complianceGraceUntil?: string | null;
+}
+
 export interface PayrollConfig {
   empleadoId: string;
   diasFaltados: number;
