@@ -1,0 +1,65 @@
+name: Deploy Supabase
+
+# Auto-deploys Supabase migrations and edge functions whenever main changes
+# something under supabase/. Also exposes a manual "Run workflow" button as a
+# fallback (workflow_dispatch).
+#
+# Required repo secrets:
+#   SUPABASE_ACCESS_TOKEN — personal access token (https://supabase.com/dashboard/account/tokens)
+#   SUPABASE_DB_PASSWORD  — project's DB password (Project Settings → Database → Connection string)
+#
+# Project ref is hardcoded below since it's not secret.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/functions/**'
+      - '.github/workflows/supabase-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Don't let two deploys run at the same time.
+concurrency:
+  group: supabase-deploy
+  cancel-in-progress: false
+
+env:
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+  PROJECT_REF: jpaihltkrohdqkqlbqkf
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link to project
+        run: supabase link --project-ref "$PROJECT_REF"
+
+      - name: Push pending database migrations
+        run: supabase db push
+
+      - name: Deploy edge functions
+        run: |
+          for dir in supabase/functions/*/; do
+            fn=$(basename "$dir")
+            # Skip shared/private directories (convention: leading underscore)
+            if [[ "$fn" == _* ]]; then
+              echo "Skipping $fn (shared/private)"
+              continue
+            fi
+            echo "::group::Deploying $fn"
+            supabase functions deploy "$fn"
+            echo "::endgroup::"
+          done
