@@ -320,6 +320,45 @@ export type Database = {
         }
         Relationships: []
       }
+      compliance_notifications_sent: {
+        Row: {
+          id: string
+          employee_id: string
+          notification_type: string
+          related_document_id: string | null
+          sent_at: string
+        }
+        Insert: {
+          id?: string
+          employee_id: string
+          notification_type: string
+          related_document_id?: string | null
+          sent_at?: string
+        }
+        Update: {
+          id?: string
+          employee_id?: string
+          notification_type?: string
+          related_document_id?: string | null
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_notifications_sent_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_notifications_sent_related_document_id_fkey"
+            columns: ["related_document_id"]
+            isOneToOne: false
+            referencedRelation: "employee_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_documents: {
         Row: {
           employee_id: string

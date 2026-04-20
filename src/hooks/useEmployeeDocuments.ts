@@ -170,6 +170,23 @@ export function useReviewDocument() {
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: [QUERY_KEY, vars.employeeId] });
+
+      // Best-effort: fire rejection notification email via edge function.
+      // If this fails, the daily cron sweep will catch it.
+      if (vars.status === "rejected") {
+        supabase.functions
+          .invoke("compliance-notifications", {
+            body: {
+              mode: "rejection",
+              employeeId: vars.employeeId,
+              documentId: vars.documentId,
+            },
+          })
+          .then(({ error }) => {
+            if (error) console.warn("Rejection email invoke failed:", error);
+          })
+          .catch((err) => console.warn("Rejection email invoke error:", err));
+      }
     },
   });
 }
