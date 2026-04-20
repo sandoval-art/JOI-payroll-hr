@@ -1,0 +1,338 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { ACCEPTED_DOCUMENT_TYPES, MAX_DOCUMENT_SIZE_BYTES } from "@/lib/documentUpload";
+
+export interface PolicyDocument {
+  id: string;
+  title: string;
+  description: string | null;
+  is_active: boolean;
+  sort_order: number;
+  is_global: boolean;
+  scoped_campaign_ids: string[] | null;
+  applicable_roles: string[] | null;
+  created_at: string;
+  updated_at: string;
+  current_version?: PolicyDocumentVersion | null;
+}
+
+export interface PolicyDocumentVersion {
+  id: string;
+  policy_document_id: string;
+  version_number: number;
+  file_path: string;
+  file_name: string;
+  mime_type: string;
+  file_size_bytes: number;
+  uploaded_by: string;
+  published_at: string;
+  change_notes: string | null;
+  created_at: string;
+  uploader?: { full_name: string } | null;
+}
+
+export interface PolicyAckStatus {
+  employeeId: string;
+  employeeName: string;
+  ackedVersionId: string | null;
+  ackedAt: string | null;
+  status: "acknowledged" | "outdated" | "not_acknowledged";
+}
+
+const POLICIES_KEY = "policies";
+const VERSIONS_KEY = "policy-versions";
+
+function sanitizeFilename(name: string): string {
+  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+function validateFile(file: File) {
+  if (!ACCEPTED_DOCUMENT_TYPES.includes(file.type)) {
+    throw new Error("Unsupported file type. Please upload PDF, JPG, or PNG.");
+  }
+  if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
+    throw new Error("File too large. Maximum size is 10 MB.");
+  }
+}
+
+export function usePolicies() {
+  return useQuery({
+    queryKey: [POLICIES_KEY],
+    queryFn: async () => {
+      const { data: policies, error } = await supabase
+        .from("policy_documents")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+
+      // Fetch latest version for each policy
+      const { data: versions, error: vErr } = await supabase
+        .from("policy_document_versions")
+        .select("*, uploader:uploaded_by(full_name)")
+        .order("version_number", { ascending: false });
+      if (vErr) throw vErr;
+
+      const latestByPolicy = new Map<string, PolicyDocumentVersion>();
+      for (const v of (versions || [])) {
+        if (!latestByPolicy.has(v.policy_document_id)) {
+          latestByPolicy.set(v.policy_document_id, v as PolicyDocumentVersion);
+        }
+      }
+
+      return (policies || []).map((p) => ({
+        ...p,
+        current_version: latestByPolicy.get(p.id) ?? null,
+      })) as PolicyDocument[];
+    },
+  });
+}
+
+export function usePolicyVersions(policyId: string | undefined | null) {
+  return useQuery({
+    queryKey: [VERSIONS_KEY, policyId],
+    queryFn: async () => {
+      if (!policyId) return [];
+      const { data, error } = await supabase
+        .from("policy_document_versions")
+        .select("*, uploader:uploaded_by(full_name)")
+        .eq("policy_document_id", policyId)
+        .order("version_number", { ascending: false });
+      if (error) throw error;
+      return (data || []) as PolicyDocumentVersion[];
+    },
+    enabled: !!policyId,
+  });
+}
+
+export function useCreatePolicy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      title,
+      description,
+      isGlobal,
+      scopedCampaignIds,
+      applicableRoles,
+      file,
+      changeNotes,
+      uploadedBy,
+    }: {
+      title: string;
+      description?: string;
+      isGlobal: boolean;
+      scopedCampaignIds?: string[];
+      applicableRoles?: string[];
+      file: File;
+      changeNotes?: string;
+      uploadedBy: string;
+    }) => {
+      validateFile(file);
+
+      // Create policy document
+      const { data: policy, error: pErr } = await supabase
+        .from("policy_documents")
+        .insert({
+          title,
+          description: description || null,
+          is_global: isGlobal,
+          scoped_campaign_ids: isGlobal ? null : (scopedCampaignIds || null),
+          applicable_roles: applicableRoles?.length ? applicableRoles : null,
+        })
+        .select()
+        .single();
+      if (pErr) throw pErr;
+
+      // Upload file
+      const safeName = sanitizeFilename(file.name);
+      const filePath = `${policy.id}/v1-${safeName}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("policy-documents")
+        .upload(filePath, file, { upsert: false });
+      if (uploadErr) throw uploadErr;
+
+      // Create v1
+      const { error: vErr } = await supabase
+        .from("policy_document_versions")
+        .insert({
+          policy_document_id: policy.id,
+          version_number: 1,
+          file_path: filePath,
+          file_name: file.name,
+          mime_type: file.type,
+          file_size_bytes: file.size,
+          uploaded_by: uploadedBy,
+          change_notes: changeNotes || null,
+        });
+      if (vErr) throw vErr;
+
+      return policy as PolicyDocument;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [POLICIES_KEY] });
+    },
+  });
+}
+
+export function useUpdatePolicyMetadata() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Partial<Pick<PolicyDocument, "title" | "description" | "is_active" | "sort_order" | "is_global" | "scoped_campaign_ids" | "applicable_roles">>;
+    }) => {
+      const { error } = await supabase
+        .from("policy_documents")
+        .update(data)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [POLICIES_KEY] });
+    },
+  });
+}
+
+export function usePublishNewVersion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      policyId,
+      file,
+      changeNotes,
+      uploadedBy,
+      currentMaxVersion,
+    }: {
+      policyId: string;
+      file: File;
+      changeNotes?: string;
+      uploadedBy: string;
+      currentMaxVersion: number;
+    }) => {
+      validateFile(file);
+
+      const nextVersion = currentMaxVersion + 1;
+      const safeName = sanitizeFilename(file.name);
+      const filePath = `${policyId}/v${nextVersion}-${safeName}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from("policy-documents")
+        .upload(filePath, file, { upsert: false });
+      if (uploadErr) throw uploadErr;
+
+      const { data, error } = await supabase
+        .from("policy_document_versions")
+        .insert({
+          policy_document_id: policyId,
+          version_number: nextVersion,
+          file_path: filePath,
+          file_name: file.name,
+          mime_type: file.type,
+          file_size_bytes: file.size,
+          uploaded_by: uploadedBy,
+          change_notes: changeNotes || null,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data as PolicyDocumentVersion;
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: [POLICIES_KEY] });
+      qc.invalidateQueries({ queryKey: [VERSIONS_KEY, vars.policyId] });
+    },
+  });
+}
+
+export function useAckStatusForPolicy(policyId: string | undefined | null, currentVersionId: string | undefined | null) {
+  return useQuery({
+    queryKey: ["policy-ack-status", policyId, currentVersionId],
+    queryFn: async () => {
+      if (!policyId || !currentVersionId) return [];
+
+      // Get the policy to know its scope filters
+      const { data: policy, error: pErr } = await supabase
+        .from("policy_documents")
+        .select("*")
+        .eq("id", policyId)
+        .single();
+      if (pErr) throw pErr;
+
+      // Get all applicable employees
+      const empQuery = supabase
+        .from("employees")
+        .select("id, full_name, campaign_id, title")
+        .eq("is_active", true);
+
+      const { data: employees, error: eErr } = await empQuery;
+      if (eErr) throw eErr;
+
+      // Filter by policy scope
+      let applicable = employees || [];
+      if (!policy.is_global && policy.scoped_campaign_ids) {
+        applicable = applicable.filter((e) => policy.scoped_campaign_ids.includes(e.campaign_id));
+      }
+      if (policy.applicable_roles) {
+        applicable = applicable.filter((e) => policy.applicable_roles.includes(e.title));
+      }
+
+      // Get acks for current version
+      const { data: acks, error: aErr } = await supabase
+        .from("policy_acknowledgments")
+        .select("employee_id, policy_document_version_id, acknowledged_at")
+        .eq("policy_document_version_id", currentVersionId);
+      if (aErr) throw aErr;
+
+      // Get acks for older versions (to detect "outdated")
+      const { data: allVersionAcks, error: avErr } = await supabase
+        .from("policy_acknowledgments")
+        .select("employee_id, policy_document_version_id, acknowledged_at")
+        .in("employee_id", applicable.map((e) => e.id));
+      if (avErr) throw avErr;
+
+      const currentAckMap = new Map((acks || []).map((a) => [a.employee_id, a]));
+      const anyAckMap = new Map((allVersionAcks || []).map((a) => [a.employee_id, a]));
+
+      return applicable.map((emp): PolicyAckStatus => {
+        const currentAck = currentAckMap.get(emp.id);
+        if (currentAck) {
+          return {
+            employeeId: emp.id,
+            employeeName: emp.full_name,
+            ackedVersionId: currentAck.policy_document_version_id,
+            ackedAt: currentAck.acknowledged_at,
+            status: "acknowledged",
+          };
+        }
+        const anyAck = anyAckMap.get(emp.id);
+        if (anyAck) {
+          return {
+            employeeId: emp.id,
+            employeeName: emp.full_name,
+            ackedVersionId: anyAck.policy_document_version_id,
+            ackedAt: anyAck.acknowledged_at,
+            status: "outdated",
+          };
+        }
+        return {
+          employeeId: emp.id,
+          employeeName: emp.full_name,
+          ackedVersionId: null,
+          ackedAt: null,
+          status: "not_acknowledged",
+        };
+      });
+    },
+    enabled: !!policyId && !!currentVersionId,
+  });
+}
+
+export async function getPolicyFileSignedUrl(filePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from("policy-documents")
+    .createSignedUrl(filePath, 60 * 5);
+  if (error) throw error;
+  return data.signedUrl;
+}

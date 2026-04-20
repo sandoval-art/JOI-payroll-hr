@@ -15,6 +15,7 @@ import {
   Calculator,
   UserCog,
   FileCheck,
+  ScrollText,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -47,6 +48,7 @@ const hrItems = [
   { title: "Performance", url: "/desempeno", icon: BarChart3 },
   { title: "Time Off Requests", url: "/solicitudes", icon: CalendarDays },
   { title: "Document Types", url: "/settings/document-types", icon: FileCheck },
+  { title: "Policies", url: "/settings/policies", icon: ScrollText },
   { title: "My Timeclock", url: "/reloj", icon: Timer },
   { title: "My EOD History", url: "/eod", icon: ClipboardCheck },
 ];
