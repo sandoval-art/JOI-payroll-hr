@@ -1,12 +1,18 @@
 name: Deploy Supabase
 
-# Auto-deploys Supabase migrations and edge functions whenever main changes
-# something under supabase/. Also exposes a manual "Run workflow" button as a
+# Auto-deploys Supabase edge functions whenever main changes anything under
+# supabase/functions/. Also exposes a manual "Run workflow" button as a
 # fallback (workflow_dispatch).
+#
+# NOTE: Migration auto-apply (supabase db push) is intentionally disabled.
+# The repo's migration history has a pre-existing filename collision at
+# 20260417000001 (two files share that version) and accumulated drift
+# between local files and remote tracking. Migrations are currently applied
+# manually via MCP after merge. See Followups in docs/hr-roadmap.md.
 #
 # Required repo secrets:
 #   SUPABASE_ACCESS_TOKEN — personal access token (https://supabase.com/dashboard/account/tokens)
-#   SUPABASE_DB_PASSWORD  — project's DB password (Project Settings → Database → Connection string)
+#   SUPABASE_DB_PASSWORD  — project's DB password (Database → Settings → Reset password)
 #
 # Project ref is hardcoded below since it's not secret.
 
@@ -14,7 +20,6 @@ on:
   push:
     branches: [main]
     paths:
-      - 'supabase/migrations/**'
       - 'supabase/functions/**'
       - '.github/workflows/supabase-deploy.yml'
   workflow_dispatch:
@@ -46,9 +51,6 @@ jobs:
 
       - name: Link to project
         run: supabase link --project-ref "$PROJECT_REF"
-
-      - name: Push pending database migrations
-        run: supabase db push
 
       - name: Deploy edge functions
         run: |
