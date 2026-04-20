@@ -193,10 +193,10 @@ export default function DocumentTypes() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(dt)} title="Edit">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(dt)} aria-label="Edit">
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeactivate(dt.id)} title="Deactivate">
+                        <Button variant="ghost" size="icon" onClick={() => handleDeactivate(dt.id)} aria-label="Deactivate">
                           <XCircle className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -226,7 +226,7 @@ export default function DocumentTypes() {
                         <Badge variant="outline" className="bg-muted text-muted-foreground">Inactive</Badge>
                       </TableCell>
                       <TableCell className="w-24">
-                        <Button variant="ghost" size="icon" onClick={() => handleReactivate(dt.id)} title="Reactivate">
+                        <Button variant="ghost" size="icon" onClick={() => handleReactivate(dt.id)} aria-label="Reactivate">
                           <RotateCcw className="h-4 w-4" />
                         </Button>
                       </TableCell>

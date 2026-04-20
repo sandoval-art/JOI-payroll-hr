@@ -138,7 +138,6 @@ export default function EmpleadoPerfil() {
   const empBankClabe = emp?._bankClabe ?? "";
 
   useEffect(() => {
-    if (!emp) return;
     setTaxForm({
       curp: empCurp || "",
       rfc: empRfc || "",
@@ -146,7 +145,7 @@ export default function EmpleadoPerfil() {
       phone: empPhone || "",
       bank_clabe: empBankClabe || "",
     });
-  }, [emp, empCurp, empRfc, empAddress, empPhone, empBankClabe]);
+  }, [empCurp, empRfc, empAddress, empPhone, empBankClabe]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
@@ -643,6 +642,7 @@ function RequiredDocumentsCard({ employeeId }: { employeeId: string }) {
         type="file"
         accept={ACCEPTED_DOCUMENT_EXTENSIONS}
         className="hidden"
+        aria-label="Upload employee document"
         onChange={handleFileSelect}
       />
 
@@ -720,8 +720,10 @@ function RequiredDocumentsCard({ employeeId }: { employeeId: string }) {
             <DialogTitle>Reject Document</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <Label>Reason for rejection</Label>
+            <Label htmlFor="reject-reason">Reason for rejection</Label>
             <Textarea
+              id="reject-reason"
+              autoFocus
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="Explain why this document was rejected..."
