@@ -59,16 +59,15 @@ export function useCreateIncident() {
       incidentType,
       notes,
       file,
+      creatorEmployeeId,
     }: {
       employeeId: string;
       date: string;
       incidentType: IncidentType;
       notes?: string;
       file?: File;
+      creatorEmployeeId: string;
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
       let supportingDocPath: string | null = null;
 
       if (file) {
@@ -97,7 +96,7 @@ export function useCreateIncident() {
             incident_type: incidentType,
             notes: notes?.trim() || null,
             supporting_doc_path: supportingDocPath,
-            created_by: user.id,
+            created_by: creatorEmployeeId,
           },
           { onConflict: "employee_id,date" }
         )

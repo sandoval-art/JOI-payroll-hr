@@ -391,7 +391,7 @@ export default function EmpleadoPerfil() {
 
       {/* B4: Attendance Incidents — leadership + TL on own campaign */}
       {(isLeadership || (isTeamLead && campaignId)) && (
-        <AttendanceIncidentsCard agentId={emp._uuid!} employeeId={emp._uuid!} />
+        <AttendanceIncidentsCard agentId={emp._uuid!} employeeId={emp._uuid!} creatorEmployeeId={authEmployeeId!} />
       )}
 
       {/* Biweekly Breakdown — leadership only */}
@@ -1001,7 +1001,7 @@ const INCIDENT_COLORS: Record<IncidentType, string> = {
 
 const INCIDENT_TYPES: IncidentType[] = ["late", "sick", "no_call_no_show", "medical_leave", "personal", "bereavement", "other"];
 
-function AttendanceIncidentsCard({ agentId, employeeId }: { agentId: string; employeeId: string }) {
+function AttendanceIncidentsCard({ agentId, employeeId, creatorEmployeeId }: { agentId: string; employeeId: string; creatorEmployeeId: string }) {
   const { data: incidents = [], isLoading } = useAgentIncidents(agentId);
   const createIncident = useCreateIncident();
   const updateIncident = useUpdateIncident();
@@ -1058,6 +1058,7 @@ function AttendanceIncidentsCard({ agentId, employeeId }: { agentId: string; emp
           incidentType: formType,
           notes: formNotes || undefined,
           file: formFile || undefined,
+          creatorEmployeeId,
         },
         {
           onSuccess: () => {

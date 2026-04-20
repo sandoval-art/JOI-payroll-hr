@@ -11,7 +11,7 @@ CREATE TABLE public.attendance_incidents (
                     CHECK (incident_type IN ('late', 'sick', 'no_call_no_show', 'medical_leave', 'personal', 'bereavement', 'other')),
   notes             text,
   supporting_doc_path text,
-  created_by        uuid        NOT NULL REFERENCES auth.users(id),
+  created_by        uuid        NOT NULL REFERENCES public.employees(id),
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now(),
 
@@ -54,7 +54,7 @@ CREATE POLICY "tl_insert_team_incidents"
       SELECT e.id FROM public.employees e
       WHERE e.campaign_id IN (SELECT public.my_tl_campaign_ids())
     )
-    AND created_by = auth.uid()
+    AND created_by = public.my_employee_id()
   );
 
 -- TL: UPDATE own team
