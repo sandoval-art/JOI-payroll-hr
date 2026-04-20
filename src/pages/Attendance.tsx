@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -32,6 +33,7 @@ interface AttendanceRecord {
 
 interface EmployeeWithAttendance {
   id: string;
+  employee_id: string;
   name: string;
   campaign_id: string;
   campaign_name: string;
@@ -105,7 +107,7 @@ export default function Attendance() {
       // Fetch employees scoped by role
       let employeesQuery = supabase
         .from("employees")
-        .select("id, full_name, campaign_id")
+        .select("id, employee_id, full_name, campaign_id")
         .eq("is_active", true);
 
       if (isTeamLead && employeeId) {
@@ -172,6 +174,7 @@ export default function Attendance() {
 
           return {
             id: emp.id,
+            employee_id: emp.employee_id,
             name: emp.full_name,
             campaign_id: emp.campaign_id,
             campaign_name: campaignName,
@@ -333,7 +336,9 @@ export default function Attendance() {
                     <TableRow key={employee.id}>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
-                          {employee.name}
+                          <Link to={`/empleados/${employee.employee_id}`} className="hover:underline text-primary">
+                            {employee.name}
+                          </Link>
                           {employee.is_repeat_late && (
                             <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300">
                               Repeat

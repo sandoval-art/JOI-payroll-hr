@@ -194,8 +194,8 @@ export default function EmpleadoPerfil() {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      <Button variant="ghost" onClick={() => navigate("/empleados")}>
-        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Employees
+      <Button variant="ghost" onClick={() => navigate(isLeadership ? "/empleados" : "/asistencia")}>
+        <ArrowLeft className="mr-2 h-4 w-4" /> {isLeadership ? "Back to Employees" : "Back to Attendance"}
       </Button>
 
       <div className="flex items-center gap-3">
@@ -213,24 +213,31 @@ export default function EmpleadoPerfil() {
         <Card>
           <CardHeader><CardTitle className="text-lg">Assignment</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <ClientCampaignPicker
-              value={{ clientId: selectedClientId || null, campaignId: campaignId || null }}
-              onChange={async ({ clientId, campaignId: newCampaignId }) => {
-                setSelectedClientId(clientId || "");
-                if (newCampaignId !== campaignId) {
-                  const { error } = await supabase
-                    .from("employees")
-                    .update({ campaign_id: newCampaignId })
-                    .eq("employee_id", emp.id);
-                  if (error) {
-                    toast.error(`Failed to assign campaign: ${error.message}`);
-                    return;
+            {isLeadership ? (
+              <ClientCampaignPicker
+                value={{ clientId: selectedClientId || null, campaignId: campaignId || null }}
+                onChange={async ({ clientId, campaignId: newCampaignId }) => {
+                  setSelectedClientId(clientId || "");
+                  if (newCampaignId !== campaignId) {
+                    const { error } = await supabase
+                      .from("employees")
+                      .update({ campaign_id: newCampaignId })
+                      .eq("employee_id", emp.id);
+                    if (error) {
+                      toast.error(`Failed to assign campaign: ${error.message}`);
+                      return;
+                    }
+                    queryClient.invalidateQueries({ queryKey: ["employees"] });
+                    toast.success("Campaign assigned");
                   }
-                  queryClient.invalidateQueries({ queryKey: ["employees"] });
-                  toast.success("Campaign assigned");
-                }
-              }}
-            />
+                }}
+              />
+            ) : (
+              <div className="grid gap-1.5">
+                <Label className="text-muted-foreground text-xs">Campaign</Label>
+                <p className="text-sm">{empRecord?._campaignName || "—"}</p>
+              </div>
+            )}
             {/* Shift (read-only from campaign settings) */}
             {campaignShifts.length > 0 && (
               <div className="grid gap-1.5">
@@ -251,8 +258,8 @@ export default function EmpleadoPerfil() {
           </CardContent>
         </Card>
 
-        {/* A1: Personal & Tax Info */}
-        <Card>
+        {/* A1: Personal & Tax Info — leadership only */}
+        {isLeadership && <Card>
           <CardHeader><CardTitle className="text-lg">Personal & Tax Info</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             {isLeadership ? (
@@ -320,7 +327,7 @@ export default function EmpleadoPerfil() {
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Salary Configuration — leadership only */}
         {isLeadership && (
@@ -360,8 +367,8 @@ export default function EmpleadoPerfil() {
         />
       )}
 
-      {/* A2b: Required Documents — leadership only */}
-      {isLeadership && <RequiredDocumentsCard employeeId={emp._uuid} />}
+      {/* A2b: Required Documents — leadership + TL (read-only for TL) */}
+      {(isLeadership || isTeamLead) && <RequiredDocumentsCard employeeId={emp._uuid} readOnly={!isLeadership} />}
 
       {/* B1: Notes & Verbal Warnings — leadership + TL on own campaign */}
       {(isLeadership || (isTeamLead && campaignId)) && (
@@ -373,6 +380,8 @@ export default function EmpleadoPerfil() {
         />
       )}
 
+      {/* Biweekly Breakdown — leadership only */}
+      {isLeadership && (
       <Card>
         <CardHeader><CardTitle className="text-lg">Biweekly Breakdown</CardTitle></CardHeader>
         <CardContent>
@@ -396,6 +405,7 @@ export default function EmpleadoPerfil() {
           </div>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }
@@ -566,7 +576,7 @@ function ComplianceCard({
 
 // ── A2b: Required Documents Card (leadership only) ──────────────────
 
-function RequiredDocumentsCard({ employeeId }: { employeeId: string }) {
+function RequiredDocumentsCard({ employeeId, readOnly = false }: { employeeId: string; readOnly?: boolean }) {
   const { data: rows = [], isLoading } = useEmployeeDocuments(employeeId);
   const uploadDoc = useUploadDocument();
   const reviewDoc = useReviewDocument();
@@ -692,7 +702,8 @@ function RequiredDocumentsCard({ employeeId }: { employeeId: string }) {
                 <p className="text-xs text-destructive">Reason: {doc.rejection_reason}</p>
               )}
 
-              {/* Actions */}
+              {/* Actions — hidden in read-only mode */}
+              {!readOnly && (
               <div className="flex gap-2 mt-1">
                 {!doc && (
                   <Button size="sm" variant="outline" onClick={() => triggerUpload(type.id)} disabled={uploadDoc.isPending}>
@@ -720,6 +731,7 @@ function RequiredDocumentsCard({ employeeId }: { employeeId: string }) {
                   </Button>
                 )}
               </div>
+              )}
             </div>
           ))}
         </CardContent>
