@@ -14,6 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_coaching_notes: {
+        Row: {
+          agent_id: string
+          author_id: string
+          campaign_id: string
+          created_at: string
+          id: string
+          note: string
+        }
+        Insert: {
+          agent_id: string
+          author_id: string
+          campaign_id: string
+          created_at?: string
+          id?: string
+          note: string
+        }
+        Update: {
+          agent_id?: string
+          author_id?: string
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          note?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_coaching_notes_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_coaching_notes_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_coaching_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_coaching_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_coaching_notes_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_config: {
+        Row: {
+          key: string
+          value: string
+        }
+        Insert: {
+          key: string
+          value: string
+        }
+        Update: {
+          key?: string
+          value?: string
+        }
+        Relationships: []
+      }
       campaign_eod_recipients: {
         Row: {
           active: boolean
@@ -109,6 +187,8 @@ export type Database = {
           field_label: string
           field_name: string
           field_type: string
+          flag_independent: boolean
+          flag_threshold: number | null
           id: string
           is_active: boolean | null
           is_required: boolean | null
@@ -121,6 +201,8 @@ export type Database = {
           field_label: string
           field_name: string
           field_type?: string
+          flag_independent?: boolean
+          flag_threshold?: number | null
           id?: string
           is_active?: boolean | null
           is_required?: boolean | null
@@ -133,6 +215,8 @@ export type Database = {
           field_label?: string
           field_name?: string
           field_type?: string
+          flag_independent?: boolean
+          flag_threshold?: number | null
           id?: string
           is_active?: boolean | null
           is_required?: boolean | null
@@ -154,6 +238,8 @@ export type Database = {
           created_at: string | null
           eod_digest_cutoff_time: string | null
           eod_digest_timezone: string
+          eod_morning_bundle_time: string | null
+          eod_reply_to_email: string | null
           id: string
           name: string
           team_lead_id: string | null
@@ -163,6 +249,8 @@ export type Database = {
           created_at?: string | null
           eod_digest_cutoff_time?: string | null
           eod_digest_timezone?: string
+          eod_morning_bundle_time?: string | null
+          eod_reply_to_email?: string | null
           id?: string
           name: string
           team_lead_id?: string | null
@@ -172,6 +260,8 @@ export type Database = {
           created_at?: string | null
           eod_digest_cutoff_time?: string | null
           eod_digest_timezone?: string
+          eod_morning_bundle_time?: string | null
+          eod_reply_to_email?: string | null
           id?: string
           name?: string
           team_lead_id?: string | null
@@ -230,11 +320,63 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_documents: {
+        Row: {
+          employee_id: string
+          document_type_id: string
+          file_path: string
+          file_name: string
+          mime_type: string
+          file_size_bytes: number
+          id: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          uploaded_at: string
+          uploaded_by: string
+          updated_at: string
+        }
+        Insert: {
+          employee_id: string
+          document_type_id: string
+          file_path: string
+          file_name: string
+          mime_type: string
+          file_size_bytes: number
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          uploaded_at?: string
+          uploaded_by?: string
+          updated_at?: string
+        }
+        Update: {
+          employee_id?: string
+          document_type_id?: string
+          file_path?: string
+          file_name?: string
+          mime_type?: string
+          file_size_bytes?: number
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          uploaded_at?: string
+          uploaded_by?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           address: string | null
           bank_clabe: string | null
           campaign_id: string | null
+          compliance_grace_until: string | null
           created_at: string | null
           curp: string | null
           daily_discount_rate: number | null
@@ -255,6 +397,7 @@ export type Database = {
           address?: string | null
           bank_clabe?: string | null
           campaign_id?: string | null
+          compliance_grace_until?: string | null
           created_at?: string | null
           curp?: string | null
           daily_discount_rate?: number | null
@@ -275,6 +418,7 @@ export type Database = {
           address?: string | null
           bank_clabe?: string | null
           campaign_id?: string | null
+          compliance_grace_until?: string | null
           created_at?: string | null
           curp?: string | null
           daily_discount_rate?: number | null
@@ -315,75 +459,55 @@ export type Database = {
           },
         ]
       }
-      employee_documents: {
+      eod_digest_log: {
         Row: {
+          agent_missing_count: number
+          agent_submission_count: number
+          campaign_id: string
+          digest_date: string
+          digest_type: string
+          dry_run: boolean
+          error: string | null
           id: string
-          employee_id: string
-          document_type_id: string
-          file_path: string
-          file_name: string
-          mime_type: string
-          file_size_bytes: number
-          status: string
-          rejection_reason: string | null
-          uploaded_by: string
-          uploaded_at: string
-          reviewed_by: string | null
-          reviewed_at: string | null
-          updated_at: string
+          missing_agents: Json | null
+          recipient_count: number
+          sent_at: string
+          smtp_message_id: string | null
         }
         Insert: {
+          agent_missing_count?: number
+          agent_submission_count?: number
+          campaign_id: string
+          digest_date: string
+          digest_type: string
+          dry_run?: boolean
+          error?: string | null
           id?: string
-          employee_id: string
-          document_type_id: string
-          file_path: string
-          file_name: string
-          mime_type: string
-          file_size_bytes: number
-          status?: string
-          rejection_reason?: string | null
-          uploaded_by: string
-          uploaded_at?: string
-          reviewed_by?: string | null
-          reviewed_at?: string | null
-          updated_at?: string
+          missing_agents?: Json | null
+          recipient_count?: number
+          sent_at?: string
+          smtp_message_id?: string | null
         }
         Update: {
+          agent_missing_count?: number
+          agent_submission_count?: number
+          campaign_id?: string
+          digest_date?: string
+          digest_type?: string
+          dry_run?: boolean
+          error?: string | null
           id?: string
-          employee_id?: string
-          document_type_id?: string
-          file_path?: string
-          file_name?: string
-          mime_type?: string
-          file_size_bytes?: number
-          status?: string
-          rejection_reason?: string | null
-          uploaded_by?: string
-          uploaded_at?: string
-          reviewed_by?: string | null
-          reviewed_at?: string | null
-          updated_at?: string
+          missing_agents?: Json | null
+          recipient_count?: number
+          sent_at?: string
+          smtp_message_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "employee_documents_employee_id_fkey"
-            columns: ["employee_id"]
+            foreignKeyName: "eod_digest_log_campaign_id_fkey"
+            columns: ["campaign_id"]
             isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employee_documents_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees_no_pay"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employee_documents_document_type_id_fkey"
-            columns: ["document_type_id"]
-            isOneToOne: false
-            referencedRelation: "required_document_types"
+            referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
         ]
@@ -393,8 +517,10 @@ export type Database = {
           campaign_id: string
           created_at: string | null
           date: string
+          edit_count: number
           employee_id: string
           id: string
+          last_edited_at: string | null
           metrics: Json
           notes: string | null
         }
@@ -402,8 +528,10 @@ export type Database = {
           campaign_id: string
           created_at?: string | null
           date: string
+          edit_count?: number
           employee_id: string
           id?: string
+          last_edited_at?: string | null
           metrics: Json
           notes?: string | null
         }
@@ -411,8 +539,10 @@ export type Database = {
           campaign_id?: string
           created_at?: string | null
           date?: string
+          edit_count?: number
           employee_id?: string
           id?: string
+          last_edited_at?: string | null
           metrics?: Json
           notes?: string | null
         }
@@ -636,30 +766,30 @@ export type Database = {
       }
       required_document_types: {
         Row: {
-          id: string
-          name: string
-          description: string | null
-          is_active: boolean
-          sort_order: number
           created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
           updated_at: string
         }
         Insert: {
-          id?: string
-          name: string
-          description?: string | null
-          is_active?: boolean
-          sort_order?: number
           created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
           updated_at?: string
         }
         Update: {
-          id?: string
-          name?: string
-          description?: string | null
-          is_active?: boolean
-          sort_order?: number
           created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
           updated_at?: string
         }
         Relationships: []
@@ -979,6 +1109,11 @@ export type Database = {
       }
     }
     Functions: {
+      amend_eod_log: {
+        Args: { p_log_id: string; p_metrics: Json; p_notes: string }
+        Returns: undefined
+      }
+      app_config_value: { Args: { p_key: string }; Returns: string }
       auto_clockout_overdue: {
         Args: never
         Returns: {
@@ -986,6 +1121,20 @@ export type Database = {
           employee_id: string
           scheduled_end: string
         }[]
+      }
+      campaigns_digest_fire_times: {
+        Args: never
+        Returns: {
+          campaign_id: string
+          campaign_name: string
+          digest_fire_time: string
+          eod_digest_timezone: string
+          eod_morning_bundle_time: string
+        }[]
+      }
+      eod_before_cutoff: {
+        Args: { p_campaign_id: string; p_date: string }
+        Returns: boolean
       }
       is_leadership: { Args: never; Returns: boolean }
       is_team_lead: { Args: never; Returns: boolean }

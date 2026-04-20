@@ -32,6 +32,9 @@ import {
   FileText,
 } from "lucide-react";
 import { useEmployeeDocuments, type DocumentWithType } from "@/hooks/useEmployeeDocuments";
+import { useComplianceStatus } from "@/hooks/useComplianceStatus";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { ShieldX, ShieldAlert } from "lucide-react";
 
 interface TimeClockEntry {
   id: string;
@@ -274,6 +277,8 @@ export default function EmployeeHome() {
     enabled: !!employee?.campaign_id,
   });
 
+  const compliance = useComplianceStatus(employeeId);
+
   // ---------- Derived ----------
   const firstName = (employee?.full_name || user?.email || "there").split(" ")[0];
   const isClockedIn = !!todayEntry && !todayEntry.clock_out;
@@ -335,6 +340,36 @@ export default function EmployeeHome() {
           {statusBadge.label}
         </Badge>
       </div>
+
+      {/* A3a: Compliance banner */}
+      {compliance.isLocked && (
+        <Alert variant="destructive" className="border-red-300 bg-red-50 text-red-800 [&>svg]:text-red-600">
+          <ShieldX className="h-5 w-5" />
+          <AlertTitle>Clock-in disabled</AlertTitle>
+          <AlertDescription>
+            Your clock-in is disabled because required documents are missing. Submit the following and contact HR:{" "}
+            <strong>{compliance.missingTypes.map((t) => t.name).join(", ")}</strong>.
+          </AlertDescription>
+        </Alert>
+      )}
+      {!compliance.isLocked && compliance.isInGrace && compliance.missingTypes.length > 0 && (
+        <Alert variant="warning">
+          <ShieldAlert className="h-5 w-5" />
+          <AlertTitle>Missing required documents</AlertTitle>
+          <AlertDescription>
+            You're missing required documents. Submit them by{" "}
+            <strong>
+              {compliance.graceUntil?.toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </strong>{" "}
+            or your clock-in will be disabled. Missing:{" "}
+            <strong>{compliance.missingTypes.map((t) => t.name).join(", ")}</strong>.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Missing EOD banner */}
       {missingEods.length > 0 && (

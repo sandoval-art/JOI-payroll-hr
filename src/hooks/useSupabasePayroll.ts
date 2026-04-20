@@ -4,7 +4,7 @@ import type { Employee, PayrollConfig, PayrollResult } from "@/types/payroll";
 import { calcularNomina } from "@/types/payroll";
 
 // Map DB row to frontend Employee
-function mapEmployee(row: any): Employee & { _campaignId?: string; _campaignName?: string; _curp?: string | null; _rfc?: string | null; _address?: string | null; _phone?: string | null; _bankClabe?: string | null } {
+function mapEmployee(row: any): Employee & { _campaignId?: string; _campaignName?: string; _curp?: string | null; _rfc?: string | null; _address?: string | null; _phone?: string | null; _bankClabe?: string | null; _complianceGraceUntil?: string | null } {
   return {
     id: row.employee_id,
     nombre: row.full_name,
@@ -21,6 +21,7 @@ function mapEmployee(row: any): Employee & { _campaignId?: string; _campaignName
     _address: row.address ?? null,
     _phone: row.phone ?? null,
     _bankClabe: row.bank_clabe ?? null,
+    _complianceGraceUntil: row.compliance_grace_until ?? null,
   };
 }
 
@@ -113,13 +114,18 @@ export function useUpdateEmployee() {
       if ((data as any).address !== undefined) update.address = (data as any).address;
       if ((data as any).phone !== undefined) update.phone = (data as any).phone;
       if ((data as any).bank_clabe !== undefined) update.bank_clabe = (data as any).bank_clabe;
+      // A3a: compliance grace deadline
+      if ((data as any).compliance_grace_until !== undefined) update.compliance_grace_until = (data as any).compliance_grace_until;
       const { error } = await supabase
         .from("employees")
         .update(update)
         .eq("employee_id", employeeId);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["employees"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["employees"] });
+      qc.invalidateQueries({ queryKey: ["compliance-grace"] });
+    },
   });
 }
 
