@@ -685,8 +685,8 @@ function RequiredDocumentsCard({ employeeId, readOnly = false }: { employeeId: s
                 <DocumentStatusBadge document={doc} />
               </div>
 
-              {/* File info when doc exists */}
-              {doc && (
+              {/* File info when doc exists — hidden in read-only (TL) mode */}
+              {!readOnly && doc && (
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="truncate max-w-[200px]">{doc.file_name}</span>
                   <span>·</span>
@@ -697,8 +697,8 @@ function RequiredDocumentsCard({ employeeId, readOnly = false }: { employeeId: s
                 </div>
               )}
 
-              {/* Rejection reason */}
-              {doc?.status === "rejected" && doc.rejection_reason && (
+              {/* Rejection reason — hidden in read-only (TL) mode */}
+              {!readOnly && doc?.status === "rejected" && doc.rejection_reason && (
                 <p className="text-xs text-destructive">Reason: {doc.rejection_reason}</p>
               )}
 
