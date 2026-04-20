@@ -1,5 +1,5 @@
 -- A3b: Schedule daily compliance notification sweep via pg_cron.
--- Runs once daily at 9:00 AM America/Denver (15:00 UTC in MDT, 16:00 UTC in MST).
+-- Runs once daily at 9:00 AM CDMX / America/Mexico_City (15:00 UTC year-round).
 -- Uses the same auth pattern as the EOD digest cron jobs.
 
 SELECT cron.schedule(
