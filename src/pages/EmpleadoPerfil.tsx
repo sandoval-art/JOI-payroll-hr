@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Save, Upload, Check, X, Eye, EyeOff, RefreshCw, ShieldCheck, ShieldAlert, ShieldX, CalendarClock, Trash2, Plus, FileWarning, StickyNote, AlertTriangle, Pencil, Clock } from "lucide-react";
+import { ArrowLeft, Save, Upload, Check, X, Eye, EyeOff, RefreshCw, ShieldCheck, ShieldAlert, ShieldX, CalendarClock, Trash2, Plus, FileWarning, StickyNote, AlertTriangle, Pencil, Clock, ScrollText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useEffect, useState, useRef } from "react";
@@ -37,6 +37,7 @@ import {
   type IncidentType,
   type AttendanceIncident,
 } from "@/hooks/useAttendanceIncidents";
+import { usePolicies, type PolicyDocument } from "@/hooks/usePolicies";
 
 // ── A1: Personal & Tax Info validation ──────────────────────────────
 const CURP_RE = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
@@ -393,6 +394,9 @@ export default function EmpleadoPerfil() {
       {(isLeadership || (isTeamLead && campaignId)) && (
         <AttendanceIncidentsCard agentId={emp._uuid!} employeeId={emp._uuid!} creatorEmployeeId={authEmployeeId!} />
       )}
+
+      {/* C1: Policy Acknowledgments — leadership only */}
+      {isLeadership && <PolicyAckCard agentId={emp._uuid!} agentCampaignId={campaignId} agentRole={emp.title} />}
 
       {/* Biweekly Breakdown — leadership only */}
       {isLeadership && (
@@ -1193,5 +1197,92 @@ function AttendanceIncidentsCard({ agentId, employeeId, creatorEmployeeId }: { a
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// ── C1: Policy Acknowledgments Card (leadership only) ─────────────────
+
+function PolicyAckCard({
+  agentId,
+  agentCampaignId,
+  agentRole,
+}: {
+  agentId: string;
+  agentCampaignId: string | null;
+  agentRole?: string;
+}) {
+  const { data: policies = [] } = usePolicies();
+
+  // Filter to policies applicable to this agent
+  const applicable = policies.filter((p) => {
+    if (!p.is_active) return false;
+    if (!p.is_global && p.scoped_campaign_ids) {
+      if (!agentCampaignId || !p.scoped_campaign_ids.includes(agentCampaignId)) return false;
+    }
+    if (p.applicable_roles && agentRole) {
+      if (!p.applicable_roles.includes(agentRole)) return false;
+    }
+    return true;
+  });
+
+  // Fetch acks for this agent
+  const { data: acks = [] } = useQuery({
+    queryKey: ["agent-policy-acks", agentId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("policy_acknowledgments")
+        .select("policy_document_version_id, acknowledged_at")
+        .eq("employee_id", agentId);
+      if (error) throw error;
+      return data as { policy_document_version_id: string; acknowledged_at: string }[];
+    },
+    enabled: !!agentId,
+  });
+
+  const ackVersionIds = new Set(acks.map((a) => a.policy_document_version_id));
+
+  if (applicable.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <ScrollText className="h-5 w-5" />
+          Policy Acknowledgments
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {applicable.map((policy) => {
+          const currentVersion = policy.current_version;
+          let status: "acknowledged" | "not_acknowledged" = "not_acknowledged";
+          let ackDate: string | null = null;
+
+          if (currentVersion && ackVersionIds.has(currentVersion.id)) {
+            status = "acknowledged";
+            ackDate = acks.find((a) => a.policy_document_version_id === currentVersion.id)?.acknowledged_at ?? null;
+          }
+
+          return (
+            <div key={policy.id} className="flex items-center justify-between gap-3 border-l-2 border-muted pl-3">
+              <div>
+                <p className="text-sm font-medium">{policy.title}</p>
+                {currentVersion && (
+                  <p className="text-xs text-muted-foreground">v{currentVersion.version_number}</p>
+                )}
+              </div>
+              {status === "acknowledged" ? (
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 text-xs">
+                  Ack'd {ackDate ? new Date(ackDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 text-xs">
+                  Not ack'd
+                </Badge>
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }
