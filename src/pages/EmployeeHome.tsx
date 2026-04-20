@@ -38,6 +38,8 @@ import { useComplianceStatus } from "@/hooks/useComplianceStatus";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ShieldX, ShieldAlert } from "lucide-react";
 import { ACCEPTED_DOCUMENT_TYPES, ACCEPTED_DOCUMENT_EXTENSIONS, MAX_DOCUMENT_SIZE_BYTES } from "@/lib/documentUpload";
+import { useAgentLogEntries } from "@/hooks/useAgentLog";
+import { FileWarning, StickyNote } from "lucide-react";
 
 interface TimeClockEntry {
   id: string;
@@ -639,6 +641,9 @@ export default function EmployeeHome() {
       {/* A2b: My Documents — agent read-only */}
       <MyDocumentsCard employeeId={employeeId} />
 
+      {/* B1: HR Log — agent-visible entries only */}
+      <AgentHRLogCard employeeId={employeeId} />
+
       {/* Weekly chart */}
       <Card>
         <CardHeader>
@@ -924,5 +929,44 @@ function MyDocumentsCard({ employeeId }: { employeeId: string | null }) {
         </CardContent>
       </Card>
     </>
+  );
+}
+
+// ── B1: HR Log (agent-visible entries only) ───────────────────────────
+
+function AgentHRLogCard({ employeeId }: { employeeId: string | null }) {
+  const { data: entries = [], isLoading } = useAgentLogEntries(employeeId);
+
+  // Only render if there's at least one visible entry
+  if (isLoading || entries.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <FileText className="h-5 w-5" />
+          HR Log
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-3">
+          {entries.map((entry) => (
+            <li key={entry.id} className="border-l-2 border-muted pl-3 space-y-1">
+              <div className="flex items-center gap-2">
+                {entry.entry_type === "verbal_warning" ? (
+                  <Badge variant="destructive" className="text-xs"><FileWarning className="mr-1 h-3 w-3" />Verbal Warning</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs"><StickyNote className="mr-1 h-3 w-3" />Note</Badge>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {new Date(entry.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                </span>
+              </div>
+              <p className="text-sm">{entry.note}</p>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }
