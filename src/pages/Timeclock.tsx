@@ -25,6 +25,9 @@ import {
 } from "lucide-react";
 import { ClockOutEODDialog, type KPIField } from "@/components/ClockOutEODDialog";
 import { todayLocal, parseLocalDate } from "@/lib/localDate";
+import { useComplianceStatus } from "@/hooks/useComplianceStatus";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ShieldX } from "lucide-react";
 
 interface TimeClockEntry {
   id: string;
@@ -113,6 +116,7 @@ export default function Timeclock() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [eodDialogOpen, setEodDialogOpen] = useState(false);
   const queryClient = useQueryClient();
+  const compliance = useComplianceStatus(employeeId);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -504,15 +508,24 @@ export default function Timeclock() {
 
           {/* NOT CLOCKED IN */}
           {!isClockedIn && !todayEntry?.clock_out && (
-            <Button
-              size="lg"
-              className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white text-lg"
-              onClick={() => clockInMutation.mutate()}
-              disabled={clockInMutation.isPending}
-            >
-              <LogIn className="mr-2 h-5 w-5" />
-              {clockInMutation.isPending ? "Processing..." : "Clock In"}
-            </Button>
+            compliance.isLocked ? (
+              <Alert variant="destructive" className="border-red-300 bg-red-50 text-red-800 [&>svg]:text-red-600">
+                <ShieldX className="h-5 w-5" />
+                <AlertDescription className="ml-2">
+                  Clock-in disabled — required documents are missing. Talk to HR.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Button
+                size="lg"
+                className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white text-lg"
+                onClick={() => clockInMutation.mutate()}
+                disabled={clockInMutation.isPending}
+              >
+                <LogIn className="mr-2 h-5 w-5" />
+                {clockInMutation.isPending ? "Processing..." : "Clock In"}
+              </Button>
+            )
           )}
 
           {/* ALREADY CLOCKED OUT FOR THE DAY */}

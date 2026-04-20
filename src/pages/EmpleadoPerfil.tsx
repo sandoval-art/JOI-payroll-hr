@@ -13,9 +13,10 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Save, Upload, Check, X, Eye, RefreshCw } from "lucide-react";
+import { ArrowLeft, Save, Upload, Check, X, Eye, RefreshCw, ShieldCheck, ShieldAlert, ShieldX, CalendarClock, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState, useRef } from "react";
+import { useComplianceStatus } from "@/hooks/useComplianceStatus";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useEmployeeDocuments,
@@ -56,8 +57,12 @@ export default function EmpleadoPerfil() {
   const queryClient = useQueryClient();
   const { isLeadership } = useAuth();
 
-  // Cascading Client → Campaign state
+  // A3a: compliance status for this employee (uses DB uuid)
   const empRecord = employees.find((e) => e.id === id);
+  const empUuid = (empRecord as any)?._uuid ?? null;
+  const compliance = useComplianceStatus(empUuid);
+
+  // Cascading Client → Campaign state
   const campaignId = (empRecord as any)?._campaignId ?? null;
 
   // Supervisor (auto-derived from campaign TL)
@@ -336,6 +341,16 @@ export default function EmpleadoPerfil() {
 
       </div>
 
+      {/* A3a: Compliance Enforcement — leadership only */}
+      {isLeadership && (
+        <ComplianceCard
+          employeeId={emp.id}
+          compliance={compliance}
+          graceRaw={(emp as any)._complianceGraceUntil ?? null}
+          updateEmployee={updateEmployee}
+        />
+      )}
+
       {/* A2b: Required Documents — leadership only */}
       {isLeadership && <RequiredDocumentsCard employeeId={emp._uuid} />}
 
@@ -381,6 +396,152 @@ function ReadOnlyField({ label, value }: { label: string; value: string | null }
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className="text-sm">{value || "—"}</span>
     </div>
+  );
+}
+
+// ── A3a: Compliance Enforcement Card (leadership only) ───────────────
+
+function ComplianceCard({
+  employeeId,
+  compliance,
+  graceRaw,
+  updateEmployee,
+}: {
+  employeeId: string;
+  compliance: ReturnType<typeof useComplianceStatus>;
+  graceRaw: string | null;
+  updateEmployee: ReturnType<typeof useUpdateEmployee>;
+}) {
+  const [dateValue, setDateValue] = useState("");
+  const [showPicker, setShowPicker] = useState(false);
+
+  // Sync local state when prop changes
+  useEffect(() => {
+    setDateValue(graceRaw ?? "");
+  }, [graceRaw]);
+
+  const saveGrace = (value: string | null) => {
+    updateEmployee.mutate(
+      { employeeId, data: { compliance_grace_until: value } as any },
+      {
+        onSuccess: () => {
+          toast.success(value ? `Grace deadline set to ${value}` : "Enforcement cleared");
+          setShowPicker(false);
+        },
+      }
+    );
+  };
+
+  // Status display
+  let statusIcon: React.ReactNode;
+  let statusLabel: string;
+  let statusColor: string;
+  if (compliance.isCompliant) {
+    statusIcon = <ShieldCheck className="h-5 w-5 text-emerald-600" />;
+    statusLabel = "Compliant";
+    statusColor = "text-emerald-700";
+  } else if (compliance.isLocked) {
+    const lockedSince = graceRaw
+      ? new Date(graceRaw + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      : "—";
+    statusIcon = <ShieldX className="h-5 w-5 text-red-600" />;
+    statusLabel = `Locked since ${lockedSince}`;
+    statusColor = "text-red-700";
+  } else if (compliance.isInGrace) {
+    const graceDate = compliance.graceUntil?.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) ?? "";
+    statusIcon = <ShieldAlert className="h-5 w-5 text-amber-600" />;
+    statusLabel = `In grace until ${graceDate}`;
+    statusColor = "text-amber-700";
+  } else {
+    statusIcon = <ShieldCheck className="h-5 w-5 text-muted-foreground" />;
+    statusLabel = "No enforcement set";
+    statusColor = "text-muted-foreground";
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <CalendarClock className="h-5 w-5" />
+          Compliance Enforcement
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Status display */}
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+          {statusIcon}
+          <div>
+            <p className={`font-medium text-sm ${statusColor}`}>{statusLabel}</p>
+            {compliance.missingTypes.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {compliance.missingTypes.length} missing required doc{compliance.missingTypes.length > 1 ? "s" : ""}:{" "}
+                {compliance.missingTypes.map((t) => t.name).join(", ")}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Grace date controls */}
+        {showPicker ? (
+          <div className="space-y-3">
+            <div className="grid gap-1.5">
+              <Label>Grace deadline</Label>
+              <Input
+                type="date"
+                value={dateValue}
+                onChange={(e) => setDateValue(e.target.value)}
+                min={new Date().toISOString().split("T")[0]}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (!dateValue) {
+                    toast.error("Pick a date first");
+                    return;
+                  }
+                  saveGrace(dateValue);
+                }}
+                disabled={updateEmployee.isPending}
+              >
+                <Save className="mr-1 h-3 w-3" />
+                {updateEmployee.isPending ? "Saving..." : "Save"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setShowPicker(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setDateValue(graceRaw ?? "");
+                setShowPicker(true);
+              }}
+            >
+              <CalendarClock className="mr-1 h-3 w-3" />
+              {graceRaw ? "Extend grace" : "Set grace deadline"}
+            </Button>
+            {graceRaw && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive"
+                onClick={() => saveGrace(null)}
+                disabled={updateEmployee.isPending}
+              >
+                <Trash2 className="mr-1 h-3 w-3" />
+                Clear enforcement
+              </Button>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
