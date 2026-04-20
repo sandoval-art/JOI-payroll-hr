@@ -315,6 +315,79 @@ export type Database = {
           },
         ]
       }
+      employee_documents: {
+        Row: {
+          id: string
+          employee_id: string
+          document_type_id: string
+          file_path: string
+          file_name: string
+          mime_type: string
+          file_size_bytes: number
+          status: string
+          rejection_reason: string | null
+          uploaded_by: string
+          uploaded_at: string
+          reviewed_by: string | null
+          reviewed_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          employee_id: string
+          document_type_id: string
+          file_path: string
+          file_name: string
+          mime_type: string
+          file_size_bytes: number
+          status?: string
+          rejection_reason?: string | null
+          uploaded_by: string
+          uploaded_at?: string
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          employee_id?: string
+          document_type_id?: string
+          file_path?: string
+          file_name?: string
+          mime_type?: string
+          file_size_bytes?: number
+          status?: string
+          rejection_reason?: string | null
+          uploaded_by?: string
+          uploaded_at?: string
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_documents_document_type_id_fkey"
+            columns: ["document_type_id"]
+            isOneToOne: false
+            referencedRelation: "required_document_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eod_logs: {
         Row: {
           campaign_id: string

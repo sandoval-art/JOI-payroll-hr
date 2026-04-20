@@ -29,7 +29,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Timer,
+  FileText,
 } from "lucide-react";
+import { useEmployeeDocuments, type DocumentWithType } from "@/hooks/useEmployeeDocuments";
 
 interface TimeClockEntry {
   id: string;
@@ -596,6 +598,9 @@ export default function EmployeeHome() {
         </Card>
       )}
 
+      {/* A2b: My Documents — agent read-only */}
+      <MyDocumentsCard employeeId={employeeId} />
+
       {/* Weekly chart */}
       <Card>
         <CardHeader>
@@ -754,6 +759,64 @@ function StatCard({
           <span className={`text-3xl font-bold ${accent || ""}`}>{value}</span>
           {suffix && <span className="text-sm text-muted-foreground">{suffix}</span>}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── A2b: My Documents (agent read-only) ─────────────────────────────
+
+function docStatusBadge(doc: DocumentWithType["document"]) {
+  if (!doc) return <Badge variant="outline" className="bg-muted text-muted-foreground">Not submitted</Badge>;
+  if (doc.status === "pending_review") return <Badge variant="outline" className="bg-amber-50 text-amber-800">Pending review</Badge>;
+  if (doc.status === "approved") return <Badge variant="outline" className="bg-emerald-50 text-emerald-800">Approved</Badge>;
+  if (doc.status === "rejected") return <Badge variant="destructive">Rejected</Badge>;
+  return null;
+}
+
+function MyDocumentsCard({ employeeId }: { employeeId: string | null }) {
+  const { data: rows = [], isLoading } = useEmployeeDocuments(employeeId ?? undefined);
+
+  if (isLoading || rows.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <FileText className="h-5 w-5" />
+          My Documents
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="divide-y">
+          {rows.map(({ type, document: doc }) => (
+            <li key={type.id} className="py-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">{type.name}</p>
+                {!doc && (
+                  <p className="text-xs text-muted-foreground">Not submitted yet</p>
+                )}
+                {doc?.status === "approved" && doc.reviewed_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Approved {new Date(doc.reviewed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </p>
+                )}
+                {doc?.status === "pending_review" && (
+                  <p className="text-xs text-muted-foreground">Waiting for HR review</p>
+                )}
+                {doc?.status === "rejected" && (
+                  <div>
+                    {doc.rejection_reason && (
+                      <p className="text-xs text-destructive">Reason: {doc.rejection_reason}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-0.5">Talk to HR to resolve</p>
+                  </div>
+                )}
+              </div>
+              {docStatusBadge(doc)}
+            </li>
+          ))}
+        </ul>
       </CardContent>
     </Card>
   );
