@@ -58,7 +58,7 @@ export function useComplianceStatus(employeeId: string | undefined | null): Comp
     let daysUntilGrace: number | null = null;
     if (graceDate !== null) {
       const diffMs = graceDate.getTime() - today.getTime();
-      daysUntilGrace = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      daysUntilGrace = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
     }
 
     return {

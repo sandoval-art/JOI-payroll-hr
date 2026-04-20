@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import {
   usePolicies,
   usePolicyVersions,
@@ -199,17 +199,17 @@ export default function Policies() {
                 </div>
                 <div className="flex gap-1 shrink-0">
                   {p.current_version && (
-                    <Button variant="ghost" size="sm" onClick={() => handleViewFile(p.current_version!.file_path)}>
+                    <Button variant="ghost" size="sm" aria-label="View document" onClick={() => handleViewFile(p.current_version!.file_path)}>
                       <Eye className="h-4 w-4" />
                     </Button>
                   )}
-                  <Button variant="ghost" size="sm" onClick={() => { setVersionFile(null); setVersionNotes(""); setVersionTarget(p); }}>
+                  <Button variant="ghost" size="sm" aria-label="Upload new version" onClick={() => { setVersionFile(null); setVersionNotes(""); setVersionTarget(p); }}>
                     <Upload className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setHistoryTarget(p)}>
+                  <Button variant="ghost" size="sm" aria-label="Version history" onClick={() => setHistoryTarget(p)}>
                     <History className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleToggleActive(p)}>
+                  <Button variant="ghost" size="sm" aria-label="Deactivate" onClick={() => handleToggleActive(p)}>
                     <XCircle className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
@@ -230,7 +230,7 @@ export default function Policies() {
                   <p className="font-medium">{p.title}</p>
                   <p className="text-xs text-muted-foreground">{scopeSummary(p)}</p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => handleToggleActive(p)}>
+                <Button variant="ghost" size="sm" aria-label="Reactivate" onClick={() => handleToggleActive(p)}>
                   <RotateCcw className="h-4 w-4" />
                 </Button>
               </div>
@@ -319,8 +319,9 @@ export default function Policies() {
             </div>
             <Separator />
             <div className="grid gap-2">
-              <Label>Document file (required)</Label>
+              <Label htmlFor="create-policy-file">Document file (required)</Label>
               <input
+                id="create-policy-file"
                 type="file"
                 accept={ACCEPTED_DOCUMENT_EXTENSIONS}
                 className="text-sm file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm file:font-medium"
@@ -352,8 +353,9 @@ export default function Policies() {
               Current version: v{versionTarget?.current_version?.version_number ?? 0}
             </p>
             <div className="grid gap-2">
-              <Label>New file</Label>
+              <Label htmlFor="new-version-file">New file</Label>
               <input
+                id="new-version-file"
                 type="file"
                 accept={ACCEPTED_DOCUMENT_EXTENSIONS}
                 className="text-sm file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm file:font-medium"

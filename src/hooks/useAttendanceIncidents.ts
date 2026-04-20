@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ACCEPTED_DOCUMENT_TYPES, MAX_DOCUMENT_SIZE_BYTES } from "@/lib/documentUpload";
+import { ACCEPTED_DOCUMENT_TYPES, MAX_DOCUMENT_SIZE_BYTES, sanitizeFilename } from "@/lib/documentUpload";
 
 export type IncidentType = "late" | "sick" | "no_call_no_show" | "medical_leave" | "personal" | "bereavement" | "other";
 
@@ -28,10 +28,6 @@ export const INCIDENT_TYPE_LABELS: Record<IncidentType, string> = {
 };
 
 const QUERY_KEY = "attendance-incidents";
-
-function sanitizeFilename(name: string): string {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
-}
 
 export function useAgentIncidents(agentId: string | undefined | null) {
   return useQuery({

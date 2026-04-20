@@ -1145,6 +1145,7 @@ function AttendanceIncidentsCard({ agentId, employeeId, creatorEmployeeId }: { a
               <Label htmlFor="incident-date">Date</Label>
               <Input
                 id="incident-date"
+                autoFocus
                 type="date"
                 value={formDate}
                 onChange={(e) => setFormDate(e.target.value)}

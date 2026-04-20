@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ACCEPTED_DOCUMENT_TYPES, MAX_DOCUMENT_SIZE_BYTES } from "@/lib/documentUpload";
+import { ACCEPTED_DOCUMENT_TYPES, MAX_DOCUMENT_SIZE_BYTES, sanitizeFilename } from "@/lib/documentUpload";
 
 export interface PolicyDocument {
   id: string;
@@ -41,10 +41,6 @@ export interface PolicyAckStatus {
 
 const POLICIES_KEY = "policies";
 const VERSIONS_KEY = "policy-versions";
-
-function sanitizeFilename(name: string): string {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
-}
 
 function validateFile(file: File) {
   if (!ACCEPTED_DOCUMENT_TYPES.includes(file.type)) {
