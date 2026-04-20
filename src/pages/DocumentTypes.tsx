@@ -61,7 +61,7 @@ export default function DocumentTypes() {
           setAddOpen(false);
           setAddForm({ name: "", description: "", sort_order: 0 });
         },
-        onError: (err: any) => toast.error(err.message || "Error adding type"),
+        onError: (err: unknown) => toast.error((err as Error).message ?? "Unknown error"),
       }
     );
   };
@@ -87,7 +87,7 @@ export default function DocumentTypes() {
           toast.success("Document type updated");
           setEditId(null);
         },
-        onError: (err: any) => toast.error(err.message || "Error updating type"),
+        onError: (err: unknown) => toast.error((err as Error).message ?? "Unknown error"),
       }
     );
   };
@@ -95,7 +95,7 @@ export default function DocumentTypes() {
   const handleDeactivate = (id: string) => {
     deactivateType.mutate(id, {
       onSuccess: () => toast.success("Document type deactivated"),
-      onError: (err: any) => toast.error(err.message),
+      onError: (err: unknown) => toast.error((err as Error).message ?? "Unknown error"),
     });
   };
 
@@ -104,7 +104,7 @@ export default function DocumentTypes() {
       { id, data: { is_active: true } },
       {
         onSuccess: () => toast.success("Document type reactivated"),
-        onError: (err: any) => toast.error(err.message),
+        onError: (err: unknown) => toast.error((err as Error).message ?? "Unknown error"),
       }
     );
   };

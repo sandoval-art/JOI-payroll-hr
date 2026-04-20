@@ -4,13 +4,13 @@ import { ClientCampaignPicker } from "@/components/ClientCampaignPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { calcularNomina } from "@/types/payroll";
+import type { EmployeeWithMeta } from "@/types/payroll";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Save, Upload, Check, X, Eye, RefreshCw, ShieldCheck, ShieldAlert, ShieldX, CalendarClock, Trash2 } from "lucide-react";
@@ -23,8 +23,9 @@ import {
   useUploadDocument,
   useReviewDocument,
   getDocumentSignedUrl,
-  type DocumentWithType,
 } from "@/hooks/useEmployeeDocuments";
+import { DocumentStatusBadge } from "@/components/DocumentStatusBadge";
+import { ACCEPTED_DOCUMENT_TYPES, ACCEPTED_DOCUMENT_EXTENSIONS, MAX_DOCUMENT_SIZE_BYTES } from "@/lib/documentUpload";
 
 // ── A1: Personal & Tax Info validation ──────────────────────────────
 const CURP_RE = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
@@ -38,7 +39,7 @@ function validateTaxFields(fields: { curp: string; rfc: string; phone: string; b
   if (fields.rfc && !RFC_RE.test(fields.rfc)) errors.rfc = "RFC must be 13 characters (e.g. GARC850101AB3)";
   if (fields.bank_clabe && !CLABE_RE.test(fields.bank_clabe)) errors.bank_clabe = "CLABE must be exactly 18 digits";
   if (fields.phone) {
-    const digits = fields.phone.replace(/[\s\-]/g, "");
+    const digits = fields.phone.replace(/[\s-]/g, "");
     if (!PHONE_RE.test(digits)) errors.phone = "Phone must be 10 digits";
   }
   return errors;
@@ -59,14 +60,14 @@ export default function EmpleadoPerfil() {
 
   // A3a: compliance status for this employee (uses DB uuid)
   const empRecord = employees.find((e) => e.id === id);
-  const empUuid = (empRecord as any)?._uuid ?? null;
+  const empUuid = empRecord?._uuid ?? null;
   const compliance = useComplianceStatus(empUuid);
 
   // Cascading Client → Campaign state
-  const campaignId = (empRecord as any)?._campaignId ?? null;
+  const campaignId = empRecord?._campaignId ?? null;
 
   // Supervisor (auto-derived from campaign TL)
-  const supervisorId = (empRecord as any)?.reportsTo ?? null;
+  const supervisorId = empRecord?.reportsTo ?? null;
   const { data: supervisor } = useQuery({
     queryKey: ['supervisor', supervisorId],
     queryFn: async () => {
@@ -119,6 +120,34 @@ export default function EmpleadoPerfil() {
 
   const emp = employees.find((e) => e.id === id);
 
+  // ── A1: Personal & Tax Info state (must be above early returns) ──
+  const [taxForm, setTaxForm] = useState({
+    curp: "",
+    rfc: "",
+    address: "",
+    phone: "",
+    bank_clabe: "",
+  });
+  const [taxErrors, setTaxErrors] = useState<Record<string, string>>({});
+
+  // Sync when emp data loads/changes
+  const empCurp = emp?._curp ?? "";
+  const empRfc = emp?._rfc ?? "";
+  const empAddress = emp?._address ?? "";
+  const empPhone = emp?._phone ?? "";
+  const empBankClabe = emp?._bankClabe ?? "";
+
+  useEffect(() => {
+    if (!emp) return;
+    setTaxForm({
+      curp: empCurp || "",
+      rfc: empRfc || "",
+      address: empAddress || "",
+      phone: empPhone || "",
+      bank_clabe: empBankClabe || "",
+    });
+  }, [emp, empCurp, empRfc, empAddress, empPhone, empBankClabe]);
+
   if (isLoading) {
     return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
   }
@@ -134,46 +163,25 @@ export default function EmpleadoPerfil() {
     );
   }
 
-  const currentRecord = records.find((r: any) => r.employee_id === emp._uuid);
+  const currentRecord = records.find((r) => r.employee_id === emp._uuid);
   const config = recordToConfig(currentRecord, emp.id);
   const result = calcularNomina(emp, config);
 
-  const saveField = (field: string, value: any) => {
+  const saveField = (field: string, value: unknown) => {
     updateEmployee.mutate(
       { employeeId: emp.id, data: { [field]: value } },
       { onSuccess: () => toast.success("Dato guardado") }
     );
   };
 
-  // ── A1: Personal & Tax Info state ───────────────────────────────
-  const [taxForm, setTaxForm] = useState({
-    curp: (emp as any)._curp || "",
-    rfc: (emp as any)._rfc || "",
-    address: (emp as any)._address || "",
-    phone: (emp as any)._phone || "",
-    bank_clabe: (emp as any)._bankClabe || "",
-  });
-  const [taxErrors, setTaxErrors] = useState<Record<string, string>>({});
-
-  // Sync when emp data loads/changes
-  useEffect(() => {
-    setTaxForm({
-      curp: (emp as any)._curp || "",
-      rfc: (emp as any)._rfc || "",
-      address: (emp as any)._address || "",
-      phone: (emp as any)._phone || "",
-      bank_clabe: (emp as any)._bankClabe || "",
-    });
-  }, [(emp as any)._curp, (emp as any)._rfc, (emp as any)._address, (emp as any)._phone, (emp as any)._bankClabe]);
-
   const saveTaxFields = () => {
-    const normalized = { ...taxForm, phone: taxForm.phone.replace(/[\s\-]/g, "") };
+    const normalized = { ...taxForm, phone: taxForm.phone.replace(/[\s-]/g, "") };
     const errors = validateTaxFields(normalized);
     setTaxErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
     updateEmployee.mutate(
-      { employeeId: emp.id, data: normalized as any },
+      { employeeId: emp.id, data: normalized },
       {
         onSuccess: () => {
           toast.success("Personal info saved");
@@ -303,11 +311,11 @@ export default function EmpleadoPerfil() {
               </>
             ) : (
               <div className="space-y-3">
-                <ReadOnlyField label="CURP" value={(emp as any)._curp} />
-                <ReadOnlyField label="RFC" value={(emp as any)._rfc} />
-                <ReadOnlyField label="Address" value={(emp as any)._address} />
-                <ReadOnlyField label="Phone" value={(emp as any)._phone} />
-                <ReadOnlyField label="Bank CLABE" value={(emp as any)._bankClabe} />
+                <ReadOnlyField label="CURP" value={emp._curp} />
+                <ReadOnlyField label="RFC" value={emp._rfc} />
+                <ReadOnlyField label="Address" value={emp._address} />
+                <ReadOnlyField label="Phone" value={emp._phone} />
+                <ReadOnlyField label="Bank CLABE" value={emp._bankClabe} />
               </div>
             )}
           </CardContent>
@@ -346,7 +354,7 @@ export default function EmpleadoPerfil() {
         <ComplianceCard
           employeeId={emp.id}
           compliance={compliance}
-          graceRaw={(emp as any)._complianceGraceUntil ?? null}
+          graceRaw={emp._complianceGraceUntil ?? null}
           updateEmployee={updateEmployee}
         />
       )}
@@ -422,7 +430,7 @@ function ComplianceCard({
 
   const saveGrace = (value: string | null) => {
     updateEmployee.mutate(
-      { employeeId, data: { compliance_grace_until: value } as any },
+      { employeeId, data: { compliance_grace_until: value } },
       {
         onSuccess: () => {
           toast.success(value ? `Grace deadline set to ${value}` : "Enforcement cleared");
@@ -547,17 +555,6 @@ function ComplianceCard({
 
 // ── A2b: Required Documents Card (leadership only) ──────────────────
 
-const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-
-function statusBadge(doc: DocumentWithType["document"]) {
-  if (!doc) return <Badge variant="outline" className="bg-muted text-muted-foreground">Missing</Badge>;
-  if (doc.status === "pending_review") return <Badge variant="outline" className="bg-amber-50 text-amber-800">Pending review</Badge>;
-  if (doc.status === "approved") return <Badge variant="outline" className="bg-emerald-50 text-emerald-800">Approved</Badge>;
-  if (doc.status === "rejected") return <Badge variant="destructive">Rejected</Badge>;
-  return null;
-}
-
 function RequiredDocumentsCard({ employeeId }: { employeeId: string }) {
   const { data: rows = [], isLoading } = useEmployeeDocuments(employeeId);
   const uploadDoc = useUploadDocument();
@@ -572,11 +569,11 @@ function RequiredDocumentsCard({ employeeId }: { employeeId: string }) {
     e.target.value = ""; // reset so same file can be re-selected
     if (!file || !uploadTarget) return;
 
-    if (!ACCEPTED_TYPES.includes(file.type)) {
+    if (!ACCEPTED_DOCUMENT_TYPES.includes(file.type)) {
       toast.error("Unsupported file type. Please upload PDF, JPG, or PNG.");
       return;
     }
-    if (file.size > MAX_FILE_SIZE) {
+    if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
       toast.error("File too large. Maximum size is 10 MB.");
       return;
     }
@@ -644,7 +641,7 @@ function RequiredDocumentsCard({ employeeId }: { employeeId: string }) {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf,.jpg,.jpeg,.png"
+        accept={ACCEPTED_DOCUMENT_EXTENSIONS}
         className="hidden"
         onChange={handleFileSelect}
       />
@@ -663,7 +660,7 @@ function RequiredDocumentsCard({ employeeId }: { employeeId: string }) {
                     <p className="text-xs text-muted-foreground">{type.description}</p>
                   )}
                 </div>
-                {statusBadge(doc)}
+                <DocumentStatusBadge document={doc} />
               </div>
 
               {/* File info when doc exists */}
