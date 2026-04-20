@@ -100,6 +100,7 @@ export default function MyPolicies() {
             const status = getStatus(policy);
             const currentVersion = policy.current_version;
             const isAcked = status === "acknowledged";
+            const ack = acks.find((a) => a.policy_document_version_id === currentVersion?.id);
 
             return (
               <Card key={policy.id}>
@@ -122,10 +123,10 @@ export default function MyPolicies() {
                     )}
                   </div>
 
-                  {/* Ack date or prompt */}
-                  {isAcked && (
+                  {/* Ack date */}
+                  {isAcked && ack && (
                     <p className="text-xs text-muted-foreground">
-                      Acknowledged on {new Date(acks.find((a) => a.policy_document_version_id === currentVersion?.id)?.acknowledged_at ?? "").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                      Acknowledged on {new Date(ack.acknowledged_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                     </p>
                   )}
 
