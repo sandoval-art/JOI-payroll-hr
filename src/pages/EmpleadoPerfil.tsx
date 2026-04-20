@@ -119,6 +119,34 @@ export default function EmpleadoPerfil() {
 
   const emp = employees.find((e) => e.id === id);
 
+  // ── A1: Personal & Tax Info state (must be above early returns) ──
+  const [taxForm, setTaxForm] = useState({
+    curp: "",
+    rfc: "",
+    address: "",
+    phone: "",
+    bank_clabe: "",
+  });
+  const [taxErrors, setTaxErrors] = useState<Record<string, string>>({});
+
+  // Sync when emp data loads/changes
+  const empCurp = (emp as any)?._curp ?? "";
+  const empRfc = (emp as any)?._rfc ?? "";
+  const empAddress = (emp as any)?._address ?? "";
+  const empPhone = (emp as any)?._phone ?? "";
+  const empBankClabe = (emp as any)?._bankClabe ?? "";
+
+  useEffect(() => {
+    if (!emp) return;
+    setTaxForm({
+      curp: empCurp || "",
+      rfc: empRfc || "",
+      address: empAddress || "",
+      phone: empPhone || "",
+      bank_clabe: empBankClabe || "",
+    });
+  }, [emp, empCurp, empRfc, empAddress, empPhone, empBankClabe]);
+
   if (isLoading) {
     return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
   }
@@ -144,27 +172,6 @@ export default function EmpleadoPerfil() {
       { onSuccess: () => toast.success("Dato guardado") }
     );
   };
-
-  // ── A1: Personal & Tax Info state ───────────────────────────────
-  const [taxForm, setTaxForm] = useState({
-    curp: (emp as any)._curp || "",
-    rfc: (emp as any)._rfc || "",
-    address: (emp as any)._address || "",
-    phone: (emp as any)._phone || "",
-    bank_clabe: (emp as any)._bankClabe || "",
-  });
-  const [taxErrors, setTaxErrors] = useState<Record<string, string>>({});
-
-  // Sync when emp data loads/changes
-  useEffect(() => {
-    setTaxForm({
-      curp: (emp as any)._curp || "",
-      rfc: (emp as any)._rfc || "",
-      address: (emp as any)._address || "",
-      phone: (emp as any)._phone || "",
-      bank_clabe: (emp as any)._bankClabe || "",
-    });
-  }, [(emp as any)._curp, (emp as any)._rfc, (emp as any)._address, (emp as any)._phone, (emp as any)._bankClabe]);
 
   const saveTaxFields = () => {
     const normalized = { ...taxForm, phone: taxForm.phone.replace(/[\s\-]/g, "") };
@@ -646,6 +653,7 @@ function RequiredDocumentsCard({ employeeId }: { employeeId: string }) {
         type="file"
         accept=".pdf,.jpg,.jpeg,.png"
         className="hidden"
+        aria-label="Upload employee document"
         onChange={handleFileSelect}
       />
 
@@ -723,8 +731,10 @@ function RequiredDocumentsCard({ employeeId }: { employeeId: string }) {
             <DialogTitle>Reject Document</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <Label>Reason for rejection</Label>
+            <Label htmlFor="reject-reason">Reason for rejection</Label>
             <Textarea
+              id="reject-reason"
+              autoFocus
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="Explain why this document was rejected..."
