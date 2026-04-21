@@ -1,6 +1,6 @@
 # HR Feature Roadmap
 
-Last updated: 2026-04-19
+Last updated: 2026-04-21
 
 Brainstormed after the EOD digest system finished shipping. This doc captures what's next on the HR side, consolidates overlapping ideas, and records the pushbacks that shaped the plan.
 
@@ -117,8 +117,9 @@ Per-agent view of:
 
 ## Build order
 
-1. **A1 — Tax/personal info fields on profile.** Fastest win. Form + DB columns. Ship this first.
-2. **A2 — Required docs upload + checklist (HR-uploaded, global list, HR-approved = submitted).** Supabase Storage + RLS.
+1. **A1 — Tax/personal info fields on profile.** Fastest win. Form + DB columns. Ship this first. ✅ SHIPPED.
+   - **A1b — Expanded employee record.** Added 9 more employee fields (work_name, personal_email, hire_date, emergency_contact, bank_name, DOB, marital_status, NSS, last_worked_day) + `departments` catalog table with HR admin UI at `/settings/departments`. Seeded 11 departments. `employees.department_id` nullable pending backfill; NOT NULL enforcement is a follow-up. All new columns excluded from `employees_no_pay` view (sensitive). ✅ SHIPPED 2026-04-21 (PR #33).
+2. **A2 — Required docs upload + checklist (HR-uploaded, global list, HR-approved = submitted).** Supabase Storage + RLS. ✅ SHIPPED.
 3. **B1 — Notes + verbal warnings log (with type field + agent-visibility toggle + HR notification on verbals).** Single table with a type enum.
 4. **B4 — Attendance incident categorization.** Rides on existing EOD data.
 5. **B2/B3 — Carta + acta request flow with split-view editor + template engine + signed-scan upload.** Bigger. Blocked on templates being ready.
@@ -148,5 +149,9 @@ Nothing on the original six-item list got dropped except the "policy section wit
 - **usePolicies fetches all policy versions to dedupe latest client-side.** `.from("policy_document_versions").select("*").order("version_number", desc)` pulls every version across every policy, then filters in JS. Works at current scale (few policies × few versions), but scales poorly. Switch to a DISTINCT ON view or Postgres window-function query if the table grows. Added during C1 (2026-04-20).
 
 - **Orphan policy files on version bump.** Same pattern as B-03 and B4-orphan — publishing a new version uploads the new file but leaves all prior version files sitting in the policy-documents bucket forever. This is actually intentional for policies (version history must preserve the file contents an agent ack'd), so this entry is really "storage grows unbounded; no cleanup job exists." Not urgent. Added during C1 (2026-04-20).
+
+- **A1b — PDF backfill of employee record fields.** Source: `JOI Complete Workers Information 2026 - 2026 (1).pdf` (47 employees with work_name, hire_date, emergency_contact, bank_name, DOB, marital_status, NSS). Apply via dev-seed SQL or a follow-up migration. Once backfill + manual department assignment are complete, a follow-up migration should flip `employees.department_id` to NOT NULL. Added during A1b (2026-04-21).
+
+- **A1b — EmployeeHome direct-supabase query diverges from mapEmployee pattern.** `src/pages/EmployeeHome.tsx:144` issues a direct `supabase.from("employees").select(...)` with snake_case handling instead of routing through `mapEmployee` like the rest of the codebase. Functional and RLS-protected (agent only sees own row), but worth consolidating in a cleanup pass. Added during A1b (2026-04-21).
 
 - **"Outdated ack" status not distinguished from "never ack'd" on /policies.** When an agent ack'd v1 of a policy and HR publishes v2, the agent's /policies page shows "Not acknowledged" — same label as a first-time view. Functionally re-ack works fine (creates a new row for v2), but the UX should show "A new version was published, please re-acknowledge" when the agent has prior acks on older versions of this policy. Fix: extend `PolicyDocument` with `all_version_ids: string[]` populated in `usePolicies()`, then in `getStatus()` check if any ack matches any older version ID when current isn't ack'd. Added during C2 (2026-04-20).
