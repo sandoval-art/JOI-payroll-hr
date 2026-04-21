@@ -96,8 +96,10 @@ export default function ShiftSettings() {
   const { data: headcounts = {} } = useQuery({
     queryKey: ["campaign-headcounts", campaignIds],
     queryFn: async () => {
+      // TLs use the view (no sensitive columns, row-scoped internally)
+      const table = (isTeamLead && !isLeadership) ? "employees_no_pay" : "employees";
       let q = supabase
-        .from("employees")
+        .from(table)
         .select("campaign_id")
         .eq("is_active", true);
       if (isTeamLead && !isLeadership && campaignIds.length > 0) {

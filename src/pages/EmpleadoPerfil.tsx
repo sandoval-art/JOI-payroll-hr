@@ -71,9 +71,40 @@ export default function EmpleadoPerfil() {
   const { isLeadership, isTeamLead, employeeId: authEmployeeId } = useAuth();
 
   // A3a: compliance status for this employee (uses DB uuid)
-  const empRecord = employees.find((e) => e.id === id);
+  const empFromList = employees.find((e) => e.id === id);
+
+  // TL fallback: useEmployees() queries the base table (leadership-only after RLS harden).
+  // When a TL views an agent's profile, fetch basic info from the safe view instead.
+  const needsTlFallback = !empFromList && !isLoading && isTeamLead && !isLeadership && !!id;
+  const { data: tlFallback } = useQuery({
+    queryKey: ["tl-profile-fallback", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employees_no_pay")
+        .select("id, employee_id, full_name, campaign_id, is_active, title, reports_to, email, campaigns!employees_campaign_id_fkey(name)")
+        .eq("employee_id", id!)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      return {
+        id: data.employee_id,
+        nombre: data.full_name,
+        sueldoBase: 0,
+        descuentoPorDia: 0,
+        kpiMonto: 0,
+        title: (data.title || "agent") as import("@/types/payroll").EmpTitle,
+        reportsTo: data.reports_to || null,
+        _uuid: data.id,
+        _campaignId: data.campaign_id || undefined,
+        _campaignName: (data as Record<string, unknown> & { campaigns?: { name?: string } }).campaigns?.name || undefined,
+      } satisfies EmployeeWithMeta;
+    },
+    enabled: needsTlFallback,
+  });
+
+  const empRecord = empFromList ?? tlFallback ?? undefined;
   const empUuid = empRecord?._uuid ?? null;
-  const compliance = useComplianceStatus(empUuid);
+  const compliance = useComplianceStatus(isLeadership ? empUuid : undefined);
 
   // Cascading Client → Campaign state
   const campaignId = empRecord?._campaignId ?? null;
@@ -84,7 +115,7 @@ export default function EmpleadoPerfil() {
     queryKey: ['supervisor', supervisorId],
     queryFn: async () => {
       if (!supervisorId) return null;
-      const { data } = await supabase.from('employees').select('full_name').eq('id', supervisorId).maybeSingle();
+      const { data } = await supabase.from('employees_no_pay').select('full_name').eq('id', supervisorId).maybeSingle();
       return data;
     },
     enabled: !!supervisorId,
@@ -130,7 +161,7 @@ export default function EmpleadoPerfil() {
     }
   }, [isLoading, activePeriod]);
 
-  const emp = employees.find((e) => e.id === id);
+  const emp = empRecord;
 
   // ── A1: Personal & Tax Info state (must be above early returns) ──
   const [taxForm, setTaxForm] = useState({
@@ -159,7 +190,7 @@ export default function EmpleadoPerfil() {
     });
   }, [empCurp, empRfc, empAddress, empPhone, empBankClabe]);
 
-  if (isLoading) {
+  if (isLoading || needsTlFallback) {
     return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
   }
 
