@@ -29,6 +29,7 @@ import TeamLeadHome from "@/pages/TeamLeadHome";
 import TLDashboard from "@/pages/TLDashboard";
 import Account from "@/pages/Account";
 import DocumentTypes from "@/pages/DocumentTypes";
+import Departments from "@/pages/Departments";
 import Policies from "@/pages/Policies";
 import MyPolicies from "@/pages/MyPolicies";
 import { RequireLeadership, RequireTeamLeadOrAbove } from "@/components/RequireRole";
@@ -112,6 +113,7 @@ const App = () => (
                     <Route path="/campaigns/:id" element={<RequireLeadership><CampaignDetail /></RequireLeadership>} />
                     <Route path="/payroll-run" element={<RequireLeadership><PayrollRun /></RequireLeadership>} />
                     <Route path="/settings/document-types" element={<RequireLeadership><DocumentTypes /></RequireLeadership>} />
+                    <Route path="/settings/departments" element={<RequireLeadership><Departments /></RequireLeadership>} />
                     <Route path="/settings/policies" element={<RequireLeadership><Policies /></RequireLeadership>} />
                     <Route path="/policies" element={<MyPolicies />} />
                     <Route path="/account" element={<Account />} />

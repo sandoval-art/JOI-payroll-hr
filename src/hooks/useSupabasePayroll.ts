@@ -22,6 +22,18 @@ function mapEmployee(row: any): EmployeeWithMeta {
     _phone: row.phone ?? null,
     _bankClabe: row.bank_clabe ?? null,
     _complianceGraceUntil: row.compliance_grace_until ?? null,
+    // A1b: expanded employee record
+    _workName: row.work_name ?? null,
+    _personalEmail: row.personal_email ?? null,
+    _hireDate: row.hire_date ?? null,
+    _emergencyContact: row.emergency_contact ?? null,
+    _bankName: row.bank_name ?? null,
+    _dateOfBirth: row.date_of_birth ?? null,
+    _maritalStatus: row.marital_status ?? null,
+    _nss: row.nss ?? null,
+    _lastWorkedDay: row.last_worked_day ?? null,
+    _departmentId: row.department_id ?? null,
+    _departmentName: row.departments?.name ?? null,
   };
 }
 
@@ -33,7 +45,7 @@ export function useEmployees() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("employees")
-        .select("*, campaigns!employees_campaign_id_fkey(name)")
+        .select("*, campaigns!employees_campaign_id_fkey(name), departments(name)")
         .eq("is_active", true)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -102,7 +114,7 @@ export function useAddEmployeesBulk() {
 export function useUpdateEmployee() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ employeeId, data }: { employeeId: string; data: Partial<EmployeeWithMeta> & { curp?: string; rfc?: string; address?: string; phone?: string; bank_clabe?: string; compliance_grace_until?: string | null } }) => {
+    mutationFn: async ({ employeeId, data }: { employeeId: string; data: Partial<EmployeeWithMeta> & { curp?: string; rfc?: string; address?: string; phone?: string; bank_clabe?: string; compliance_grace_until?: string | null; work_name?: string; personal_email?: string; hire_date?: string | null; emergency_contact?: string; bank_name?: string; date_of_birth?: string | null; marital_status?: string; nss?: string; last_worked_day?: string | null; department_id?: string | null } }) => {
       const update: Record<string, unknown> = {};
       if (data.nombre !== undefined) update.full_name = data.nombre;
       if (data.sueldoBase !== undefined) update.monthly_base_salary = data.sueldoBase;
@@ -116,6 +128,17 @@ export function useUpdateEmployee() {
       if (data.bank_clabe !== undefined) update.bank_clabe = data.bank_clabe;
       // A3a: compliance grace deadline
       if (data.compliance_grace_until !== undefined) update.compliance_grace_until = data.compliance_grace_until;
+      // A1b: expanded employee record
+      if (data.work_name !== undefined) update.work_name = data.work_name;
+      if (data.personal_email !== undefined) update.personal_email = data.personal_email;
+      if (data.hire_date !== undefined) update.hire_date = data.hire_date;
+      if (data.emergency_contact !== undefined) update.emergency_contact = data.emergency_contact;
+      if (data.bank_name !== undefined) update.bank_name = data.bank_name;
+      if (data.date_of_birth !== undefined) update.date_of_birth = data.date_of_birth;
+      if (data.marital_status !== undefined) update.marital_status = data.marital_status;
+      if (data.nss !== undefined) update.nss = data.nss;
+      if (data.last_worked_day !== undefined) update.last_worked_day = data.last_worked_day;
+      if (data.department_id !== undefined) update.department_id = data.department_id;
       const { error } = await supabase
         .from("employees")
         .update(update)

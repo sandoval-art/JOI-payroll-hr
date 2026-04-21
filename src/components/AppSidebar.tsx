@@ -49,6 +49,7 @@ const hrItems = [
   { title: "Performance", url: "/desempeno", icon: BarChart3 },
   { title: "Time Off Requests", url: "/solicitudes", icon: CalendarDays },
   { title: "Document Types", url: "/settings/document-types", icon: FileCheck },
+  { title: "Departments", url: "/settings/departments", icon: Building2 },
   { title: "Manage Policies", url: "/settings/policies", icon: ScrollText },
   { title: "My Timeclock", url: "/reloj", icon: Timer },
   { title: "My EOD History", url: "/eod", icon: ClipboardCheck },
