@@ -191,6 +191,12 @@ export default function EmpleadoPerfil() {
     department_id: "",
   });
   const [taxErrors, setTaxErrors] = useState<Record<string, string>>({});
+  // B-02: dirty flag prevents TanStack refetches from clobbering in-flight edits
+  const taxFormDirty = useRef(false);
+  const setTaxFormDirty: typeof setTaxForm = (update) => {
+    taxFormDirty.current = true;
+    setTaxForm(update);
+  };
 
   // A1b: departments for dropdown
   const { data: departments = [] } = useDepartments();
@@ -214,6 +220,8 @@ export default function EmpleadoPerfil() {
   const empDepartmentId = emp?._departmentId ?? "";
 
   useEffect(() => {
+    // B-02: skip sync when user has unsaved edits — prevents refetch clobber
+    if (taxFormDirty.current) return;
     setTaxForm({
       curp: empCurp || "",
       rfc: empRfc || "",
@@ -281,6 +289,7 @@ export default function EmpleadoPerfil() {
       },
       {
         onSuccess: () => {
+          taxFormDirty.current = false; // B-02: allow next refetch to sync
           toast.success("Employee record saved");
           queryClient.invalidateQueries({ queryKey: ["employees"] });
         },
@@ -365,7 +374,7 @@ export default function EmpleadoPerfil() {
                 <Label>Work Name</Label>
                 <Input
                   value={taxForm.work_name}
-                  onChange={(e) => setTaxForm((f) => ({ ...f, work_name: e.target.value }))}
+                  onChange={(e) => setTaxFormDirty((f) => ({ ...f, work_name: e.target.value }))}
                   placeholder="Preferred name"
                 />
               </div>
@@ -374,7 +383,7 @@ export default function EmpleadoPerfil() {
                 <Input
                   type="email"
                   value={taxForm.personal_email}
-                  onChange={(e) => setTaxForm((f) => ({ ...f, personal_email: e.target.value }))}
+                  onChange={(e) => setTaxFormDirty((f) => ({ ...f, personal_email: e.target.value }))}
                   placeholder="personal@example.com"
                 />
                 {taxErrors.personal_email && <p className="text-xs text-destructive">{taxErrors.personal_email}</p>}
@@ -384,14 +393,14 @@ export default function EmpleadoPerfil() {
                 <Input
                   type="date"
                   value={taxForm.date_of_birth}
-                  onChange={(e) => setTaxForm((f) => ({ ...f, date_of_birth: e.target.value }))}
+                  onChange={(e) => setTaxFormDirty((f) => ({ ...f, date_of_birth: e.target.value }))}
                 />
               </div>
               <div className="grid gap-2">
                 <Label>Marital Status</Label>
                 <Input
                   value={taxForm.marital_status}
-                  onChange={(e) => setTaxForm((f) => ({ ...f, marital_status: e.target.value }))}
+                  onChange={(e) => setTaxFormDirty((f) => ({ ...f, marital_status: e.target.value }))}
                   placeholder="e.g. Soltero, Casado"
                 />
               </div>
@@ -399,7 +408,7 @@ export default function EmpleadoPerfil() {
                 <Label>Emergency Contact</Label>
                 <Input
                   value={taxForm.emergency_contact}
-                  onChange={(e) => setTaxForm((f) => ({ ...f, emergency_contact: e.target.value }))}
+                  onChange={(e) => setTaxFormDirty((f) => ({ ...f, emergency_contact: e.target.value }))}
                   placeholder="Name — Relationship — Phone"
                 />
               </div>
@@ -407,7 +416,7 @@ export default function EmpleadoPerfil() {
                 <Label>Phone</Label>
                 <Input
                   value={taxForm.phone}
-                  onChange={(e) => setTaxForm((f) => ({ ...f, phone: e.target.value }))}
+                  onChange={(e) => setTaxFormDirty((f) => ({ ...f, phone: e.target.value }))}
                   placeholder="33 1234 5678"
                   maxLength={15}
                 />
@@ -417,7 +426,7 @@ export default function EmpleadoPerfil() {
                 <Label>Address</Label>
                 <Input
                   value={taxForm.address}
-                  onChange={(e) => setTaxForm((f) => ({ ...f, address: e.target.value }))}
+                  onChange={(e) => setTaxFormDirty((f) => ({ ...f, address: e.target.value }))}
                   placeholder="Calle, Colonia, Ciudad, CP"
                 />
               </div>
@@ -433,14 +442,14 @@ export default function EmpleadoPerfil() {
                 <Input
                   type="date"
                   value={taxForm.hire_date}
-                  onChange={(e) => setTaxForm((f) => ({ ...f, hire_date: e.target.value }))}
+                  onChange={(e) => setTaxFormDirty((f) => ({ ...f, hire_date: e.target.value }))}
                 />
               </div>
               <div className="grid gap-2">
                 <Label>Department</Label>
                 <Select
                   value={taxForm.department_id || "none"}
-                  onValueChange={(v) => setTaxForm((f) => ({ ...f, department_id: v === "none" ? "" : v }))}
+                  onValueChange={(v) => setTaxFormDirty((f) => ({ ...f, department_id: v === "none" ? "" : v }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select department..." />
@@ -458,7 +467,7 @@ export default function EmpleadoPerfil() {
                 <Input
                   type="date"
                   value={taxForm.last_worked_day}
-                  onChange={(e) => setTaxForm((f) => ({ ...f, last_worked_day: e.target.value }))}
+                  onChange={(e) => setTaxFormDirty((f) => ({ ...f, last_worked_day: e.target.value }))}
                 />
               </div>
             </div>
@@ -472,7 +481,7 @@ export default function EmpleadoPerfil() {
                 <Label>Bank Name</Label>
                 <Input
                   value={taxForm.bank_name}
-                  onChange={(e) => setTaxForm((f) => ({ ...f, bank_name: e.target.value }))}
+                  onChange={(e) => setTaxFormDirty((f) => ({ ...f, bank_name: e.target.value }))}
                   placeholder="e.g. BBVA, Banorte"
                 />
               </div>
@@ -480,7 +489,7 @@ export default function EmpleadoPerfil() {
                 <Label>Bank CLABE</Label>
                 <Input
                   value={taxForm.bank_clabe}
-                  onChange={(e) => setTaxForm((f) => ({ ...f, bank_clabe: e.target.value.replace(/\D/g, "") }))}
+                  onChange={(e) => setTaxFormDirty((f) => ({ ...f, bank_clabe: e.target.value.replace(/\D/g, "") }))}
                   placeholder="012345678901234567"
                   maxLength={18}
                 />
@@ -497,7 +506,7 @@ export default function EmpleadoPerfil() {
                 <Label>CURP</Label>
                 <Input
                   value={taxForm.curp}
-                  onChange={(e) => setTaxForm((f) => ({ ...f, curp: e.target.value.toUpperCase() }))}
+                  onChange={(e) => setTaxFormDirty((f) => ({ ...f, curp: e.target.value.toUpperCase() }))}
                   placeholder="GARC850101HDFRRL09"
                   maxLength={18}
                 />
@@ -507,7 +516,7 @@ export default function EmpleadoPerfil() {
                 <Label>RFC</Label>
                 <Input
                   value={taxForm.rfc}
-                  onChange={(e) => setTaxForm((f) => ({ ...f, rfc: e.target.value.toUpperCase() }))}
+                  onChange={(e) => setTaxFormDirty((f) => ({ ...f, rfc: e.target.value.toUpperCase() }))}
                   placeholder="GARC850101AB3"
                   maxLength={13}
                 />
@@ -517,7 +526,7 @@ export default function EmpleadoPerfil() {
                 <Label>NSS (IMSS)</Label>
                 <Input
                   value={taxForm.nss}
-                  onChange={(e) => setTaxForm((f) => ({ ...f, nss: e.target.value.replace(/\D/g, "") }))}
+                  onChange={(e) => setTaxFormDirty((f) => ({ ...f, nss: e.target.value.replace(/\D/g, "") }))}
                   placeholder="12345678901"
                   maxLength={11}
                 />
