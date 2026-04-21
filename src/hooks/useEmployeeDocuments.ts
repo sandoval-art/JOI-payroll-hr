@@ -82,6 +82,16 @@ export function useUploadDocument() {
       documentTypeId: string;
       file: File;
     }) => {
+      // B-03: Fetch the old file_path before overwriting so we can delete
+      // the orphan from Storage after the upload succeeds.
+      const { data: existing } = await supabase
+        .from("employee_documents")
+        .select("file_path")
+        .eq("employee_id", employeeId)
+        .eq("document_type_id", documentTypeId)
+        .maybeSingle();
+      const oldFilePath = existing?.file_path ?? null;
+
       const timestamp = Date.now();
       const safeName = sanitizeFilename(file.name);
       const storagePath = `${employeeId}/${documentTypeId}/${timestamp}-${safeName}`;
@@ -123,6 +133,20 @@ export function useUploadDocument() {
         .single();
 
       if (error) throw error;
+
+      // B-03: Delete the old Storage file if it differs from the new one.
+      // Best-effort — if this fails, the upload still succeeded.
+      // Race-condition caveat: if remove() fails, the old file is orphaned.
+      // Acceptable at current volume; revisit with a periodic cleanup job if needed.
+      if (oldFilePath && oldFilePath !== storagePath) {
+        supabase.storage
+          .from("employee-documents")
+          .remove([oldFilePath])
+          .then(({ error: removeErr }) => {
+            if (removeErr) console.warn("B-03: Failed to remove old doc file:", removeErr);
+          });
+      }
+
       return data as EmployeeDocument;
     },
     onSuccess: (_data, vars) => {
