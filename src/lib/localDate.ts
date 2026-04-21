@@ -22,3 +22,30 @@ export function parseLocalDate(dateStr: string): Date {
   // Appending the time component forces local parsing in all JS engines.
   return new Date(`${dateStr}T00:00:00`);
 }
+
+/**
+ * Format a date as DD/MM/YY (Mexican standard, 2-digit year).
+ * Accepts ISO strings, Date objects, or null/undefined (returns "").
+ */
+export function formatDateMX(d: string | Date | null | undefined): string {
+  if (d == null) return "";
+  const date = typeof d === "string" ? parseLocalDate(d.slice(0, 10)) : d;
+  if (isNaN(date.getTime())) return "";
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yy = String(date.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+}
+
+/**
+ * Format a date as DD/MM/YYYY (4-digit year) for forms/reports.
+ */
+export function formatDateMXLong(d: string | Date | null | undefined): string {
+  if (d == null) return "";
+  const date = typeof d === "string" ? parseLocalDate(d.slice(0, 10)) : d;
+  if (isNaN(date.getTime())) return "";
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yyyy = String(date.getFullYear());
+  return `${dd}/${mm}/${yyyy}`;
+}

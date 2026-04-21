@@ -282,10 +282,11 @@ async function handleRejection(
   // Fetch employee name
   const { data: employee } = await supabase
     .from("employees")
-    .select("id, full_name")
+    .select("id, full_name, work_name")
     .eq("id", employeeId)
     .single();
   if (!employee) throw new Error(`Employee ${employeeId} not found`);
+  const employeeDisplayName = (employee as { work_name?: string | null }).work_name?.trim() || employee.full_name;
 
   // Fetch document + type name
   const { data: doc } = await supabase
@@ -326,7 +327,7 @@ async function handleRejection(
   }
 
   const html = buildRejectionEmail(
-    employee.full_name,
+    employeeDisplayName,
     docType?.name ?? "Unknown document",
     doc.rejection_reason ?? "No reason provided"
   );
@@ -368,7 +369,7 @@ async function handleDailySweep(
   // Find all employees with compliance_grace_until set
   const { data: employees, error } = await supabase
     .from("employees")
-    .select("id, full_name, compliance_grace_until")
+    .select("id, full_name, work_name, compliance_grace_until")
     .not("compliance_grace_until", "is", null)
     .eq("is_active", true);
   if (error) throw error;
@@ -484,8 +485,10 @@ async function handleDailySweep(
 
       if (notifType === "lock") {
         subject = "[Action Required] Clock-in access disabled — missing documents";
-        html = buildLockEmail(emp.full_name, missingDocNames);
+        const empDisplayName = (emp as { work_name?: string | null }).work_name?.trim() || emp.full_name;
+        html = buildLockEmail(empDisplayName, missingDocNames);
       } else {
+        const empDisplayName = (emp as { work_name?: string | null }).work_name?.trim() || emp.full_name;
         const daysLabel =
           notifType === "reminder_7d" ? 7 : notifType === "reminder_3d" ? 3 : 1;
         subject =
@@ -495,7 +498,7 @@ async function handleDailySweep(
             ? `Urgent: ${daysLabel} days left for compliance documents`
             : `Final Warning: 1 day left for compliance documents`;
         html = buildReminderEmail(
-          emp.full_name,
+          empDisplayName,
           missingDocNames,
           deadlineFormatted,
           daysLabel

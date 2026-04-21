@@ -82,6 +82,11 @@ interface KPIField {
 interface Agent {
   id: string;
   full_name: string;
+  work_name: string | null;
+}
+
+function agentDisplayName(a: Agent): string {
+  return a.work_name?.trim() || a.full_name;
 }
 
 interface EODLog {
@@ -205,13 +210,13 @@ function buildDailyHtml(
     const statusCell = submitted
       ? `<td style="padding:8px 12px;border-bottom:1px solid ${BORDER};color:#15803D;white-space:nowrap;">&#10003; Submitted</td>`
       : `<td style="padding:8px 12px;border-bottom:1px solid ${BORDER};color:#DC2626;white-space:nowrap;">&#10005; Missing</td>`;
-    return `<tr style="background:${submitted ? "white" : "#FFF5F5"};"><td style="padding:8px 12px;border-bottom:1px solid ${BORDER};font-weight:500;white-space:nowrap;">${agent.full_name}</td>${kpiCells}${statusCell}${noteCell}</tr>`;
+    return `<tr style="background:${submitted ? "white" : "#FFF5F5"};"><td style="padding:8px 12px;border-bottom:1px solid ${BORDER};font-weight:500;white-space:nowrap;">${agentDisplayName(agent)}</td>${kpiCells}${statusCell}${noteCell}</tr>`;
   }).join("");
   const tlNoteSection = tlNote
     ? `<div style="margin-top:24px;background:${LIGHT};border-left:4px solid ${ORANGE};padding:16px;border-radius:4px;"><p style="margin:0 0 6px;font-weight:600;color:${NAVY};font-size:13px;">TL Note</p><p style="margin:0;color:#374151;font-size:13px;line-height:1.5;">${tlNote.replace(/\n/g, "<br>")}</p></div>`
     : `<div style="margin-top:24px;background:${LIGHT};border-left:4px solid ${BORDER};padding:16px;border-radius:4px;"><p style="margin:0;color:#9CA3AF;font-size:13px;font-style:italic;">No TL note for today.</p></div>`;
   const missingSection = missingAgents.length > 0
-    ? `<div style="margin-top:16px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;padding:12px 16px;"><p style="margin:0 0 6px;font-weight:600;color:#DC2626;font-size:13px;">${missingAgents.length} agent${missingAgents.length !== 1 ? "s" : ""} did not submit</p><p style="margin:0;color:#7F1D1D;font-size:13px;">${missingAgents.map((a) => a.full_name).join(", ")}</p></div>`
+    ? `<div style="margin-top:16px;background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;padding:12px 16px;"><p style="margin:0 0 6px;font-weight:600;color:#DC2626;font-size:13px;">${missingAgents.length} agent${missingAgents.length !== 1 ? "s" : ""} did not submit</p><p style="margin:0;color:#7F1D1D;font-size:13px;">${missingAgents.map((a) => agentDisplayName(a)).join(", ")}</p></div>`
     : `<div style="margin-top:16px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:4px;padding:12px 16px;"><p style="margin:0;color:#15803D;font-size:13px;font-weight:500;">&#10003; All agents submitted today</p></div>`;
   const submittedCount = agents.length - missingAgents.length;
   return emailShell({
@@ -254,15 +259,15 @@ function buildMorningBundleHtml(
     }).join("");
     const submittedAt = new Date(log.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
     const nameLabel = isAmended
-      ? `${agent.full_name} <span style="color:${ORANGE};font-size:11px;font-weight:600;">(amended)</span>`
-      : agent.full_name;
+      ? `${agentDisplayName(agent)} <span style="color:${ORANGE};font-size:11px;font-weight:600;">(amended)</span>`
+      : agentDisplayName(agent);
     return `<tr style="background:white;"><td style="padding:8px 12px;border-bottom:1px solid ${BORDER};font-weight:500;white-space:nowrap;">${nameLabel}</td>${kpiCells}<td style="padding:8px 12px;border-bottom:1px solid ${BORDER};color:#6B7280;white-space:nowrap;font-size:12px;">Submitted ${submittedAt}</td></tr>`;
   }).join("");
   const bundleSection = bundleLogs.length > 0
     ? `<h3 style="margin:0 0 12px;color:${NAVY};font-size:14px;font-weight:600;">Late / Amended Submissions (${bundleLogs.length})</h3><div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:480px;"><thead><tr><th style="padding:8px 12px;text-align:left;background:${NAVY};color:white;">Agent</th>${kpiHeaders}<th style="padding:8px 12px;text-align:left;background:${NAVY};color:white;">Submitted At</th></tr></thead><tbody>${bundleRows}</tbody></table></div>`
     : "";
   const missingSection = stillMissing.length > 0
-    ? `<div style="margin-top:${bundleLogs.length > 0 ? "24px" : "0"};"><h3 style="margin:0 0 12px;color:${NAVY};font-size:14px;font-weight:600;">Still Missing (${stillMissing.length})</h3><div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;padding:12px 16px;"><p style="margin:0;color:#7F1D1D;font-size:13px;">${stillMissing.map((a) => a.full_name).join(", ")}</p></div></div>`
+    ? `<div style="margin-top:${bundleLogs.length > 0 ? "24px" : "0"};"><h3 style="margin:0 0 12px;color:${NAVY};font-size:14px;font-weight:600;">Still Missing (${stillMissing.length})</h3><div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:4px;padding:12px 16px;"><p style="margin:0;color:#7F1D1D;font-size:13px;">${stillMissing.map((a) => agentDisplayName(a)).join(", ")}</p></div></div>`
     : "";
   return emailShell({
     title: `Late EOD Bundle \u2014 ${campaignName}`, label: "Late EOD Bundle", campaignName,
@@ -341,7 +346,7 @@ async function sendDailyDigestForCampaign(
 ): Promise<DigestResult> {
   const [kpiRes, agentRes, eodRes, tlNoteRes, recipientRes] = await Promise.all([
     supabase.from("campaign_kpi_config").select("field_name, field_label, field_type, min_target").eq("campaign_id", campaignId).eq("is_active", true).order("display_order"),
-    supabase.from("employees").select("id, full_name").eq("campaign_id", campaignId).eq("is_active", true).order("full_name"),
+    supabase.from("employees").select("id, full_name, work_name").eq("campaign_id", campaignId).eq("is_active", true).order("full_name"),
     supabase.from("eod_logs").select("employee_id, metrics, notes, created_at").eq("campaign_id", campaignId).eq("date", todayInTz),
     supabase.from("campaign_eod_tl_notes").select("note").eq("campaign_id", campaignId).eq("date", todayInTz).maybeSingle(),
     supabase.from("campaign_eod_recipients").select("email").eq("campaign_id", campaignId).eq("active", true),
@@ -519,7 +524,7 @@ async function handleTestSend(
 
   const [kpiRes, agentRes, eodRes, tlNoteRes] = await Promise.all([
     supabase.from("campaign_kpi_config").select("field_name, field_label, field_type, min_target").eq("campaign_id", campaignId).eq("is_active", true).order("display_order"),
-    supabase.from("employees").select("id, full_name").eq("campaign_id", campaignId).eq("is_active", true).order("full_name"),
+    supabase.from("employees").select("id, full_name, work_name").eq("campaign_id", campaignId).eq("is_active", true).order("full_name"),
     supabase.from("eod_logs").select("employee_id, metrics, notes, created_at, last_edited_at").eq("campaign_id", campaignId).eq("date", todayInTz),
     supabase.from("campaign_eod_tl_notes").select("note").eq("campaign_id", campaignId).eq("date", todayInTz).maybeSingle(),
   ]);
