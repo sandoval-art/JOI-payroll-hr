@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { todayLocal } from "@/lib/localDate";
+import { getDisplayName } from "@/lib/displayName";
 
 /* ------------------------------------------------------------------ */
 /*  Shared local types                                                 */
@@ -10,6 +11,7 @@ interface TeamMember {
   id: string;
   employee_id: string;
   full_name: string;
+  work_name: string | null;
   title: string | null;
   campaign_id: string | null;
   campaigns: { name: string } | null;
@@ -77,7 +79,7 @@ export function useTeamRoster(tlEmployeeId: string | null) {
       // campaign names in a second query and merge in memory.
       const { data: rows, error } = await supabase
         .from("employees_no_pay")
-        .select("id, employee_id, full_name, title, campaign_id")
+        .select("id, employee_id, full_name, work_name, title, campaign_id")
         .eq("reports_to", tlEmployeeId)
         .eq("is_active", true);
       if (error) throw error;
@@ -120,6 +122,7 @@ export type TimeclockStatus =
 export interface TimeclockStatusRow {
   employeeId: string;
   fullName: string;
+  workName: string | null;
   status: TimeclockStatus;
   clockInTime: string | null;
   scheduledStart: string | null;
@@ -134,11 +137,11 @@ export function useTodayTimeclockStatus(tlEmployeeId: string | null) {
       // 1. Team roster
       const { data: roster, error: rosterErr } = await supabase
         .from("employees_no_pay")
-        .select("id, full_name, campaign_id")
+        .select("id, full_name, work_name, campaign_id")
         .eq("reports_to", tlEmployeeId)
         .eq("is_active", true);
       if (rosterErr) throw rosterErr;
-      const members = (roster || []) as { id: string; full_name: string; campaign_id: string | null }[];
+      const members = (roster || []) as { id: string; full_name: string; work_name: string | null; campaign_id: string | null }[];
       if (members.length === 0) return [];
 
       const memberIds = members.map((m) => m.id);
@@ -183,6 +186,7 @@ export function useTodayTimeclockStatus(tlEmployeeId: string | null) {
           return {
             employeeId: m.id,
             fullName: m.full_name,
+            workName: m.work_name,
             status: "day_off" as TimeclockStatus,
             clockInTime: clockRow?.clock_in ?? null,
             scheduledStart: startTime,
@@ -208,6 +212,7 @@ export function useTodayTimeclockStatus(tlEmployeeId: string | null) {
           return {
             employeeId: m.id,
             fullName: m.full_name,
+            workName: m.work_name,
             status: "completed" as TimeclockStatus,
             clockInTime: clockRow.clock_in,
             scheduledStart: startTime,
@@ -221,6 +226,7 @@ export function useTodayTimeclockStatus(tlEmployeeId: string | null) {
           return {
             employeeId: m.id,
             fullName: m.full_name,
+            workName: m.work_name,
             status: isLate ? ("late" as TimeclockStatus) : ("present" as TimeclockStatus),
             clockInTime: clockRow.clock_in,
             scheduledStart: startTime,
@@ -232,6 +238,7 @@ export function useTodayTimeclockStatus(tlEmployeeId: string | null) {
           return {
             employeeId: m.id,
             fullName: m.full_name,
+            workName: m.work_name,
             status: "absent" as TimeclockStatus,
             clockInTime: null,
             scheduledStart: startTime,
@@ -241,6 +248,7 @@ export function useTodayTimeclockStatus(tlEmployeeId: string | null) {
           return {
             employeeId: m.id,
             fullName: m.full_name,
+            workName: m.work_name,
             status: "late" as TimeclockStatus,
             clockInTime: null,
             scheduledStart: startTime,
@@ -266,6 +274,7 @@ export function useTodayTimeclockStatus(tlEmployeeId: string | null) {
 
 export interface PendingTimeOff extends TimeOffRow {
   fullName: string;
+  workName: string | null;
 }
 
 export function usePendingTimeOffForTeam(tlEmployeeId: string | null) {
@@ -277,15 +286,15 @@ export function usePendingTimeOffForTeam(tlEmployeeId: string | null) {
       // 1. Get team member IDs + names
       const { data: roster, error: rosterErr } = await supabase
         .from("employees_no_pay")
-        .select("id, full_name")
+        .select("id, full_name, work_name")
         .eq("reports_to", tlEmployeeId)
         .eq("is_active", true);
       if (rosterErr) throw rosterErr;
-      const members = (roster || []) as { id: string; full_name: string }[];
+      const members = (roster || []) as { id: string; full_name: string; work_name: string | null }[];
       if (members.length === 0) return [];
 
       const memberIds = members.map((m) => m.id);
-      const nameMap = new Map(members.map((m) => [m.id, m.full_name]));
+      const nameMap = new Map(members.map((m) => [m.id, { full_name: m.full_name, work_name: m.work_name }]));
 
       // 2. Fetch pending time_off_requests
       const { data: requests, error: reqErr } = await supabase
@@ -295,10 +304,14 @@ export function usePendingTimeOffForTeam(tlEmployeeId: string | null) {
         .eq("status", "pending");
       if (reqErr) throw reqErr;
 
-      return ((requests || []) as TimeOffRow[]).map((r) => ({
-        ...r,
-        fullName: nameMap.get(r.employee_id) ?? "Unknown",
-      }));
+      return ((requests || []) as TimeOffRow[]).map((r) => {
+        const names = nameMap.get(r.employee_id);
+        return {
+          ...r,
+          fullName: names?.full_name ?? "Unknown",
+          workName: names?.work_name ?? null,
+        };
+      });
     },
     enabled: !!tlEmployeeId,
   });
@@ -311,6 +324,7 @@ export function usePendingTimeOffForTeam(tlEmployeeId: string | null) {
 export interface TeamEODSummary {
   employeeId: string;
   fullName: string;
+  workName: string | null;
   submissions: number;
   metrics: Record<string, number>;
   isTopPerformer: boolean;
@@ -332,11 +346,11 @@ export function useTeamEODThisWeek(tlEmployeeId: string | null) {
       // 1. Team roster (with campaign_id so we can check min_target)
       const { data: roster, error: rosterErr } = await supabase
         .from("employees_no_pay")
-        .select("id, full_name, campaign_id")
+        .select("id, full_name, work_name, campaign_id")
         .eq("reports_to", tlEmployeeId)
         .eq("is_active", true);
       if (rosterErr) throw rosterErr;
-      const members = (roster || []) as { id: string; full_name: string; campaign_id: string | null }[];
+      const members = (roster || []) as { id: string; full_name: string; work_name: string | null; campaign_id: string | null }[];
       if (members.length === 0) return { summaries: [], kpiFields: [] };
 
       const memberIds = members.map((m) => m.id);
@@ -442,6 +456,7 @@ export function useTeamEODThisWeek(tlEmployeeId: string | null) {
         return {
           employeeId: m.id,
           fullName: m.full_name,
+          workName: m.work_name,
           submissions: myLogs.length,
           metrics: metricsTotals,
           isTopPerformer: false,
@@ -462,6 +477,7 @@ export function useTeamEODThisWeek(tlEmployeeId: string | null) {
 export interface UnderperformerAlert {
   employeeId: string;
   fullName: string;
+  workName: string | null;
   reason: string;
 }
 
@@ -474,11 +490,11 @@ export function useUnderperformerAlerts(tlEmployeeId: string | null) {
       // 1. Team roster with campaign_id
       const { data: roster, error: rosterErr } = await supabase
         .from("employees_no_pay")
-        .select("id, full_name, campaign_id")
+        .select("id, full_name, work_name, campaign_id")
         .eq("reports_to", tlEmployeeId)
         .eq("is_active", true);
       if (rosterErr) throw rosterErr;
-      const members = (roster || []) as { id: string; full_name: string; campaign_id: string | null }[];
+      const members = (roster || []) as { id: string; full_name: string; work_name: string | null; campaign_id: string | null }[];
       if (members.length === 0) return [];
 
       const memberIds = members.map((m) => m.id);
@@ -553,6 +569,7 @@ export function useUnderperformerAlerts(tlEmployeeId: string | null) {
           alerts.push({
             employeeId: m.id,
             fullName: m.full_name,
+            workName: m.work_name,
             reason: "Missed EOD",
           });
         }
@@ -562,6 +579,7 @@ export function useUnderperformerAlerts(tlEmployeeId: string | null) {
           alerts.push({
             employeeId: m.id,
             fullName: m.full_name,
+            workName: m.work_name,
             reason: "Frequently late",
           });
         }
@@ -690,6 +708,7 @@ export interface AgentBreakdownDay {
 export interface AgentBreakdownData {
   employeeId: string;
   fullName: string;
+  workName: string | null;
   campaignName: string;
   kpiFields: { field_name: string; field_label: string; field_type: string; min_target: number | null }[];
   days: AgentBreakdownDay[]; // last 30 days, newest first
@@ -712,7 +731,7 @@ export function useAgentBreakdown(employeeId: string | null, campaignId: string 
       const [empRes, kpiRes, logRes] = await Promise.all([
         supabase
           .from("employees_no_pay")
-          .select("id, full_name, campaign_id")
+          .select("id, full_name, work_name, campaign_id")
           .eq("id", employeeId)
           .single(),
         supabase
@@ -734,7 +753,7 @@ export function useAgentBreakdown(employeeId: string | null, campaignId: string 
       if (kpiRes.error) throw kpiRes.error;
       if (logRes.error) throw logRes.error;
 
-      const emp = empRes.data as { id: string; full_name: string; campaign_id: string } | null;
+      const emp = empRes.data as { id: string; full_name: string; work_name: string | null; campaign_id: string } | null;
 
       // Campaign name
       let campaignName = "";
@@ -780,6 +799,7 @@ export function useAgentBreakdown(employeeId: string | null, campaignId: string 
       return {
         employeeId,
         fullName: emp?.full_name ?? "",
+        workName: emp?.work_name ?? null,
         campaignName,
         kpiFields,
         days,
@@ -813,6 +833,7 @@ export interface KPITrend {
 export interface AgentUnderperformerTrend {
   employeeId: string;
   fullName: string;
+  workName: string | null;
   campaignName: string;
   kpis: KPITrend[];
   totalDaysBelow: number; // across all KPI fields
@@ -828,11 +849,11 @@ export function useUnderperformerTrend(tlEmployeeId: string | null) {
       // 1. Team roster
       const { data: roster, error: rosterErr } = await supabase
         .from("employees_no_pay")
-        .select("id, full_name, campaign_id")
+        .select("id, full_name, work_name, campaign_id")
         .eq("reports_to", tlEmployeeId)
         .eq("is_active", true);
       if (rosterErr) throw rosterErr;
-      const members = (roster ?? []) as { id: string; full_name: string; campaign_id: string | null }[];
+      const members = (roster ?? []) as { id: string; full_name: string; work_name: string | null; campaign_id: string | null }[];
       if (members.length === 0) return [];
 
       const campaignIds = [
@@ -974,6 +995,7 @@ export function useUnderperformerTrend(tlEmployeeId: string | null) {
         trends.push({
           employeeId: m.id,
           fullName: m.full_name,
+          workName: m.work_name,
           campaignName: m.campaign_id
             ? (campaignNameMap.get(m.campaign_id) ?? "")
             : "",

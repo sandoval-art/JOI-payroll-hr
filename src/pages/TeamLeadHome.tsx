@@ -25,7 +25,8 @@ import {
 } from "@/components/ui/table";
 import { Clock, CalendarDays, TrendingUp, AlertTriangle, CheckCircle2, XCircle, FileText, Flag, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
-import { todayLocal, parseLocalDate } from "@/lib/localDate";
+import { todayLocal, formatDateMX } from "@/lib/localDate";
+import { getDisplayName } from "@/lib/displayName";
 
 const TZ_LABELS: Record<string, string> = {
   "America/Denver": "Mountain",
@@ -197,8 +198,7 @@ function EODNoteCard({
 }
 
 function formatTrendDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return formatDateMX(dateStr);
 }
 
 /* ------------------------------------------------------------------ */
@@ -330,12 +330,8 @@ function formatTime(iso: string | null | undefined): string {
 }
 
 function formatDateRange(start: string, end: string): string {
-  const s = parseLocalDate(start);
-  const e = parseLocalDate(end);
-  const fmt = (d: Date) =>
-    d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  if (start === end) return fmt(s);
-  return `${fmt(s)} – ${fmt(e)}`;
+  if (start === end) return formatDateMX(start);
+  return `${formatDateMX(start)} – ${formatDateMX(end)}`;
 }
 
 export default function TeamLeadHome() {
@@ -348,7 +344,7 @@ export default function TeamLeadHome() {
     queryFn: async () => {
       const { data } = await supabase
         .from("employees")
-        .select("full_name, campaign_id, campaigns!employees_campaign_id_fkey(name)")
+        .select("full_name, work_name, campaign_id, campaigns!employees_campaign_id_fkey(name)")
         .eq("id", employeeId!)
         .single();
       return data;
@@ -371,7 +367,8 @@ export default function TeamLeadHome() {
     (roster.data ?? []).map((m) => [m.id, m.campaign_id ?? null])
   );
 
-  const firstName = tlEmployee?.full_name?.split(" ")[0] ?? "Team Lead";
+  const displayName = tlEmployee ? getDisplayName({ work_name: (tlEmployee as { work_name?: string | null }).work_name, full_name: tlEmployee.full_name ?? "" }) : "";
+  const firstName = displayName.split(" ")[0] || "Team Lead";
   const campaignData = tlEmployee?.campaigns as { name: string } | null;
   const campaignName = campaignData?.name ?? "Your Campaign";
   const teamSize = roster.data?.length ?? 0;
@@ -460,7 +457,7 @@ export default function TeamLeadHome() {
                 className="flex items-center justify-between rounded-md border px-3 py-2"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium">{entry.fullName}</span>
+                  <span className="text-sm font-medium">{getDisplayName({ work_name: entry.workName, full_name: entry.fullName })}</span>
                   {statusBadge(entry.status)}
                 </div>
                 <div className="flex items-center gap-2">
@@ -510,7 +507,7 @@ export default function TeamLeadHome() {
                 className="flex flex-col gap-1 rounded-md border px-3 py-2"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{req.fullName}</span>
+                  <span className="text-sm font-medium">{getDisplayName({ work_name: req.workName, full_name: req.fullName })}</span>
                   <span className="text-xs text-muted-foreground">
                     {formatDateRange(req.start_date, req.end_date)}
                   </span>
@@ -590,7 +587,7 @@ export default function TeamLeadHome() {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <span className="font-medium underline-offset-2 hover:underline">
-                                {row.fullName}
+                                {getDisplayName({ work_name: row.workName, full_name: row.fullName })}
                               </span>
                               {isExpanded
                                 ? <ChevronUp className="h-3 w-3 text-muted-foreground" />
@@ -654,7 +651,7 @@ export default function TeamLeadHome() {
                   >
                     <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
                     <div className="text-sm">
-                      <span className="font-medium">{alert.fullName}</span>
+                      <span className="font-medium">{getDisplayName({ work_name: alert.workName, full_name: alert.fullName })}</span>
                       <span className="text-amber-800 ml-1">— {alert.reason}</span>
                     </div>
                   </div>
