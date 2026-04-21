@@ -148,6 +148,8 @@ Nothing on the original six-item list got dropped except the "policy section wit
 
 - **Migration history cleanup + restore `supabase db push` in CI.** The repo has a pre-existing filename collision at `20260417000001` (both `eod_digest_sending_infra.sql` and `tl_per_campaign.sql` share that version) plus drift between local files and remote Supabase tracking. The Deploy Supabase workflow currently skips `supabase db push` for this reason — migrations are applied manually via MCP after merge. Cleanup: rename one of the colliding files, reconcile the `supabase_migrations.schema_migrations` tracking table to match local filenames exactly, then re-enable the `db push` step in `.github/workflows/supabase-deploy.yml`. Added 2026-04-19.
 
+- ~~**Employee Record form state clobbered by TanStack refetch.**~~ SHIPPED in PR #41. Added a `useRef` dirty flag to the taxForm sync effect in EmpleadoPerfil — skips server→state sync while user has unsaved edits, resets on save success. Added during old-B-02 (2026-04-21).
+
 - ~~**Orphan employee-documents files on re-upload.**~~ SHIPPED in PR #40. `useUploadDocument` now fetches the old `file_path` before upload and deletes the orphan from Storage after the UPSERT succeeds. Best-effort cleanup (remove failure logged, does not roll back upload). Added during old-B-03 (2026-04-21).
 
 - **Orphan supporting docs in attendance-docs bucket on replacement.** Same pattern as B-03 — replacing an incident's supporting document via useUpdateIncident uploads a new path but leaves the old file in storage. Fix with pre-upload cleanup. Added during B4 (2026-04-20).
