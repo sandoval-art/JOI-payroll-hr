@@ -65,7 +65,7 @@ interface KPIConfig {
 }
 
 export default function Performance() {
-  const { user } = useAuth();
+  const { user, isLeadership, isTeamLead } = useAuth();
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
@@ -112,8 +112,10 @@ export default function Performance() {
   const { data: employees = [] } = useQuery({
     queryKey: ["active_employees"],
     queryFn: async () => {
+      // TLs use the view (no sensitive columns, row-scoped internally)
+      const table = (isTeamLead && !isLeadership) ? "employees_no_pay" : "employees";
       const { data, error } = await supabase
-        .from("employees")
+        .from(table)
         .select("id, full_name, is_active")
         .eq("is_active", true);
 

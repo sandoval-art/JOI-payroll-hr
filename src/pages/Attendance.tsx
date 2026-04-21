@@ -105,8 +105,10 @@ export default function Attendance() {
       if (timeClockError) throw timeClockError;
 
       // Fetch employees scoped by role
+      // TLs use the employees_no_pay view (no sensitive columns, row-scoped internally)
+      const table = (isTeamLead && !isLeadership) ? "employees_no_pay" : "employees";
       let employeesQuery = supabase
-        .from("employees")
+        .from(table)
         .select("id, employee_id, full_name, campaign_id")
         .eq("is_active", true);
 

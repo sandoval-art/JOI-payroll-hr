@@ -143,7 +143,7 @@ export default function TLDashboard() {
     queryKey: ["tl-dash-agents", activeCampaignId],
     queryFn: async () => {
       if (!activeCampaignId) return [];
-      const { data, error } = await supabase.from("employees")
+      const { data, error } = await supabase.from("employees_no_pay")
         .select("id, full_name").eq("campaign_id", activeCampaignId).eq("is_active", true).order("full_name");
       if (error) throw error;
       return data as Agent[];
