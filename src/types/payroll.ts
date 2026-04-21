@@ -21,6 +21,18 @@ export interface EmployeeWithMeta extends Employee {
   _phone?: string | null;
   _bankClabe?: string | null;
   _complianceGraceUntil?: string | null;
+  // A1b: expanded employee record
+  _workName?: string | null;
+  _personalEmail?: string | null;
+  _hireDate?: string | null;
+  _emergencyContact?: string | null;
+  _bankName?: string | null;
+  _dateOfBirth?: string | null;
+  _maritalStatus?: string | null;
+  _nss?: string | null;
+  _lastWorkedDay?: string | null;
+  _departmentId?: string | null;
+  _departmentName?: string | null;
 }
 
 export interface PayrollConfig {

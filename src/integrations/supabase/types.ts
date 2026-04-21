@@ -410,69 +410,126 @@ export type Database = {
         }
         Relationships: []
       }
+      departments: {
+        Row: {
+          id: string
+          name: string
+          is_active: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           address: string | null
           bank_clabe: string | null
+          bank_name: string | null
           campaign_id: string | null
           compliance_grace_until: string | null
           created_at: string | null
           curp: string | null
           daily_discount_rate: number | null
+          date_of_birth: string | null
+          department_id: string | null
           email: string | null
+          emergency_contact: string | null
           employee_id: string
           full_name: string
+          hire_date: string | null
           id: string
           is_active: boolean | null
           kpi_bonus_amount: number | null
+          last_worked_day: string | null
+          marital_status: string | null
           monthly_base_salary: number | null
+          nss: string | null
+          personal_email: string | null
           phone: string | null
           reports_to: string | null
           rfc: string | null
           shift_type: string | null
           title: string
+          work_name: string | null
         }
         Insert: {
           address?: string | null
           bank_clabe?: string | null
+          bank_name?: string | null
           campaign_id?: string | null
           compliance_grace_until?: string | null
           created_at?: string | null
           curp?: string | null
           daily_discount_rate?: number | null
+          date_of_birth?: string | null
+          department_id?: string | null
           email?: string | null
+          emergency_contact?: string | null
           employee_id: string
           full_name: string
+          hire_date?: string | null
           id?: string
           is_active?: boolean | null
           kpi_bonus_amount?: number | null
+          last_worked_day?: string | null
+          marital_status?: string | null
           monthly_base_salary?: number | null
+          nss?: string | null
+          personal_email?: string | null
           phone?: string | null
           reports_to?: string | null
           rfc?: string | null
           shift_type?: string | null
           title?: string
+          work_name?: string | null
         }
         Update: {
           address?: string | null
           bank_clabe?: string | null
+          bank_name?: string | null
           campaign_id?: string | null
           compliance_grace_until?: string | null
           created_at?: string | null
           curp?: string | null
           daily_discount_rate?: number | null
+          date_of_birth?: string | null
+          department_id?: string | null
           email?: string | null
+          emergency_contact?: string | null
           employee_id?: string
           full_name?: string
+          hire_date?: string | null
           id?: string
           is_active?: boolean | null
           kpi_bonus_amount?: number | null
+          last_worked_day?: string | null
+          marital_status?: string | null
           monthly_base_salary?: number | null
+          nss?: string | null
+          personal_email?: string | null
           phone?: string | null
           reports_to?: string | null
           rfc?: string | null
           shift_type?: string | null
           title?: string
+          work_name?: string | null
         }
         Relationships: [
           {
@@ -480,6 +537,13 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
             referencedColumns: ["id"]
           },
           {

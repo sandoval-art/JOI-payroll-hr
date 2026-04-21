@@ -38,14 +38,18 @@ import {
   type AttendanceIncident,
 } from "@/hooks/useAttendanceIncidents";
 import { usePolicies, type PolicyDocument } from "@/hooks/usePolicies";
+import { useDepartments } from "@/hooks/useDepartments";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // ── A1: Personal & Tax Info validation ──────────────────────────────
 const CURP_RE = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
 const RFC_RE = /^[A-Z&Ñ]{4}\d{6}[A-Z0-9]{3}$/;
 const CLABE_RE = /^\d{18}$/;
 const PHONE_RE = /^\d{10}$/;
+const NSS_RE = /^\d{10,11}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function validateTaxFields(fields: { curp: string; rfc: string; phone: string; bank_clabe: string }) {
+function validateTaxFields(fields: { curp: string; rfc: string; phone: string; bank_clabe: string; nss: string; personal_email: string }) {
   const errors: Record<string, string> = {};
   if (fields.curp && !CURP_RE.test(fields.curp)) errors.curp = "CURP must be 18 characters (e.g. GARC850101HDFRRL09)";
   if (fields.rfc && !RFC_RE.test(fields.rfc)) errors.rfc = "RFC must be 13 characters (e.g. GARC850101AB3)";
@@ -54,6 +58,8 @@ function validateTaxFields(fields: { curp: string; rfc: string; phone: string; b
     const digits = fields.phone.replace(/[\s-]/g, "");
     if (!PHONE_RE.test(digits)) errors.phone = "Phone must be 10 digits";
   }
+  if (fields.nss && !NSS_RE.test(fields.nss)) errors.nss = "NSS must be 10-11 digits";
+  if (fields.personal_email && !EMAIL_RE.test(fields.personal_email)) errors.personal_email = "Invalid email format";
   return errors;
 }
 
@@ -170,8 +176,23 @@ export default function EmpleadoPerfil() {
     address: "",
     phone: "",
     bank_clabe: "",
+    // A1b: expanded fields
+    work_name: "",
+    personal_email: "",
+    hire_date: "",
+    emergency_contact: "",
+    bank_name: "",
+    date_of_birth: "",
+    marital_status: "",
+    nss: "",
+    last_worked_day: "",
+    department_id: "",
   });
   const [taxErrors, setTaxErrors] = useState<Record<string, string>>({});
+
+  // A1b: departments for dropdown
+  const { data: departments = [] } = useDepartments();
+  const activeDepartments = departments.filter((d) => d.is_active);
 
   // Sync when emp data loads/changes
   const empCurp = emp?._curp ?? "";
@@ -179,6 +200,16 @@ export default function EmpleadoPerfil() {
   const empAddress = emp?._address ?? "";
   const empPhone = emp?._phone ?? "";
   const empBankClabe = emp?._bankClabe ?? "";
+  const empWorkName = emp?._workName ?? "";
+  const empPersonalEmail = emp?._personalEmail ?? "";
+  const empHireDate = emp?._hireDate ?? "";
+  const empEmergencyContact = emp?._emergencyContact ?? "";
+  const empBankName = emp?._bankName ?? "";
+  const empDateOfBirth = emp?._dateOfBirth ?? "";
+  const empMaritalStatus = emp?._maritalStatus ?? "";
+  const empNss = emp?._nss ?? "";
+  const empLastWorkedDay = emp?._lastWorkedDay ?? "";
+  const empDepartmentId = emp?._departmentId ?? "";
 
   useEffect(() => {
     setTaxForm({
@@ -187,8 +218,18 @@ export default function EmpleadoPerfil() {
       address: empAddress || "",
       phone: empPhone || "",
       bank_clabe: empBankClabe || "",
+      work_name: empWorkName || "",
+      personal_email: empPersonalEmail || "",
+      hire_date: empHireDate || "",
+      emergency_contact: empEmergencyContact || "",
+      bank_name: empBankName || "",
+      date_of_birth: empDateOfBirth || "",
+      marital_status: empMaritalStatus || "",
+      nss: empNss || "",
+      last_worked_day: empLastWorkedDay || "",
+      department_id: empDepartmentId || "",
     });
-  }, [empCurp, empRfc, empAddress, empPhone, empBankClabe]);
+  }, [empCurp, empRfc, empAddress, empPhone, empBankClabe, empWorkName, empPersonalEmail, empHireDate, empEmergencyContact, empBankName, empDateOfBirth, empMaritalStatus, empNss, empLastWorkedDay, empDepartmentId]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
@@ -226,10 +267,19 @@ export default function EmpleadoPerfil() {
     if (Object.keys(errors).length > 0) return;
 
     updateEmployee.mutate(
-      { employeeId: emp.id, data: normalized },
+      {
+        employeeId: emp.id,
+        data: {
+          ...normalized,
+          hire_date: normalized.hire_date || null,
+          date_of_birth: normalized.date_of_birth || null,
+          last_worked_day: normalized.last_worked_day || null,
+          department_id: normalized.department_id || null,
+        },
+      },
       {
         onSuccess: () => {
-          toast.success("Personal info saved");
+          toast.success("Employee record saved");
           queryClient.invalidateQueries({ queryKey: ["employees"] });
         },
       }
@@ -302,74 +352,181 @@ export default function EmpleadoPerfil() {
           </CardContent>
         </Card>
 
-        {/* A1: Personal & Tax Info — leadership only */}
+        {/* A1 + A1b: Employee Record — leadership only */}
         {isLeadership && <Card>
-          <CardHeader><CardTitle className="text-lg">Personal & Tax Info</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            {isLeadership ? (
-              <>
-                <div className="grid gap-2">
-                  <Label>CURP</Label>
-                  <Input
-                    value={taxForm.curp}
-                    onChange={(e) => setTaxForm((f) => ({ ...f, curp: e.target.value.toUpperCase() }))}
-                    placeholder="GARC850101HDFRRL09"
-                    maxLength={18}
-                  />
-                  {taxErrors.curp && <p className="text-xs text-destructive">{taxErrors.curp}</p>}
-                </div>
-                <div className="grid gap-2">
-                  <Label>RFC</Label>
-                  <Input
-                    value={taxForm.rfc}
-                    onChange={(e) => setTaxForm((f) => ({ ...f, rfc: e.target.value.toUpperCase() }))}
-                    placeholder="GARC850101AB3"
-                    maxLength={13}
-                  />
-                  {taxErrors.rfc && <p className="text-xs text-destructive">{taxErrors.rfc}</p>}
-                </div>
-                <div className="grid gap-2">
-                  <Label>Address</Label>
-                  <Input
-                    value={taxForm.address}
-                    onChange={(e) => setTaxForm((f) => ({ ...f, address: e.target.value }))}
-                    placeholder="Calle, Colonia, Ciudad, CP"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Phone</Label>
-                  <Input
-                    value={taxForm.phone}
-                    onChange={(e) => setTaxForm((f) => ({ ...f, phone: e.target.value }))}
-                    placeholder="33 1234 5678"
-                    maxLength={15}
-                  />
-                  {taxErrors.phone && <p className="text-xs text-destructive">{taxErrors.phone}</p>}
-                </div>
-                <div className="grid gap-2">
-                  <Label>Bank CLABE</Label>
-                  <Input
-                    value={taxForm.bank_clabe}
-                    onChange={(e) => setTaxForm((f) => ({ ...f, bank_clabe: e.target.value.replace(/\D/g, "") }))}
-                    placeholder="012345678901234567"
-                    maxLength={18}
-                  />
-                  {taxErrors.bank_clabe && <p className="text-xs text-destructive">{taxErrors.bank_clabe}</p>}
-                </div>
-                <Button onClick={saveTaxFields} disabled={updateEmployee.isPending} className="w-full">
-                  <Save className="mr-2 h-4 w-4" />
-                  {updateEmployee.isPending ? "Saving..." : "Save Personal Info"}
-                </Button>
-              </>
-            ) : (
-              <div className="space-y-3">
-                <ReadOnlyField label="CURP" value={emp._curp} />
-                <ReadOnlyField label="RFC" value={emp._rfc} />
-                <ReadOnlyField label="Address" value={emp._address} />
-                <ReadOnlyField label="Phone" value={emp._phone} />
-                <ReadOnlyField label="Bank CLABE" value={emp._bankClabe} />
+          <CardHeader><CardTitle className="text-lg">Employee Record</CardTitle></CardHeader>
+          <CardContent className="space-y-6">
+            {/* ── Personal ── */}
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Personal</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>Work Name</Label>
+                <Input
+                  value={taxForm.work_name}
+                  onChange={(e) => setTaxForm((f) => ({ ...f, work_name: e.target.value }))}
+                  placeholder="Preferred name"
+                />
               </div>
-            )}
+              <div className="grid gap-2">
+                <Label>Personal Email</Label>
+                <Input
+                  type="email"
+                  value={taxForm.personal_email}
+                  onChange={(e) => setTaxForm((f) => ({ ...f, personal_email: e.target.value }))}
+                  placeholder="personal@example.com"
+                />
+                {taxErrors.personal_email && <p className="text-xs text-destructive">{taxErrors.personal_email}</p>}
+              </div>
+              <div className="grid gap-2">
+                <Label>Date of Birth</Label>
+                <Input
+                  type="date"
+                  value={taxForm.date_of_birth}
+                  onChange={(e) => setTaxForm((f) => ({ ...f, date_of_birth: e.target.value }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Marital Status</Label>
+                <Input
+                  value={taxForm.marital_status}
+                  onChange={(e) => setTaxForm((f) => ({ ...f, marital_status: e.target.value }))}
+                  placeholder="e.g. Soltero, Casado"
+                />
+              </div>
+              <div className="grid gap-2 sm:col-span-2">
+                <Label>Emergency Contact</Label>
+                <Input
+                  value={taxForm.emergency_contact}
+                  onChange={(e) => setTaxForm((f) => ({ ...f, emergency_contact: e.target.value }))}
+                  placeholder="Name — Relationship — Phone"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Phone</Label>
+                <Input
+                  value={taxForm.phone}
+                  onChange={(e) => setTaxForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder="33 1234 5678"
+                  maxLength={15}
+                />
+                {taxErrors.phone && <p className="text-xs text-destructive">{taxErrors.phone}</p>}
+              </div>
+              <div className="grid gap-2">
+                <Label>Address</Label>
+                <Input
+                  value={taxForm.address}
+                  onChange={(e) => setTaxForm((f) => ({ ...f, address: e.target.value }))}
+                  placeholder="Calle, Colonia, Ciudad, CP"
+                />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* ── Employment ─�� */}
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Employment</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>Hire Date</Label>
+                <Input
+                  type="date"
+                  value={taxForm.hire_date}
+                  onChange={(e) => setTaxForm((f) => ({ ...f, hire_date: e.target.value }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Department</Label>
+                <Select
+                  value={taxForm.department_id || "none"}
+                  onValueChange={(v) => setTaxForm((f) => ({ ...f, department_id: v === "none" ? "" : v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select department..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— None —</SelectItem>
+                    {activeDepartments.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>Last Worked Day</Label>
+                <Input
+                  type="date"
+                  value={taxForm.last_worked_day}
+                  onChange={(e) => setTaxForm((f) => ({ ...f, last_worked_day: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* ── Banking ── */}
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Banking</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>Bank Name</Label>
+                <Input
+                  value={taxForm.bank_name}
+                  onChange={(e) => setTaxForm((f) => ({ ...f, bank_name: e.target.value }))}
+                  placeholder="e.g. BBVA, Banorte"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Bank CLABE</Label>
+                <Input
+                  value={taxForm.bank_clabe}
+                  onChange={(e) => setTaxForm((f) => ({ ...f, bank_clabe: e.target.value.replace(/\D/g, "") }))}
+                  placeholder="012345678901234567"
+                  maxLength={18}
+                />
+                {taxErrors.bank_clabe && <p className="text-xs text-destructive">{taxErrors.bank_clabe}</p>}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* ── ID / Tax ── */}
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">ID / Tax</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>CURP</Label>
+                <Input
+                  value={taxForm.curp}
+                  onChange={(e) => setTaxForm((f) => ({ ...f, curp: e.target.value.toUpperCase() }))}
+                  placeholder="GARC850101HDFRRL09"
+                  maxLength={18}
+                />
+                {taxErrors.curp && <p className="text-xs text-destructive">{taxErrors.curp}</p>}
+              </div>
+              <div className="grid gap-2">
+                <Label>RFC</Label>
+                <Input
+                  value={taxForm.rfc}
+                  onChange={(e) => setTaxForm((f) => ({ ...f, rfc: e.target.value.toUpperCase() }))}
+                  placeholder="GARC850101AB3"
+                  maxLength={13}
+                />
+                {taxErrors.rfc && <p className="text-xs text-destructive">{taxErrors.rfc}</p>}
+              </div>
+              <div className="grid gap-2">
+                <Label>NSS (IMSS)</Label>
+                <Input
+                  value={taxForm.nss}
+                  onChange={(e) => setTaxForm((f) => ({ ...f, nss: e.target.value.replace(/\D/g, "") }))}
+                  placeholder="12345678901"
+                  maxLength={11}
+                />
+                {taxErrors.nss && <p className="text-xs text-destructive">{taxErrors.nss}</p>}
+              </div>
+            </div>
+
+            <Button onClick={saveTaxFields} disabled={updateEmployee.isPending} className="w-full">
+              <Save className="mr-2 h-4 w-4" />
+              {updateEmployee.isPending ? "Saving..." : "Save Employee Record"}
+            </Button>
           </CardContent>
         </Card>}
 
