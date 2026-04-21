@@ -849,11 +849,11 @@ export function useUnderperformerTrend(tlEmployeeId: string | null) {
       // 1. Team roster
       const { data: roster, error: rosterErr } = await supabase
         .from("employees_no_pay")
-        .select("id, full_name, campaign_id")
+        .select("id, full_name, work_name, campaign_id")
         .eq("reports_to", tlEmployeeId)
         .eq("is_active", true);
       if (rosterErr) throw rosterErr;
-      const members = (roster ?? []) as { id: string; full_name: string; campaign_id: string | null }[];
+      const members = (roster ?? []) as { id: string; full_name: string; work_name: string | null; campaign_id: string | null }[];
       if (members.length === 0) return [];
 
       const campaignIds = [
