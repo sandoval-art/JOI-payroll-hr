@@ -140,7 +140,7 @@ Nothing on the original six-item list got dropped except the "policy section wit
 
 - **Harden RLS on employees table for sensitive fields (curp, rfc, bank_clabe).** Currently protected at UI layer only — any authenticated user can read/modify another employee's tax info via direct Supabase calls. Should be tightened so agents can only SELECT their own row, and only leadership roles (admin/manager/owner) can UPDATE. Added during A1 (2026-04-19).
 
-- **Enforce clock-in lock server-side.** Currently protected at UI layer only — a non-compliant agent past grace could bypass via direct Supabase insert into time_clock. Add a BEFORE INSERT trigger on time_clock that checks employees.compliance_grace_until and doc approval state, rejecting inserts for locked employees. Added during A3a (2026-04-19).
+- ~~**Enforce clock-in lock server-side.**~~ SHIPPED in PR #37. BEFORE INSERT trigger `enforce_clock_in_compliance` on `time_clock` rejects inserts for employees past `compliance_grace_until` with unapproved/missing required docs. SQLSTATE P0001 surfaced to UI via existing error path. Added during A3a (2026-04-19).
 
 - **Re-rejection emails suppressed by dedupe.** Current dedupe key uses the document row's UUID, but A2b's upload UPSERT reuses the same row across re-uploads. Second rejection of the same doc row won't fire a new email. Fix with a trigger that deletes the rejection dedupe row when employee_documents.status changes away from 'rejected', OR extend the dedupe key to include reviewed_at. Added during A3b (2026-04-19).
 
@@ -160,6 +160,8 @@ Nothing on the original six-item list got dropped except the "policy section wit
 
 - **Performance.tsx TZ drift.** `new Date("YYYY-MM-DD")` at line 227 parses as UTC midnight → returns prior day in Mexico (UTC-6). Pre-existing; now also affects `formatDateMXLong(dateObj)` output. Fix by switching to `parseLocalDate()` helper from `src/lib/localDate.ts`. Not urgent. Added during PR #35 date sweep (2026-04-21).
 
-- **A1b display layer — TL data layer + greeting missing work_name.** `useTeamLead.ts` (26 occurrences of `m.full_name`) doesn't select `work_name` from `employees_no_pay` despite the view now exposing it. `TeamLeadHome.tsx:351, 374` greets TLs with their legal first name (pseudonym leak). Bundle as one follow-up PR. Added during A1b display layer (2026-04-21).
+- ~~**A1b display layer — TL data layer + greeting missing work_name.**~~ ✅ SHIPPED 2026-04-21 (PR #36 + fix commit 182680e). `useTeamLead` selects extended with `work_name`, 7 interfaces carry `workName`, TeamLeadHome greeting + 4 display sites use `getDisplayName`. Follow-up fix commit added missing select in `useUnderperformerTrend` that `replace_all` skipped due to `roster ?? []` vs `|| []` variance.
+
+**✅ A1b FULLY COMPLETE 2026-04-21.** Four PRs shipped: expanded record (#33), display layer (#34), date sweep (#35), TL data layer (#36). Plus PDF backfill applied via MCP. Next substantive feature: A3a server-side clock-in lock.
 
 - **"Outdated ack" status not distinguished from "never ack'd" on /policies.** When an agent ack'd v1 of a policy and HR publishes v2, the agent's /policies page shows "Not acknowledged" — same label as a first-time view. Functionally re-ack works fine (creates a new row for v2), but the UX should show "A new version was published, please re-acknowledge" when the agent has prior acks on older versions of this policy. Fix: extend `PolicyDocument` with `all_version_ids: string[]` populated in `usePolicies()`, then in `getStatus()` check if any ack matches any older version ID when current isn't ack'd. Added during C2 (2026-04-20).
