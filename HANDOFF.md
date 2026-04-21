@@ -1,6 +1,6 @@
 # JOI Payroll & HR App — Handoff
 
-Last updated: 2026-04-20
+Last updated: 2026-04-21
 
 Quick reference for picking the project back up on a new machine.
 
@@ -8,14 +8,23 @@ Quick reference for picking the project back up on a new machine.
 
 `.env` is no longer tracked by git (untracked and added to `.gitignore`). The app reads `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from environment variables via `import.meta.env`. See `.env.example` for the required variable names.
 
-**Remaining steps before first deploy:**
+**Remaining required steps before first deploy:**
 
-1. **Rotate every secret that was previously in `.env`** in the Supabase dashboard (anon key, service role key if present, DB password, any other keys). Assume the old values are compromised since they were committed in git history (first committed in `8eab08a`).
-2. **Scrub `.env` from git history** with `git filter-repo` or BFG Repo-Cleaner. Rewriting history requires a force push and coordination if anyone else has a clone.
-3. **Put the rotated keys in Vercel's Environment Variables panel** (Project Settings → Environment Variables). Never commit them again.
-4. **Mystery Supabase project in history.** The pre-86d4d6b `.env` pointed at `hipxsmawxvlxjzotsgfj`, not the active JOI project. D does not recognize that ref (likely a Lovable template default). That key stays in git history until step 2 is done. Low risk since the project may not exist, but it's the same scrub step either way.
-5. **Agent browser smoke-test.** SQL-level RLS simulation passed 6/6, but a real agent walk-through in the browser is pending. Do this once a dedicated agent test account is ready.
-6. **Re-run RLS audit after any new migration that touches tables, policies, or views.** Migration file + audit doc pattern: `supabase/migrations/<stamp>_<name>.sql` + `docs/security/rls-audit-<date>.md`.
+1. ~~Scrub `.env` from git history.~~ ✅ Done 2026-04-20 via `git filter-repo`. Force-push applied, stale branches cleaned up.
+2. ~~Mystery Supabase project in history (`hipxsmawxvlxjzotsgfj`).~~ ✅ Confirmed dead 2026-04-20 — the project doesn't exist on Supabase, so the key is inert. Cleared out of git history during the same scrub.
+3. **Put the Supabase + Gmail keys in Vercel's Environment Variables panel** (Project Settings → Environment Variables). Never commit them again.
+4. **Agent browser smoke-test.** SQL-level RLS simulation passed 6/6, but a real agent walk-through in the browser is pending. Do this once a dedicated agent test account is ready.
+5. **Flip DRY_RUN=false on both email edge functions.** `send-eod-digest` and `compliance-notifications` both default to DRY_RUN=true. To go live: Supabase dashboard → function → env vars → set `APP_URL=https://joi-payroll-hr.vercel.app` on `compliance-notifications`, flip `DRY_RUN=false` on both. No code changes needed.
+6. **Run `supabase/dev-seed/02_teardown_mock_dashboard.sql`** to clean the 7 mock Torro agents (DEV_MOCK_TORRO_SLOC campaign) before public launch.
+7. **Re-run RLS audit after any new migration that touches tables, policies, or views.** Migration file + audit doc pattern: `supabase/migrations/<stamp>_<name>.sql` + `docs/security/rls-audit-<date>.md`.
+
+**Optional hygiene — explicitly deferred. Do NOT treat these as deploy blockers.**
+
+These are items D has reviewed and chosen to defer. Future sessions should not flag them as pending action items.
+
+- **Rotate Supabase anon key** (Supabase dashboard → JWT Keys → Create Standby Key → promote). The current project's anon key was NEVER committed to git history — verified 2026-04-20 before the scrub. No exposure, no incident. Rotation is a signing-key operation that invalidates every active JWT, so save it for a real maintenance window. Not required before deploy.
+- **Rotate Gmail App Password** (account security → revoke + regenerate, then update `send-eod-digest` + `compliance-notifications` env vars). Paired with the anon key rotation for the same maintenance window. Not required before deploy.
+- **MFA on owner/admin Supabase auth.** Worth adding before granting production access to other humans, but D has deferred for now.
 
 ## Getting set up on a new computer
 
@@ -128,6 +137,12 @@ Run these in order via the Supabase SQL editor if setting up a fresh database. A
 36. `20260420500001_b4_attendance_incidents.sql` + `20260420500002_b4_attendance_docs_bucket.sql` — **Feature B4**: `attendance_incidents` table + `attendance-docs` bucket for supporting docs (doctor's notes, etc.) + RLS scoped to leadership/TL(team)/agent(own).
 37. `20260420600001_c1_policy_catalog.sql` + `20260420600002_c1_policy_documents_bucket.sql` — **Feature C1**: `policy_documents`, `policy_document_versions`, `policy_acknowledgments` + `policy-documents` bucket. Campaign + role scope toggles per policy.
 38. `20260420700001_c1_tighten_rls.sql` + `20260420700002_c1_insert_policy_version_rpc.sql` — **C1 hardening**: versions RLS inherits parent visibility; storage SELECT path-scoped; `insert_policy_version` RPC computes version_number atomically server-side.
+39. `20260421100001_a1_harden_employees_rls.sql` — **A1 RLS hardening** (PR #32). Tightens `employees` RLS so agents SELECT own row only, leadership UPDATE only. `employees_no_pay` view switched to `security_invoker=off` with role-scoped WHERE clause.
+40. `20260421200001_a1b_expanded_employee_record.sql` — **A1b** (PR #33). Adds 10 new employee columns (`work_name`, `personal_email`, `hire_date`, `emergency_contact`, `bank_name`, `date_of_birth`, `marital_status`, `nss`, `last_worked_day`, `department_id`) + new `departments` catalog table (11 seeded) + RLS + admin UI at `/settings/departments`.
+41. `20260421300001_a1b_expose_work_name.sql` — **A1b display** (PR #34). Extends `employees_no_pay` view with `work_name` so TLs can use the display-name helper.
+42. `20260421400001_a3a_clock_in_compliance_trigger.sql` — **A3a** (PR #37). BEFORE INSERT trigger `enforce_clock_in_compliance` on `time_clock` rejects inserts for employees past `compliance_grace_until` with missing or unapproved required docs. Raises SQLSTATE `P0001` surfaced via the existing UI error path. No leadership bypass — approve the docs first.
+43. `20260421500001_a3b_rerejection_dedupe_clear.sql` — **A3b** (PR #38). AFTER UPDATE trigger on `employee_documents` clears the matching `compliance_notifications_sent` row when status transitions away from `'rejected'`, so re-rejections fire fresh emails instead of being silently deduped.
+44. `20260421600001_b05_grace_change_dedupe_clear.sql` — **old-B-05** (PR #39). AFTER UPDATE trigger on `employees` clears `reminder_7d/3d/1d/lock` dedupe rows when `compliance_grace_until` changes. Does NOT clear rejection rows. Mirrors A3b pattern.
 
 One-off fix files (run once, not migrations):
 - `supabase/fix_stale_timeclock_row.sql` — preview + delete stray same-minute clock-in/out rows caused by the pre-fix UTC date bug. Run when cleaning up before testing the timeclock on Apr 14, 2026.
@@ -170,13 +185,13 @@ One-off fix files (run once, not migrations):
 - **Feature B2/B3 — Carta de compromiso + acta administrativa request flow.** Blocked on JOI sourcing legal-approved templates. App architecture supports uploadable templates (see `docs/hr-roadmap.md`); once the templates land, build the request-from-TL + HR-writes-formal-version split-view editor.
 - **A3b real email delivery.** Edge function is deployed and running in DRY_RUN. Remaining manual steps in Supabase dashboard: set `APP_URL` env var on `compliance-notifications`, then flip `DRY_RUN=false`. No code changes needed.
 
-**Audit followups — 5 substantive items, each deserves its own PR (see `docs/hr-roadmap.md` § Followups):**
+**Audit followups — ALL SHIPPED 2026-04-21 (PRs #32, #37–#41). See `docs/hr-roadmap.md` § Followups for details.**
 
-1. **Harden RLS on `employees` sensitive fields.** CURP/RFC/bank_clabe protected at UI only today — any authenticated user could read another employee's row via direct Supabase call. Need tighter RLS so agents SELECT own only, leadership UPDATE only.
-2. **Server-side clock-in lock.** A3a enforces via UI. A non-compliant agent past grace could bypass by direct insert to `time_clock`. Needs BEFORE INSERT trigger checking `compliance_grace_until` + doc approval state.
-3. **Re-rejection email dedupe.** A3b dedupe key uses the document row UUID; A2b's UPSERT reuses the same row on re-upload, so a second rejection of the same doc-row silently skips the email. Fix: trigger that clears `compliance_notifications_sent` rows when `employee_documents.status` transitions away from 'rejected'.
-4. **taxForm sync stale edits + `employee_documents` orphan storage on re-upload.** Profile's taxForm can clobber in-progress edits on React Query refetch. A2b's replace flow uploads a new file and abandons the old one in storage.
-5. **Policy ack dedupe on grace extension.** Compliance reminder emails could be re-triggered if HR extends the grace deadline — currently blocked by the same dedupe row. Needs trigger that clears reminders when grace is pushed forward.
+1. ~~Harden RLS on `employees` sensitive fields.~~ ✅ PR #32. Agents SELECT own only, leadership UPDATE only. `employees_no_pay` view switched to `security_invoker=off` with role-scoped WHERE.
+2. ~~Server-side clock-in lock.~~ ✅ PR #37. `enforce_clock_in_compliance` BEFORE INSERT trigger on `time_clock`. P0001 surfaced to UI.
+3. ~~Re-rejection email dedupe.~~ ✅ PR #38. `clear_compliance_dedupe_on_rerejection` trigger deletes the dedupe row on status transitions away from `'rejected'`.
+4. ~~taxForm sync stale edits + `employee_documents` orphan storage.~~ ✅ PRs #40, #41. `useEmployeeDocuments.useUploadDocument` deletes orphan Storage file post-UPSERT (best-effort). `EmpleadoPerfil` taxForm uses a `useRef` dirty flag to skip server→state sync during in-flight edits.
+5. ~~Grace-change dedupe clear.~~ ✅ PR #39. `clear_compliance_dedupe_on_grace_change` trigger clears reminder_*/lock rows when `compliance_grace_until` changes. Does NOT clear rejection rows.
 
 **Deferred (flagged but not broken or low-urgency):**
 
@@ -413,6 +428,31 @@ Two code audits run (`docs/audit-feature-a.md`, `docs/audit-post-b-c.md`). Findi
 - 7 Torro dev agents (DEV_MOCK_TORRO_SLOC campaign) have fake-but-format-valid CURP/RFC/CLABE/phone/address via MCP seed. Other ~40 employees have empty tax info.
 - Policy catalog + document_types catalog are pre-seeded (4 required doc types). No policies seeded — HR creates them.
 - `attendance_incidents` and `policy_acknowledgments` tables are empty in dev.
+- 45 real employees now have A1b fields populated from PDF backfill (2026-04-21). 12 real employees not in the PDF still have empty A1b fields (Andres, Antonio, Diomedes, Edgar, Javier N., Jhon, Luis V., Nelly, Paty, Teresita, 2× D Test TL clones) — D decides case-by-case.
+
+## HR Suite — Hardening round 2 (2026-04-21)
+
+Seven PRs shipped consolidating A1b, locking compliance server-side, and clearing the audit followups.
+
+**A1b — Expanded employee record (PRs #33–#36):**
+- PR #33: 10 new employee columns + `departments` catalog table + `/settings/departments` admin UI.
+- PDF backfill (no PR, applied via MCP): 45 of 57 real employees populated from D's PDF.
+- PR #34: display layer — `work_name` exposed through `employees_no_pay`, `getDisplayName()` helper, DD/MM/YY dates via `formatDateMX()`.
+- PR #35: date sweep across 30+ sites in 12 files + Policies uploader display-name cleanup.
+- PR #36: TL data layer — `useTeamLead` carries `work_name`, TeamLeadHome greeting + 4 display sites use `getDisplayName`. Fix commit 182680e added a missed select in `useUnderperformerTrend`.
+
+**Data model decision:** `full_name` = legal name (used in cartas/actas when B2/B3 ships). `work_name` = short/preferred name (used everywhere in UI). All rosters and cards use `work_name ?? full_name`.
+
+**Compliance triggers (PRs #37–#39):**
+- PR #37 (A3a): `enforce_clock_in_compliance` BEFORE INSERT trigger on `time_clock`. Rejects inserts for employees past `compliance_grace_until` with missing/unapproved required docs. No leadership bypass.
+- PR #38 (A3b): `clear_compliance_dedupe_on_rerejection` AFTER UPDATE trigger on `employee_documents`. Clears `compliance_notifications_sent` row when status transitions away from `'rejected'`. Fixes silent re-rejection email dedupe bug.
+- PR #39 (old-B-05): `clear_compliance_dedupe_on_grace_change` AFTER UPDATE trigger on `employees`. Clears reminder_*/lock dedupe rows when `compliance_grace_until` changes. Preserves rejection rows.
+
+All three triggers verified live via MCP against DEV_MOCK_TORRO_SLOC agents. Migrations recorded in `supabase_migrations.schema_migrations` per the manual-apply workflow.
+
+**Application-code fixes (PRs #40–#41):**
+- PR #40 (old-B-03): `useUploadDocument` fetches existing `file_path` before upload, deletes the orphan from the `employee-documents` bucket after UPSERT succeeds. Best-effort cleanup. Grep-audited: no other upload sites touch this bucket.
+- PR #41 (old-B-02): `EmpleadoPerfil` taxForm uses a `useRef` dirty flag — the sync useEffect skips server→state updates while user has unsaved edits, resets on save success. All 15 A1b-expanded input handlers use the `setTaxFormDirty` wrapper.
 
 ## Key files to know
 
