@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertTriangle, CheckCircle, Calendar, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ClockOutEODDialog, KPIField, FormValues } from "@/components/ClockOutEODDialog";
+import { getDisplayName } from "@/lib/displayName";
 
 const CAMPAIGNS = [
   { id: "all", name: "Todas" },
@@ -52,6 +53,7 @@ interface EODLog {
 interface Employee {
   id: string;
   full_name: string;
+  work_name?: string | null;
   is_active: boolean;
 }
 
@@ -116,7 +118,7 @@ export default function Performance() {
       const table = (isTeamLead && !isLeadership) ? "employees_no_pay" : "employees";
       const { data, error } = await supabase
         .from(table)
-        .select("id, full_name, is_active")
+        .select("id, full_name, work_name, is_active")
         .eq("is_active", true);
 
       if (error) throw error;
@@ -383,7 +385,7 @@ export default function Performance() {
                             >
                               <TableCell className="font-medium">
                                 <div className="flex items-center gap-2">
-                                  {emp.full_name}
+                                  {getDisplayName(emp)}
                                   {isGrayed && (
                                     <Badge variant="secondary">
                                       No report

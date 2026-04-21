@@ -297,7 +297,7 @@ export default function EmpleadoPerfil() {
           <span className="text-primary-foreground font-bold text-lg">{emp.nombre[0]}</span>
         </div>
         <div>
-          <h2 className="text-2xl font-bold">{emp.nombre}</h2>
+          <h2 className="text-2xl font-bold">{emp._workName?.trim() || emp.nombre}</h2>
           <p className="text-muted-foreground">ID: {emp.id}</p>
         </div>
       </div>

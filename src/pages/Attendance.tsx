@@ -109,7 +109,7 @@ export default function Attendance() {
       const table = (isTeamLead && !isLeadership) ? "employees_no_pay" : "employees";
       let employeesQuery = supabase
         .from(table)
-        .select("id, employee_id, full_name, campaign_id")
+        .select("id, employee_id, full_name, work_name, campaign_id")
         .eq("is_active", true);
 
       if (isTeamLead && employeeId) {
@@ -177,7 +177,7 @@ export default function Attendance() {
           return {
             id: emp.id,
             employee_id: emp.employee_id,
-            name: emp.full_name,
+            name: emp.work_name?.trim() || emp.full_name,
             campaign_id: emp.campaign_id,
             campaign_name: campaignName,
             status,

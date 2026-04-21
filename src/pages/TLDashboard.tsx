@@ -28,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   BarChart3, Users, AlertCircle, TrendingUp, Calendar, MessageSquarePlus, Loader2, FileWarning, StickyNote,
 } from "lucide-react";
+import { getDisplayName } from "@/lib/displayName";
 
 // ---------------------------------------------------------------------------
 // Timezone helpers (same pattern as edge function)
@@ -77,6 +78,7 @@ interface KPIField {
 interface Agent {
   id: string;
   full_name: string;
+  work_name: string | null;
 }
 
 interface EODLog {
@@ -144,7 +146,7 @@ export default function TLDashboard() {
     queryFn: async () => {
       if (!activeCampaignId) return [];
       const { data, error } = await supabase.from("employees_no_pay")
-        .select("id, full_name").eq("campaign_id", activeCampaignId).eq("is_active", true).order("full_name");
+        .select("id, full_name, work_name").eq("campaign_id", activeCampaignId).eq("is_active", true).order("full_name");
       if (error) throw error;
       return data as Agent[];
     },
@@ -407,7 +409,7 @@ export default function TLDashboard() {
                 <p className="text-2xl font-bold text-red-600 mb-2">{missingYesterday.length} agent{missingYesterday.length !== 1 ? "s" : ""}</p>
                 <ul className="space-y-1">
                   {missingYesterday.map((a) => (
-                    <li key={a.id} className="text-sm text-muted-foreground">{a.full_name}</li>
+                    <li key={a.id} className="text-sm text-muted-foreground">{getDisplayName(a)}</li>
                   ))}
                 </ul>
               </>
@@ -442,7 +444,7 @@ export default function TLDashboard() {
                   const weekDayCount = daysRange(weekStart, weekEnd).length;
                   return (
                     <TableRow key={agent.id}>
-                      <TableCell className="font-medium">{agent.full_name}</TableCell>
+                      <TableCell className="font-medium">{getDisplayName(agent)}</TableCell>
                       {numericKpis.map((k) => {
                         const val = sums[k.field_name] ?? 0;
                         const weekTarget = k.min_target !== null ? k.min_target * weekDayCount : null;
@@ -475,7 +477,7 @@ export default function TLDashboard() {
             <div className="space-y-4">
               {sparklineData.map(({ agent, series }) => (
                 <div key={agent.id} className="border rounded-lg p-3">
-                  <p className="font-medium text-sm mb-2">{agent.full_name}</p>
+                  <p className="font-medium text-sm mb-2">{getDisplayName(agent)}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {series.map(({ kpi, points }) => (
                       <div key={kpi.field_name}>
@@ -529,7 +531,7 @@ export default function TLDashboard() {
               <tbody>
                 {agents.map((a) => (
                   <tr key={a.id}>
-                    <td className="pr-2 py-0.5 font-medium whitespace-nowrap sticky left-0 bg-white">{a.full_name}</td>
+                    <td className="pr-2 py-0.5 font-medium whitespace-nowrap sticky left-0 bg-white">{getDisplayName(a)}</td>
                     {[...heatmapDays, ...futureDays].map((d) => {
                       const isFuture = futureDays.includes(d);
                       const status = isFuture ? "grey" : (heatmapStatus.get(`${a.id}|${d}`) ?? "red");
@@ -553,7 +555,7 @@ export default function TLDashboard() {
                               <div className={`w-4 h-4 rounded-sm ${colors[status]}`} />
                             </TooltipTrigger>
                             <TooltipContent side="top" className="text-xs">
-                              {a.full_name} — {dayLabel}: {labels[status]}
+                              {getDisplayName(a)} — {dayLabel}: {labels[status]}
                             </TooltipContent>
                           </Tooltip>
                         </td>
@@ -580,7 +582,7 @@ export default function TLDashboard() {
                 return (
                   <div key={a.id} className="border rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="font-medium text-sm">{a.full_name}</p>
+                      <p className="font-medium text-sm">{getDisplayName(a)}</p>
                       <Button size="sm" variant="outline" onClick={() => { setNoteAgent(a); setNoteText(""); }}>
                         Add Note
                       </Button>
@@ -625,7 +627,7 @@ export default function TLDashboard() {
       <Dialog open={!!noteAgent} onOpenChange={(o) => { if (!o) setNoteAgent(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Coaching Note — {noteAgent?.full_name}</DialogTitle>
+            <DialogTitle>Coaching Note — {noteAgent ? getDisplayName(noteAgent) : ""}</DialogTitle>
           </DialogHeader>
           <Label htmlFor="coaching-note">Note</Label>
           <Textarea

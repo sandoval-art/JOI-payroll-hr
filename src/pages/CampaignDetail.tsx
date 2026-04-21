@@ -46,6 +46,7 @@ import {
 import { ArrowLeft, Plus, Pencil, ArrowUp, ArrowDown, X, Save, UserMinus, UserPlus, Trash2, Mail } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { getDisplayName } from '@/lib/displayName';
 
 type FieldType = 'number' | 'boolean' | 'text' | 'dropdown';
 
@@ -101,6 +102,7 @@ interface AssignedAgent {
   id: string;
   employee_id: string;
   full_name: string;
+  work_name: string | null;
   title: string | null;
   reports_to: string | null;
 }
@@ -109,6 +111,7 @@ interface AvailableEmployee {
   id: string;
   employee_id: string;
   full_name: string;
+  work_name: string | null;
   campaign_id: string | null;
 }
 
@@ -249,7 +252,7 @@ export default function CampaignDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('employees')
-        .select('id, employee_id, full_name, title, reports_to')
+        .select('id, employee_id, full_name, work_name, title, reports_to')
         .eq('campaign_id', id!)
         .eq('is_active', true)
         .order('full_name');
@@ -265,7 +268,7 @@ export default function CampaignDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('employees')
-        .select('id, employee_id, full_name, campaign_id')
+        .select('id, employee_id, full_name, work_name, campaign_id')
         .eq('is_active', true)
         .order('full_name');
       if (error) throw error;
@@ -377,7 +380,7 @@ export default function CampaignDetail() {
       queryClient.invalidateQueries({ queryKey: ['campaign-agents', id] });
       queryClient.invalidateQueries({ queryKey: ['all-active-employees'] });
       queryClient.invalidateQueries({ queryKey: ['campaigns-list'] });
-      toast.success(`Removed ${agent?.full_name ?? 'employee'} from ${campaign?.name ?? 'campaign'}. They can be reassigned from their profile.`);
+      toast.success(`Removed ${agent ? getDisplayName(agent) : 'employee'} from ${campaign?.name ?? 'campaign'}. They can be reassigned from their profile.`);
     },
   });
 
@@ -396,7 +399,7 @@ export default function CampaignDetail() {
       queryClient.invalidateQueries({ queryKey: ['all-active-employees'] });
       queryClient.invalidateQueries({ queryKey: ['campaigns-list'] });
       setSelectedEmployeeId('');
-      toast.success(`Assigned ${emp?.full_name ?? 'employee'} to ${campaign?.name ?? 'campaign'}.`);
+      toast.success(`Assigned ${emp ? getDisplayName(emp) : 'employee'} to ${campaign?.name ?? 'campaign'}.`);
     },
   });
 
@@ -813,7 +816,7 @@ export default function CampaignDetail() {
               <TableBody>
                 {assignedAgents.map((agent) => (
                   <TableRow key={agent.id}>
-                    <TableCell className="font-medium">{agent.full_name}</TableCell>
+                    <TableCell className="font-medium">{getDisplayName(agent)}</TableCell>
                     <TableCell>{agent.employee_id}</TableCell>
                     <TableCell>{agent.title ?? '-'}</TableCell>
                     <TableCell>
@@ -827,7 +830,7 @@ export default function CampaignDetail() {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Remove agent</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Remove {agent.full_name} from {campaign.name}? They can be reassigned later from their profile or from this page.
+                              Remove {getDisplayName(agent)} from {campaign.name}? They can be reassigned later from their profile or from this page.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -863,7 +866,7 @@ export default function CampaignDetail() {
                 <SelectContent>
                   {availableEmployees.map((emp) => (
                     <SelectItem key={emp.id} value={emp.id}>
-                      {emp.full_name} ({emp.employee_id}){emp.campaign_id ? ' - currently assigned' : ''}
+                      {getDisplayName(emp)} ({emp.employee_id}){emp.campaign_id ? ' - currently assigned' : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>

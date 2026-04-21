@@ -1163,6 +1163,7 @@ export type Database = {
           is_active: boolean | null
           reports_to: string | null
           title: string | null
+          work_name: string | null
         }
         Insert: {
           campaign_id?: string | null
@@ -1174,6 +1175,7 @@ export type Database = {
           is_active?: boolean | null
           reports_to?: string | null
           title?: string | null
+          work_name?: string | null
         }
         Update: {
           campaign_id?: string | null
@@ -1185,6 +1187,7 @@ export type Database = {
           is_active?: boolean | null
           reports_to?: string | null
           title?: string | null
+          work_name?: string | null
         }
         Relationships: [
           {

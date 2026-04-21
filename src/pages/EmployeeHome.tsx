@@ -39,6 +39,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ShieldX, ShieldAlert } from "lucide-react";
 import { ACCEPTED_DOCUMENT_TYPES, ACCEPTED_DOCUMENT_EXTENSIONS, MAX_DOCUMENT_SIZE_BYTES } from "@/lib/documentUpload";
 import { useAgentLogEntries } from "@/hooks/useAgentLog";
+import { formatDateMXLong } from "@/lib/localDate";
 import { useAgentIncidents, getIncidentDocSignedUrl, INCIDENT_TYPE_LABELS, type IncidentType } from "@/hooks/useAttendanceIncidents";
 import { useMyApplicablePolicies, useMyPolicyAcks } from "@/hooks/usePolicies";
 import { FileWarning, StickyNote, Eye, ScrollText } from "lucide-react";
@@ -298,7 +299,7 @@ export default function EmployeeHome() {
   ).length;
 
   // ---------- Derived ----------
-  const firstName = (employee?.full_name || user?.email || "there").split(" ")[0];
+  const firstName = (employee?.work_name?.trim() || employee?.full_name || user?.email || "there").split(" ")[0];
   const isClockedIn = !!todayEntry && !todayEntry.clock_out;
   const activeBreak = getActiveBreak(todayEntry || null);
 
@@ -648,7 +649,7 @@ export default function EmployeeHome() {
               {employee.date_of_birth && (
                 <div className="grid gap-1">
                   <span className="text-xs text-muted-foreground">Date of Birth</span>
-                  <span className="text-sm font-medium">{employee.date_of_birth}</span>
+                  <span className="text-sm font-medium">{formatDateMXLong(employee.date_of_birth)}</span>
                 </div>
               )}
               {employee.marital_status && (
@@ -678,7 +679,7 @@ export default function EmployeeHome() {
               {employee.hire_date && (
                 <div className="grid gap-1">
                   <span className="text-xs text-muted-foreground">Hire Date</span>
-                  <span className="text-sm font-medium">{employee.hire_date}</span>
+                  <span className="text-sm font-medium">{formatDateMXLong(employee.hire_date)}</span>
                 </div>
               )}
               {employee.departments?.name && (
@@ -690,7 +691,7 @@ export default function EmployeeHome() {
               {employee.last_worked_day && (
                 <div className="grid gap-1">
                   <span className="text-xs text-muted-foreground">Last Worked Day</span>
-                  <span className="text-sm font-medium">{employee.last_worked_day}</span>
+                  <span className="text-sm font-medium">{formatDateMXLong(employee.last_worked_day)}</span>
                 </div>
               )}
               {employee.bank_name && (
