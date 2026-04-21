@@ -12,6 +12,8 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { formatDateMXLong } from "@/lib/localDate";
+import { getDisplayName } from "@/lib/displayName";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -193,7 +195,7 @@ export default function Policies() {
                   <p className="text-xs text-muted-foreground">{scopeSummary(p)}</p>
                   {p.current_version && (
                     <p className="text-xs text-muted-foreground">
-                      v{p.current_version.version_number} · Published {new Date(p.current_version.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      v{p.current_version.version_number} · Published {formatDateMXLong(p.current_version.published_at)}
                     </p>
                   )}
                 </div>
@@ -417,7 +419,7 @@ function VersionHistoryDialog({
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">v{v.version_number}</Badge>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(v.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {formatDateMXLong(v.published_at)}
                     </span>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => onViewFile(v.file_path)}>
@@ -425,7 +427,7 @@ function VersionHistoryDialog({
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {v.uploader?.full_name ?? "Unknown"} · {v.file_name}
+                  {v.uploader ? getDisplayName({ work_name: (v.uploader as { full_name: string; work_name?: string | null }).work_name, full_name: v.uploader.full_name }) : "Unknown"} · {v.file_name}
                 </p>
                 {v.change_notes && <p className="text-sm">{v.change_notes}</p>}
               </li>

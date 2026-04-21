@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CalendarDays, Check, X } from "lucide-react";
+import { formatDateMX } from "@/lib/localDate";
 
 interface TimeOffRequest {
   id: string;
@@ -312,8 +313,8 @@ export default function TimeOff() {
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
                             <CalendarDays className="w-4 h-4" />
-                            {new Date(request.start_date).toLocaleDateString("en-US")} -{" "}
-                            {new Date(request.end_date).toLocaleDateString("en-US")}
+                            {formatDateMX(request.start_date)} -{" "}
+                            {formatDateMX(request.end_date)}
                           </div>
                         </TableCell>
                         <TableCell>{reasonMap[request.reason] || request.reason}</TableCell>
@@ -323,7 +324,7 @@ export default function TimeOff() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {new Date(request.created_at).toLocaleDateString("en-US")}
+                          {formatDateMX(request.created_at)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -359,8 +360,8 @@ export default function TimeOff() {
                                 {request.employees?.full_name || "Unknown employee"}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                {new Date(request.start_date).toLocaleDateString("en-US")} -{" "}
-                                {new Date(request.end_date).toLocaleDateString("en-US")}
+                                {formatDateMX(request.start_date)} -{" "}
+                                {formatDateMX(request.end_date)}
                               </p>
                             </div>
                             <Badge variant="secondary">
@@ -375,7 +376,7 @@ export default function TimeOff() {
                           )}
 
                           <p className="text-xs text-muted-foreground">
-                            Requested: {new Date(request.created_at).toLocaleDateString("en-US")}
+                            Requested: {formatDateMX(request.created_at)}
                           </p>
 
                           <div className="flex gap-2 pt-2">
@@ -440,8 +441,8 @@ export default function TimeOff() {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <CalendarDays className="w-4 h-4" />
-                              {new Date(request.start_date).toLocaleDateString("en-US")} -{" "}
-                              {new Date(request.end_date).toLocaleDateString("en-US")}
+                              {formatDateMX(request.start_date)} -{" "}
+                              {formatDateMX(request.end_date)}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -463,7 +464,7 @@ export default function TimeOff() {
                           </TableCell>
                           <TableCell className="text-sm">
                             {request.reviewed_at
-                              ? new Date(request.reviewed_at).toLocaleDateString("en-US")
+                              ? formatDateMX(request.reviewed_at)
                               : "-"}
                           </TableCell>
                         </TableRow>

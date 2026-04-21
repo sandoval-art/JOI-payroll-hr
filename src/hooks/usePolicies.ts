@@ -28,7 +28,7 @@ export interface PolicyDocumentVersion {
   published_at: string;
   change_notes: string | null;
   created_at: string;
-  uploader?: { full_name: string } | null;
+  uploader?: { full_name: string; work_name?: string | null } | null;
 }
 
 export interface PolicyAckStatus {
@@ -64,7 +64,7 @@ export function usePolicies() {
       // Fetch latest version for each policy
       const { data: versions, error: vErr } = await supabase
         .from("policy_document_versions")
-        .select("*, uploader:uploaded_by(full_name)")
+        .select("*, uploader:uploaded_by(full_name, work_name)")
         .order("version_number", { ascending: false });
       if (vErr) throw vErr;
 
@@ -90,7 +90,7 @@ export function usePolicyVersions(policyId: string | undefined | null) {
       if (!policyId) return [];
       const { data, error } = await supabase
         .from("policy_document_versions")
-        .select("*, uploader:uploaded_by(full_name)")
+        .select("*, uploader:uploaded_by(full_name, work_name)")
         .eq("policy_document_id", policyId)
         .order("version_number", { ascending: false });
       if (error) throw error;

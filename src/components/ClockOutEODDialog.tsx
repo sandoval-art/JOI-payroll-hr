@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { formatDateMXLong } from "@/lib/localDate";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -182,7 +183,7 @@ export function ClockOutEODDialog({
             {amendLogId
               ? <>Update your submitted numbers{campaignName ? <> for {campaignName}</> : null}.</>
               : backfillDate
-              ? <>Submit your numbers for {new Date(`${backfillDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}.</>
+              ? <>Submit your numbers for {formatDateMXLong(backfillDate)}.</>
 
               : campaignName ? <>Submit your {campaignName} numbers to clock out.</> : <>Submit your numbers to clock out.</>}
           </DialogDescription>

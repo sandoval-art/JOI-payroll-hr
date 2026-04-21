@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useEmployees, useActivePeriod, useClosePeriod, useCreatePeriod, useHistoryRecords, getCurrentPeriodDates, formatPeriodLabel, recordToConfig } from "@/hooks/useSupabasePayroll";
 import { calcularNomina } from "@/types/payroll";
+import { formatDateMX } from "@/lib/localDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -142,7 +143,7 @@ export default function Historial() {
       employeeName: rec.employees.full_name,
       employeeId: rec.employees.employee_id,
       netPay: result.netoAPagar,
-      closedDate: new Date(rec.updated_at).toLocaleDateString("en-US"),
+      closedDate: formatDateMX(rec.updated_at),
       sueldoBase: emp.sueldoBase,
       config: {
         diasFaltados: rec.days_absent || 0,

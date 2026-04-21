@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { formatDateMXLong } from "@/lib/localDate";
 import {
   useMyApplicablePolicies,
   useMyPolicyAcks,
@@ -126,14 +127,14 @@ export default function MyPolicies() {
                   {/* Ack date */}
                   {isAcked && ack && (
                     <p className="text-xs text-muted-foreground">
-                      Acknowledged on {new Date(ack.acknowledged_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                      Acknowledged on {formatDateMXLong(ack.acknowledged_at)}
                     </p>
                   )}
 
                   {/* Version info */}
                   {currentVersion && (
                     <p className="text-xs text-muted-foreground">
-                      Current version: v{currentVersion.version_number} · Published {new Date(currentVersion.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      Current version: v{currentVersion.version_number} · Published {formatDateMXLong(currentVersion.published_at)}
                     </p>
                   )}
 
