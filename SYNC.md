@@ -58,4 +58,4 @@ Get this machine's local clone of `sandoval-art/JOI-payroll-hr` to match `origin
 - `npm install` status (clean / warnings / errors)
 - Whether `.env` exists
 
-Then tell D: "Sync complete. Next up is Prompt 5b — see the `Next CT prompt` section in `HANDOFF.md`."
+Then tell D: "Sync complete."
