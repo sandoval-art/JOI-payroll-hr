@@ -135,7 +135,7 @@ Nothing on the original six-item list got dropped except the "policy section wit
 
 ## Followups
 
-- **Harden RLS on employees table for sensitive fields (curp, rfc, bank_clabe).** Currently protected at UI layer only — any authenticated user can read/modify another employee's tax info via direct Supabase calls. Should be tightened so agents can only SELECT their own row, and only leadership roles (admin/manager/owner) can UPDATE. Added during A1 (2026-04-19).
+- ~~**Harden RLS on employees table for sensitive fields (curp, rfc, bank_clabe).**~~ ✅ **DONE 2026-04-21 (PR #32).** `employees_no_pay` view rebuilt as `security_invoker=off` with role-scoped WHERE clause; `tl_select_team_employees` policy dropped from base table. TLs now have zero direct SELECT on `employees`; must read safe columns via `employees_no_pay` view. UPDATE stays leadership-only as before.
 
 - **Enforce clock-in lock server-side.** Currently protected at UI layer only — a non-compliant agent past grace could bypass via direct Supabase insert into time_clock. Add a BEFORE INSERT trigger on time_clock that checks employees.compliance_grace_until and doc approval state, rejecting inserts for locked employees. Added during A3a (2026-04-19).
 
