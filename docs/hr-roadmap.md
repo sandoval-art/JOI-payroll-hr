@@ -144,6 +144,8 @@ Nothing on the original six-item list got dropped except the "policy section wit
 
 - ~~**Re-rejection emails suppressed by dedupe.**~~ SHIPPED in PR #38. AFTER UPDATE trigger `clear_compliance_dedupe_on_rerejection` on `employee_documents` deletes the dedupe row in `compliance_notifications_sent` when status transitions away from `'rejected'`. The reviewed_at key-extension approach was rejected (stale row accumulation). Added during A3b (2026-04-19).
 
+- ~~**Grace-driven dedupe rows not cleared on compliance_grace_until change.**~~ SHIPPED in PR #39. AFTER UPDATE trigger `clear_compliance_dedupe_on_grace_change` on `employees` deletes reminder_7d/3d/1d/lock dedupe rows when `compliance_grace_until` changes. Does NOT clear rejection rows. Mirrors A3b pattern. Added during old-B-05 (2026-04-21).
+
 - **Migration history cleanup + restore `supabase db push` in CI.** The repo has a pre-existing filename collision at `20260417000001` (both `eod_digest_sending_infra.sql` and `tl_per_campaign.sql` share that version) plus drift between local files and remote Supabase tracking. The Deploy Supabase workflow currently skips `supabase db push` for this reason — migrations are applied manually via MCP after merge. Cleanup: rename one of the colliding files, reconcile the `supabase_migrations.schema_migrations` tracking table to match local filenames exactly, then re-enable the `db push` step in `.github/workflows/supabase-deploy.yml`. Added 2026-04-19.
 
 - **Orphan supporting docs in attendance-docs bucket on replacement.** Same pattern as B-03 — replacing an incident's supporting document via useUpdateIncident uploads a new path but leaves the old file in storage. Fix with pre-upload cleanup. Added during B4 (2026-04-20).
