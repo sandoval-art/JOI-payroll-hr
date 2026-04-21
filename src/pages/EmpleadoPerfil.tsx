@@ -76,7 +76,7 @@ export default function EmpleadoPerfil() {
   // TL fallback: useEmployees() queries the base table (leadership-only after RLS harden).
   // When a TL views an agent's profile, fetch basic info from the safe view instead.
   const needsTlFallback = !empFromList && !isLoading && isTeamLead && !isLeadership && !!id;
-  const { data: tlFallback } = useQuery({
+  const { data: tlFallback, isLoading: tlFallbackLoading } = useQuery({
     queryKey: ["tl-profile-fallback", id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -190,7 +190,10 @@ export default function EmpleadoPerfil() {
     });
   }, [empCurp, empRfc, empAddress, empPhone, empBankClabe]);
 
-  if (isLoading || needsTlFallback) {
+  if (isLoading) {
+    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
+  }
+  if (needsTlFallback && !tlFallback && tlFallbackLoading) {
     return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
   }
 
