@@ -19,6 +19,7 @@ import { AlertTriangle, CheckCircle, Calendar, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ClockOutEODDialog, KPIField, FormValues } from "@/components/ClockOutEODDialog";
 import { getDisplayName } from "@/lib/displayName";
+import { formatDateMXLong } from "@/lib/localDate";
 
 const CAMPAIGNS = [
   { id: "all", name: "Todas" },
@@ -225,7 +226,7 @@ export default function Performance() {
   // Format date with day of week
   const dateObj = new Date(selectedDate);
   const dayOfWeek = ENGLISH_DAYS[dateObj.getDay()];
-  const formattedDate = `${dayOfWeek}, ${dateObj.toLocaleDateString("en-US")}`;
+  const formattedDate = `${dayOfWeek}, ${formatDateMXLong(dateObj)}`;
 
   // Check access
   if (user && user.role === "employee") {

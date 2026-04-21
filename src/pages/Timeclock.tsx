@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatMinutesVerbose } from "@/lib/formatDuration";
+import { formatDateMX, formatDateMXLong } from "@/lib/localDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -366,13 +367,7 @@ export default function Timeclock() {
       hour12: true,
     });
 
-  const formatDate = (date: Date) =>
-    date.toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+  const formatDate = (date: Date) => formatDateMXLong(date);
 
   const formatTimeFromString = (timeStr: string) =>
     new Date(timeStr).toLocaleTimeString("en-US", {
@@ -751,10 +746,7 @@ export default function Timeclock() {
                     return (
                       <TableRow key={entry.id} className={entry.is_late ? "bg-red-50" : ""}>
                         <TableCell>
-                          {parseLocalDate(entry.date).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
+                          {formatDateMX(entry.date)}
                         </TableCell>
                         <TableCell>{formatTimeFromString(entry.clock_in)}</TableCell>
                         <TableCell>

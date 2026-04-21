@@ -40,6 +40,8 @@ import {
 import { usePolicies, type PolicyDocument } from "@/hooks/usePolicies";
 import { useDepartments } from "@/hooks/useDepartments";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatDateMX } from "@/lib/localDate";
+import { getDisplayName } from "@/lib/displayName";
 
 // ── A1: Personal & Tax Info validation ──────────────────────────────
 const CURP_RE = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
@@ -297,7 +299,7 @@ export default function EmpleadoPerfil() {
           <span className="text-primary-foreground font-bold text-lg">{emp.nombre[0]}</span>
         </div>
         <div>
-          <h2 className="text-2xl font-bold">{emp._workName?.trim() || emp.nombre}</h2>
+          <h2 className="text-2xl font-bold">{getDisplayName({ work_name: emp._workName, full_name: emp.nombre })}</h2>
           <p className="text-muted-foreground">ID: {emp.id}</p>
         </div>
       </div>
@@ -680,13 +682,13 @@ function ComplianceCard({
     statusColor = "text-emerald-700";
   } else if (compliance.isLocked) {
     const lockedSince = graceRaw
-      ? new Date(graceRaw + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      ? formatDateMX(graceRaw)
       : "—";
     statusIcon = <ShieldX className="h-5 w-5 text-red-600" />;
     statusLabel = `Locked since ${lockedSince}`;
     statusColor = "text-red-700";
   } else if (compliance.isInGrace) {
-    const graceDate = compliance.graceUntil?.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) ?? "";
+    const graceDate = formatDateMX(compliance.graceUntil);
     statusIcon = <ShieldAlert className="h-5 w-5 text-amber-600" />;
     statusLabel = `In grace until ${graceDate}`;
     statusColor = "text-amber-700";
@@ -899,7 +901,7 @@ function RequiredDocumentsCard({ employeeId, readOnly = false }: { employeeId: s
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="truncate max-w-[200px]">{doc.file_name}</span>
                   <span>·</span>
-                  <span>{new Date(doc.uploaded_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                  <span>{formatDateMX(doc.uploaded_at)}</span>
                   <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => handleView(doc.file_path)}>
                     <Eye className="mr-1 h-3 w-3" /> View
                   </Button>
@@ -1085,7 +1087,7 @@ function AgentLogCard({
                       <Badge variant="outline" className="text-xs"><StickyNote className="mr-1 h-3 w-3" />Note</Badge>
                     )}
                     <span className="text-xs text-muted-foreground">
-                      {new Date(entry.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {formatDateMX(entry.created_at)}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       — {entry.author?.full_name ?? "Unknown"}
@@ -1304,7 +1306,7 @@ function AttendanceIncidentsCard({ agentId, employeeId, creatorEmployeeId }: { a
                     {INCIDENT_TYPE_LABELS[incident.incident_type]}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {new Date(incident.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    {formatDateMX(incident.date)}
                   </span>
                   {incident.creator?.full_name && (
                     <span className="text-xs text-muted-foreground">— {incident.creator.full_name}</span>
@@ -1464,7 +1466,7 @@ function PolicyAckCard({
               </div>
               {status === "acknowledged" ? (
                 <Badge variant="outline" className="bg-emerald-50 text-emerald-700 text-xs">
-                  Ack'd {ackDate ? new Date(ackDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
+                  Ack'd {ackDate ? formatDateMX(ackDate) : ""}
                 </Badge>
               ) : (
                 <Badge variant="outline" className="bg-amber-50 text-amber-700 text-xs">

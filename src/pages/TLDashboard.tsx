@@ -29,6 +29,7 @@ import {
   BarChart3, Users, AlertCircle, TrendingUp, Calendar, MessageSquarePlus, Loader2, FileWarning, StickyNote,
 } from "lucide-react";
 import { getDisplayName } from "@/lib/displayName";
+import { formatDateMX } from "@/lib/localDate";
 
 // ---------------------------------------------------------------------------
 // Timezone helpers (same pattern as edge function)
@@ -547,7 +548,7 @@ export default function TLDashboard() {
                         red: "Not submitted",
                         grey: "Future",
                       };
-                      const dayLabel = new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                      const dayLabel = formatDateMX(d);
                       return (
                         <td key={d} className="px-0.5 py-0.5">
                           <Tooltip>
@@ -599,7 +600,7 @@ export default function TLDashboard() {
                               ) : (
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0"><StickyNote className="mr-0.5 h-2.5 w-2.5" />Note</Badge>
                               )}
-                              <span>{n.author?.full_name ?? "Unknown"} — {new Date(n.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                              <span>{n.author?.full_name ?? "Unknown"} — {formatDateMX(n.created_at)}</span>
                             </div>
                             <p className="mt-0.5">{n.note}</p>
                           </li>

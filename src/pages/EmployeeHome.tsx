@@ -39,7 +39,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ShieldX, ShieldAlert } from "lucide-react";
 import { ACCEPTED_DOCUMENT_TYPES, ACCEPTED_DOCUMENT_EXTENSIONS, MAX_DOCUMENT_SIZE_BYTES } from "@/lib/documentUpload";
 import { useAgentLogEntries } from "@/hooks/useAgentLog";
-import { formatDateMXLong } from "@/lib/localDate";
+import { formatDateMX, formatDateMXLong } from "@/lib/localDate";
 import { useAgentIncidents, getIncidentDocSignedUrl, INCIDENT_TYPE_LABELS, type IncidentType } from "@/hooks/useAttendanceIncidents";
 import { useMyApplicablePolicies, useMyPolicyAcks } from "@/hooks/usePolicies";
 import { FileWarning, StickyNote, Eye, ScrollText } from "lucide-react";
@@ -395,11 +395,7 @@ export default function EmployeeHome() {
           <AlertDescription>
             You're missing required documents. Submit them by{" "}
             <strong>
-              {compliance.graceUntil?.toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}
+              {formatDateMXLong(compliance.graceUntil)}
             </strong>{" "}
             or your clock-in will be disabled. Missing:{" "}
             <strong>{compliance.missingTypes.map((t) => t.name).join(", ")}</strong>.
@@ -419,11 +415,7 @@ export default function EmployeeHome() {
           <CardContent className="space-y-2">
             {missingEods.map((row) => {
               const isActionable = row.date >= twoDaysAgo;
-              const dateLabel = new Date(`${row.date}T00:00:00`).toLocaleDateString("en-US", {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-              });
+              const dateLabel = formatDateMX(row.date);
               return (
                 <div
                   key={row.id}
@@ -461,11 +453,7 @@ export default function EmployeeHome() {
           kpiFields={kpiFields}
           backfillDate={backfillDate}
           onSubmitted={() => {
-            const dateLabel = new Date(`${backfillDate}T00:00:00`).toLocaleDateString("en-US", {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-            });
+            const dateLabel = formatDateMX(backfillDate);
             setBackfillDate(null);
             toast({ title: `EOD submitted for ${dateLabel}` });
             queryClient.invalidateQueries({ queryKey: ["home-missing-eods"] });
@@ -787,12 +775,7 @@ export default function EmployeeHome() {
               <ul className="divide-y">
                 {recentEod.map((log) => (
                   <li key={log.id} className="py-2 flex justify-between text-sm">
-                    <span>
-                      {new Date(log.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
+                    <span>{formatDateMX(log.date)}</span>
                     <span className="text-muted-foreground truncate max-w-[60%]">
                       {log.notes || "Submitted"}
                     </span>
@@ -823,17 +806,11 @@ export default function EmployeeHome() {
                     className="py-2 flex justify-between items-center text-sm"
                   >
                     <span>
-                      {new Date(req.start_date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {formatDateMX(req.start_date)}
                       {req.start_date !== req.end_date && (
                         <>
                           {" – "}
-                          {new Date(req.end_date).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
+                          {formatDateMX(req.end_date)}
                         </>
                       )}{" "}
                       <span className="text-muted-foreground capitalize">
@@ -977,7 +954,7 @@ function MyDocumentsCard({ employeeId }: { employeeId: string | null }) {
                   )}
                   {doc?.status === "approved" && doc.reviewed_at && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Approved {new Date(doc.reviewed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      Approved {formatDateMX(doc.reviewed_at)}
                     </p>
                   )}
                   {doc?.status === "pending_review" && (
@@ -1053,7 +1030,7 @@ function AgentHRLogCard({ employeeId }: { employeeId: string | null }) {
                   <Badge variant="outline" className="text-xs"><StickyNote className="mr-1 h-3 w-3" />Note</Badge>
                 )}
                 <span className="text-xs text-muted-foreground">
-                  {new Date(entry.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  {formatDateMX(entry.created_at)}
                 </span>
               </div>
               <p className="text-sm">{entry.note}</p>
@@ -1109,7 +1086,7 @@ function AgentAttendanceCard({ employeeId }: { employeeId: string | null }) {
                   {INCIDENT_TYPE_LABELS[incident.incident_type]}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  {new Date(incident.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  {formatDateMX(incident.date)}
                 </span>
               </div>
               {incident.notes && <p className="text-sm">{incident.notes}</p>}

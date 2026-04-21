@@ -2,6 +2,7 @@ import { Fragment, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { formatDateMXLong } from "@/lib/localDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -173,12 +174,7 @@ export default function EODHistory() {
                             />
                           </TableCell>
                           <TableCell className="font-medium">
-                            {parseLocalDate(log.date).toLocaleDateString("en-US", {
-                              weekday: "short",
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
+                            {formatDateMXLong(log.date)}
                             {log.edit_count > 0 && (
                               <Badge variant="outline" className="ml-2 text-xs">
                                 edited {log.edit_count}x
