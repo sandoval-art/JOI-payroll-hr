@@ -177,6 +177,21 @@ Nothing on the original six-item list got dropped except the "policy section wit
 - PR #40 (old-B-03) — `useUploadDocument` deletes orphan Storage file on re-upload.
 - PR #41 (old-B-02) — `EmpleadoPerfil` taxForm dirty flag prevents refetch clobber.
 
-All migrations applied via MCP + verified live. Every small audit followup is now closed. Next substantive work: Feature D holiday calendar, or B2/B3 cartas/actas (templates in hand).
+**✅ B2/B3 cartas + actas COMPLETE end-to-end 2026-04-22.** Nine PRs (#42–#50) shipped in a single working day. Five locked phases plus one small CORS hardening:
+- PR #42 (Phase 1) — Data model: `hr_document_requests`, `cartas_compromiso`, `actas_administrativas` tables + `hr-documents` storage bucket + RLS.
+- PR #43 (Phase 2) — TL request-filing card on EmpleadoPerfil.
+- PR #44 (Phase 3) — HR queue at `/hr/document-queue` with status transitions.
+- PR #45 (Phase 4a) — Split-view editor + snapshot auto-populate + `hr_create_finalization_draft` RPC.
+- PR #46 (Phase 4b) — KPI table editor, witness blocks, reincidencia auto-cite (+ small follow-up fix for Desvincular respect).
+- PR #47 (Phase 5a) — Client-side PDF generation via jspdf.
+- PR #48 (Phase 5b) — Signed-scan upload + `hr_mark_finalization_signed` RPC + fulfilled transition.
+- PR #49 (Phase 5c) — `get-hr-document-signed-url` edge function + TL "Ver escaneo" link + agent-facing "Mis documentos firmados" card on EmployeeHome.
+- PR #50 — Env-driven CORS origin on the signed-URL edge function (defaults `*`; set `ALLOWED_ORIGIN` in Supabase dashboard when going public).
+
+All migrations applied via MCP + tracker aligned. Edge function auto-deployed via CI. Template PDFs + structured spec preserved in `docs/reference/` + `docs/document-templates.md`. Break schedule preserved in `docs/break-schedule.md`.
+
+**Two non-blocking production-hardening items for pre-public:** (a) apply same env-driven CORS pattern to `create-employee` + `compliance-notifications` edge functions, (b) revisit rate-limiting on `get-hr-document-signed-url` if real abuse patterns appear.
+
+**Next substantive work:** Feature E (client portal) — see `docs/client-portal-plan.md`. Feature D (holiday calendar) queued after E.
 
 - **"Outdated ack" status not distinguished from "never ack'd" on /policies.** When an agent ack'd v1 of a policy and HR publishes v2, the agent's /policies page shows "Not acknowledged" — same label as a first-time view. Functionally re-ack works fine (creates a new row for v2), but the UX should show "A new version was published, please re-acknowledge" when the agent has prior acks on older versions of this policy. Fix: extend `PolicyDocument` with `all_version_ids: string[]` populated in `usePolicies()`, then in `getStatus()` check if any ack matches any older version ID when current isn't ack'd. Added during C2 (2026-04-20).
