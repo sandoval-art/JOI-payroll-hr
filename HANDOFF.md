@@ -144,6 +144,7 @@ Run these in order via the Supabase SQL editor if setting up a fresh database. A
 43. `20260421500001_a3b_rerejection_dedupe_clear.sql` — **A3b** (PR #38). AFTER UPDATE trigger on `employee_documents` clears the matching `compliance_notifications_sent` row when status transitions away from `'rejected'`, so re-rejections fire fresh emails instead of being silently deduped.
 44. `20260421600001_b05_grace_change_dedupe_clear.sql` — **old-B-05** (PR #39). AFTER UPDATE trigger on `employees` clears `reminder_7d/3d/1d/lock` dedupe rows when `compliance_grace_until` changes. Does NOT clear rejection rows. Mirrors A3b pattern.
 45. `20260422100001_b2b3_phase1_data_model.sql` — **B2/B3 Phase 1** (PR #42). Three tables: `hr_document_requests` (TL files carta/acta request), `cartas_compromiso` (HR drafts formal carta with KPI table + snapshots), `actas_administrativas` (same shape minus KPI, plus witnesses + reincidencia link). `hr-documents` Storage bucket (private, leadership-only RLS). RLS: leadership full CRUD; TL SELECT + INSERT(requests only) on own team; agents SELECT own signed cartas/actas only. Phase 1 of 5 — no UI yet.
+46. `20260422200001_hr_create_finalization_draft_rpc.sql` — **B2/B3 Phase 4a** (PR #45). `hr_create_finalization_draft(p_request_id, p_created_by)` RPC: atomically creates a `cartas_compromiso` or `actas_administrativas` draft row with auto-generated doc_ref (CC{YYYYMMDD}-{HHMM} for carta, {YYYYMMDD}-{HHMM} for acta, MX timezone), links it back to the request via `fulfilled_carta_id`/`fulfilled_acta_id`, and transitions pending requests to in_progress. SECURITY DEFINER with `is_leadership()` gate.
 
 One-off fix files (run once, not migrations):
 - `supabase/fix_stale_timeclock_row.sql` — preview + delete stray same-minute clock-in/out rows caused by the pre-fix UTC date bug. Run when cleaning up before testing the timeclock on Apr 14, 2026.
@@ -177,14 +178,14 @@ One-off fix files (run once, not migrations):
 - **TL restricted agent profile access** — TLs can navigate from `/asistencia` to agent profiles on their own team. See: basic info, required docs status (no file view, no actions), notes/warnings card, attendance incidents. Hidden: tax info, salary, compliance enforcement, biweekly breakdown.
 - **Policy catalog** (C1) — `/settings/policies` admin for leadership. Create policies with campaign + role scope toggles. Multiple versions per policy (atomic server-side version numbering via `insert_policy_version` RPC). Per-employee ack status card on profile.
 - **Agent-facing policy acknowledgments** (C2) — `/policies` page for every role. Lists applicable policies with "View document" + "I've read and agree". Home page badge counts unacknowledged policies.
-- **B2/B3 cartas + actas** — Phase 1 (data model, PR #42) + Phase 2 (TL request form, PR #43) + Phase 3 (HR queue at `/hr/document-queue`, PR #44). Leadership triages requests by status (tabs), transitions pending→in_progress/canceled/downgraded, sees full TL narrative + prior request history per employee. Phases 4–5 queued: split-view editor + PDF, signed-scan upload.
+- **B2/B3 cartas + actas** — Phase 1 (data model, PR #42) + Phase 2 (TL request form, PR #43) + Phase 3 (HR queue, PR #44) + Phase 4a (editor shell at `/hr/document-queue/:id/edit`, PR #45). Split-view editor: TL narrative read-only on left, HR formal draft on right (react-resizable-panels). Auto-populates snapshot fields (employee name, dept, shift, supervisor, company info). Saves drafts to cartas_compromiso/actas_administrativas via RPC + UPDATE. Phase 4b (KPI table, witnesses, reincidencia) + Phase 5 (PDF, signed-scan) queued.
 - **CI workflow** — `.github/workflows/supabase-deploy.yml` auto-deploys edge functions on push to main. Migration auto-apply is intentionally skipped (blocked on migration history cleanup); migrations currently applied manually via MCP.
 
 ## What's left
 
 **Known blockers:**
 
-- **Feature B2/B3 — Carta de compromiso + acta administrativa.** Phases 1–3 shipped (data model + TL request form + HR queue). Phases 4–5 remain: split-view editor + PDF generation + doc-ref generator, signed-scan upload + agent view. Phase 4 is gated on the break-times file D hasn't uploaded yet (needed for `horario_snapshot` in the carta/acta template).
+- **Feature B2/B3 — Carta de compromiso + acta administrativa.** Phases 1–3 + 4a shipped (data model + TL request form + HR queue + editor shell). Remaining: Phase 4b (KPI table editor for cartas, witness blocks for actas, reincidencia auto-cite), Phase 5 (PDF generation, signed-scan upload, agent view).
 - **A3b real email delivery.** Edge function is deployed and running in DRY_RUN. Remaining manual steps in Supabase dashboard: set `APP_URL` env var on `compliance-notifications`, then flip `DRY_RUN=false`. No code changes needed.
 
 **Audit followups — ALL SHIPPED 2026-04-21 (PRs #32, #37–#41). See `docs/hr-roadmap.md` § Followups for details.**

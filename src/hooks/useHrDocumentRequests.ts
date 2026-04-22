@@ -244,3 +244,171 @@ export function useUpdateHrDocumentRequestStatus() {
     },
   });
 }
+
+// ── Phase 4a: Finalization (draft) hooks ────────────────────────────
+
+const FINALIZATION_KEY = "hr_finalization";
+
+export interface FinalizationDraft {
+  id: string;
+  employeeId: string;
+  requestId: string | null;
+  docRef: string | null;
+  incidentDate: string;
+  narrative: string | null;
+  trabajadorNameSnapshot: string | null;
+  puestoSnapshot: string | null;
+  horarioSnapshot: string | null;
+  supervisorNameSnapshot: string | null;
+  companyLegalNameSnapshot: string | null;
+  companyLegalAddressSnapshot: string | null;
+  incidentDateLongSnapshot: string | null;
+  pdfPath: string | null;
+  signedAt: string | null;
+  signedScanPath: string | null;
+  createdAt: string;
+  updatedAt: string;
+  type: "carta" | "acta";
+}
+
+function mapFinalizationRow(
+  row: Record<string, unknown>,
+  type: "carta" | "acta",
+): FinalizationDraft {
+  return {
+    id: row.id as string,
+    employeeId: row.employee_id as string,
+    requestId: (row.request_id as string) ?? null,
+    docRef: (row.doc_ref as string) ?? null,
+    incidentDate: row.incident_date as string,
+    narrative: (row.narrative as string) ?? null,
+    trabajadorNameSnapshot: (row.trabajador_name_snapshot as string) ?? null,
+    puestoSnapshot: (row.puesto_snapshot as string) ?? null,
+    horarioSnapshot: (row.horario_snapshot as string) ?? null,
+    supervisorNameSnapshot: (row.supervisor_name_snapshot as string) ?? null,
+    companyLegalNameSnapshot:
+      (row.company_legal_name_snapshot as string) ?? null,
+    companyLegalAddressSnapshot:
+      (row.company_legal_address_snapshot as string) ?? null,
+    incidentDateLongSnapshot:
+      (row.incident_date_long_snapshot as string) ?? null,
+    pdfPath: (row.pdf_path as string) ?? null,
+    signedAt: (row.signed_at as string) ?? null,
+    signedScanPath: (row.signed_scan_path as string) ?? null,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+    type,
+  };
+}
+
+/**
+ * Fetch the linked carta/acta draft for a request (if any).
+ */
+export function useHrFinalization(
+  requestId: string | undefined,
+  requestType: HrDocumentRequestType | undefined,
+) {
+  return useQuery({
+    queryKey: [FINALIZATION_KEY, requestId],
+    queryFn: async (): Promise<FinalizationDraft | null> => {
+      const table =
+        requestType === "acta"
+          ? "actas_administrativas"
+          : "cartas_compromiso";
+
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .eq("request_id", requestId!)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) return null;
+      return mapFinalizationRow(
+        data as Record<string, unknown>,
+        requestType!,
+      );
+    },
+    enabled: !!requestId && !!requestType,
+  });
+}
+
+/**
+ * Call the hr_create_finalization_draft RPC to atomically create
+ * the carta/acta row and link it to the request.
+ */
+export function useCreateHrFinalizationDraft() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      requestId,
+      createdBy,
+    }: {
+      requestId: string;
+      createdBy: string;
+      employeeId: string; // for cache invalidation
+    }) => {
+      const { data, error } = await supabase.rpc(
+        "hr_create_finalization_draft",
+        { p_request_id: requestId, p_created_by: createdBy },
+      );
+      if (error) throw error;
+      return data as { id: string; type: string; doc_ref: string };
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: [FINALIZATION_KEY, vars.requestId] });
+      qc.invalidateQueries({ queryKey: [QUERY_KEY, "detail", vars.requestId] });
+      qc.invalidateQueries({ queryKey: [QUERY_KEY, "queue"] });
+      qc.invalidateQueries({
+        queryKey: [QUERY_KEY, "by_employee", vars.employeeId],
+      });
+    },
+  });
+}
+
+export interface DraftUpdateFields {
+  narrative?: string | null;
+  trabajador_name_snapshot?: string | null;
+  puesto_snapshot?: string | null;
+  horario_snapshot?: string | null;
+  supervisor_name_snapshot?: string | null;
+  company_legal_name_snapshot?: string | null;
+  company_legal_address_snapshot?: string | null;
+  incident_date_long_snapshot?: string | null;
+}
+
+/**
+ * Save draft fields to the carta/acta row.
+ */
+export function useSaveFinalizationDraft() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      draftId,
+      type,
+      fields,
+    }: {
+      draftId: string;
+      type: "carta" | "acta";
+      fields: DraftUpdateFields;
+      requestId: string; // for cache invalidation
+    }) => {
+      const table =
+        type === "acta" ? "actas_administrativas" : "cartas_compromiso";
+
+      const { error } = await supabase
+        .from(table)
+        .update(fields)
+        .eq("id", draftId);
+
+      if (error) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({
+        queryKey: [FINALIZATION_KEY, vars.requestId],
+      });
+    },
+  });
+}
