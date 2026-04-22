@@ -498,7 +498,7 @@ export function useUploadFinalizedPdf() {
       pdfBlob: Blob;
       requestId: string;
     }) => {
-      const year = new Date().getFullYear();
+      const year = docRef.startsWith("CC") ? docRef.slice(2, 6) : docRef.slice(0, 4);
       const folder = type === "carta" ? "cartas" : "actas";
       const path = `${folder}/${year}/${employeeId}/${docRef}.pdf`;
 
