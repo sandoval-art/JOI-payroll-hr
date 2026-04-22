@@ -12,7 +12,7 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
-import { ArrowLeft, Save, FileText, Plus, Trash2, AlertTriangle, Unlink, Eye, Upload, ExternalLink, AlertCircle } from "lucide-react";
+import { ArrowLeft, Save, FileText, Plus, Trash2, AlertTriangle, Unlink, Eye, Upload, ExternalLink, AlertCircle, CheckCircle, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDateMX, formatDateMXLong } from "@/lib/localDate";
@@ -28,6 +28,7 @@ import {
   usePriorSignedCartaForEmployee,
   useCartaById,
   useUploadFinalizedPdf,
+  useUploadSignedScan,
   type FinalizationDraft,
 } from "@/hooks/useHrDocumentRequests";
 import type { CartaKpiRow, ActaWitness } from "@/types/hr-docs";
@@ -356,6 +357,60 @@ export default function HrDocumentDraft() {
     window.open(data.signedUrl, "_blank");
   }
 
+  // ── Signed-scan upload ─────────────────────────────────────────────
+  const uploadScan = useUploadSignedScan();
+  const scanInputRef = useRef<HTMLInputElement>(null);
+  const MAX_SCAN_SIZE = 10 * 1024 * 1024; // 10 MB
+
+  function handleScanFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (scanInputRef.current) scanInputRef.current.value = "";
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      toast.error("Archivo debe ser PDF");
+      return;
+    }
+    if (file.size > MAX_SCAN_SIZE) {
+      toast.error("Archivo debe ser menor a 10MB");
+      return;
+    }
+    if (!draft || !request) return;
+
+    uploadScan.mutate(
+      {
+        draftId: draft.id,
+        type: draft.type,
+        employeeId: request.employeeId,
+        docRef: draft.docRef ?? draft.id,
+        scanBlob: file,
+        requestId: request.id,
+      },
+      {
+        onSuccess: () => {
+          toast.success(
+            draft.signedAt
+              ? "Escaneo reemplazado"
+              : "Escaneo guardado. Solicitud marcada como completada.",
+          );
+        },
+        onError: (err) => toast.error((err as Error).message),
+      },
+    );
+  }
+
+  async function handleViewSignedScan() {
+    if (!draft?.signedScanPath) return;
+    const { data, error } = await supabase.storage
+      .from("hr-documents")
+      .createSignedUrl(draft.signedScanPath, 3600);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    window.open(data.signedUrl, "_blank");
+  }
+
   // ── Loading / not found ────────────────────────────────────────────
 
   if (reqLoading || draftLoading) {
@@ -459,6 +514,82 @@ export default function HrDocumentDraft() {
           {request.status === "canceled" ? "cancelada" : "degradada"}.
           {request.canceledReason && (
             <> Razón: {request.canceledReason}</>
+          )}
+        </div>
+      )}
+
+      {/* ── Signed-scan upload section ──────────────────── */}
+      {draft && !isTerminal && (
+        <div className="rounded-lg border p-4 space-y-3">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Upload className="h-4 w-4" />
+            Escaneo firmado
+          </h3>
+
+          {/* Hidden file input */}
+          <input
+            ref={scanInputRef}
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            aria-label="Subir escaneo firmado"
+            onChange={handleScanFileSelect}
+          />
+
+          {!draft.pdfPath && (
+            <p className="text-xs text-muted-foreground">
+              Genera y guarda el PDF primero antes de subir el escaneo firmado.
+            </p>
+          )}
+
+          {draft.pdfPath && !draft.signedAt && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => scanInputRef.current?.click()}
+                disabled={uploadScan.isPending}
+              >
+                <Upload className="mr-1 h-4 w-4" />
+                {uploadScan.isPending
+                  ? "Subiendo..."
+                  : "Subir escaneo firmado"}
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                PDF, máx 10MB
+              </span>
+            </div>
+          )}
+
+          {draft.signedAt && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 p-2 rounded-md bg-emerald-50 border border-emerald-200">
+                <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span className="text-sm text-emerald-800">
+                  Firmado el {formatDateMX(draft.signedAt)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleViewSignedScan}
+                >
+                  <ExternalLink className="mr-1 h-3 w-3" /> Ver escaneo
+                  firmado
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => scanInputRef.current?.click()}
+                  disabled={uploadScan.isPending}
+                >
+                  <RefreshCw className="mr-1 h-3 w-3" />
+                  {uploadScan.isPending
+                    ? "Subiendo..."
+                    : "Reemplazar escaneo"}
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       )}

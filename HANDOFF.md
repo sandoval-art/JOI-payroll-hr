@@ -145,6 +145,7 @@ Run these in order via the Supabase SQL editor if setting up a fresh database. A
 44. `20260421600001_b05_grace_change_dedupe_clear.sql` — **old-B-05** (PR #39). AFTER UPDATE trigger on `employees` clears `reminder_7d/3d/1d/lock` dedupe rows when `compliance_grace_until` changes. Does NOT clear rejection rows. Mirrors A3b pattern.
 45. `20260422100001_b2b3_phase1_data_model.sql` — **B2/B3 Phase 1** (PR #42). Three tables: `hr_document_requests` (TL files carta/acta request), `cartas_compromiso` (HR drafts formal carta with KPI table + snapshots), `actas_administrativas` (same shape minus KPI, plus witnesses + reincidencia link). `hr-documents` Storage bucket (private, leadership-only RLS). RLS: leadership full CRUD; TL SELECT + INSERT(requests only) on own team; agents SELECT own signed cartas/actas only. Phase 1 of 5 — no UI yet.
 46. `20260422200001_hr_create_finalization_draft_rpc.sql` — **B2/B3 Phase 4a** (PR #45). `hr_create_finalization_draft(p_request_id, p_created_by)` RPC: atomically creates a `cartas_compromiso` or `actas_administrativas` draft row with auto-generated doc_ref (CC{YYYYMMDD}-{HHMM} for carta, {YYYYMMDD}-{HHMM} for acta, MX timezone), links it back to the request via `fulfilled_carta_id`/`fulfilled_acta_id`, and transitions pending requests to in_progress. SECURITY DEFINER with `is_leadership()` gate.
+47. `20260422300001_hr_mark_finalization_signed_rpc.sql` — **B2/B3 Phase 5b** (PR #48). `hr_mark_finalization_signed(p_finalization_id, p_type, p_signed_scan_path)` RPC: atomically sets `signed_at` + `signed_scan_path` on the carta/acta row and transitions the parent request to `status='fulfilled'`. SECURITY DEFINER with `is_leadership()` gate. Idempotent — re-upload overwrites both fields.
 
 One-off fix files (run once, not migrations):
 - `supabase/fix_stale_timeclock_row.sql` — preview + delete stray same-minute clock-in/out rows caused by the pre-fix UTC date bug. Run when cleaning up before testing the timeclock on Apr 14, 2026.
@@ -178,14 +179,14 @@ One-off fix files (run once, not migrations):
 - **TL restricted agent profile access** — TLs can navigate from `/asistencia` to agent profiles on their own team. See: basic info, required docs status (no file view, no actions), notes/warnings card, attendance incidents. Hidden: tax info, salary, compliance enforcement, biweekly breakdown.
 - **Policy catalog** (C1) — `/settings/policies` admin for leadership. Create policies with campaign + role scope toggles. Multiple versions per policy (atomic server-side version numbering via `insert_policy_version` RPC). Per-employee ack status card on profile.
 - **Agent-facing policy acknowledgments** (C2) — `/policies` page for every role. Lists applicable policies with "View document" + "I've read and agree". Home page badge counts unacknowledged policies.
-- **B2/B3 cartas + actas** — Phases 1–4 + 5a shipped (data model PR #42, TL request form PR #43, HR queue PR #44, editor shell PR #45, KPI+witnesses+reincidencia PR #46, PDF generation PR #47). Full editor with split-view, KPI/witness/reincidencia editors, and client-side PDF generation via jspdf. "Vista previa PDF" opens in new tab; "Finalizar y guardar PDF" uploads to `hr-documents` bucket. Legal boilerplate in `src/lib/documentTemplates.ts`. Phase 5b (signed-scan upload, fulfilled transition, agent view) queued.
+- **B2/B3 cartas + actas** — Phases 1–5 shipped (data model PR #42, TL request form PR #43, HR queue PR #44, editor shell PR #45, KPI+witnesses+reincidencia PR #46, PDF generation PR #47, signed-scan upload PR #48). Full end-to-end flow: TL files request → HR drafts in split-view editor → generates PDF via jspdf → prints + collects signatures → uploads signed scan → request transitions to fulfilled. Phase 5c (TL/agent signed-doc viewing) queued.
 - **CI workflow** — `.github/workflows/supabase-deploy.yml` auto-deploys edge functions on push to main. Migration auto-apply is intentionally skipped (blocked on migration history cleanup); migrations currently applied manually via MCP.
 
 ## What's left
 
 **Known blockers:**
 
-- **Feature B2/B3 — Carta de compromiso + acta administrativa.** Phases 1–4 + 5a shipped. Remaining: Phase 5b (signed-scan upload, status→fulfilled transition, TL/agent viewing via signed URLs).
+- **Feature B2/B3 — Carta de compromiso + acta administrativa.** Phases 1–5 shipped. Remaining: Phase 5c (signed-URL edge function for TL/agent viewing of finalized signed docs).
 - **A3b real email delivery.** Edge function is deployed and running in DRY_RUN. Remaining manual steps in Supabase dashboard: set `APP_URL` env var on `compliance-notifications`, then flip `DRY_RUN=false`. No code changes needed.
 
 **Audit followups — ALL SHIPPED 2026-04-21 (PRs #32, #37–#41). See `docs/hr-roadmap.md` § Followups for details.**

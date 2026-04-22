@@ -532,3 +532,66 @@ export function useUploadFinalizedPdf() {
     },
   });
 }
+
+// ── Phase 5b: Signed-scan upload ────────────────────────────────────
+
+/**
+ * Upload a signed scan PDF and atomically mark the finalization as signed
+ * + transition the parent request to 'fulfilled'.
+ */
+export function useUploadSignedScan() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      draftId,
+      type,
+      employeeId,
+      docRef,
+      scanBlob,
+    }: {
+      draftId: string;
+      type: "carta" | "acta";
+      employeeId: string;
+      docRef: string;
+      scanBlob: Blob;
+      requestId: string;
+    }) => {
+      const year = docRef.startsWith("CC")
+        ? docRef.slice(2, 6)
+        : docRef.slice(0, 4);
+      const folder = type === "carta" ? "cartas" : "actas";
+      const path = `${folder}/${year}/${employeeId}/${docRef}.signed.pdf`;
+
+      const { error: upErr } = await supabase.storage
+        .from("hr-documents")
+        .upload(path, scanBlob, {
+          contentType: "application/pdf",
+          upsert: true,
+        });
+      if (upErr) throw upErr;
+
+      const { error: rpcErr } = await supabase.rpc(
+        "hr_mark_finalization_signed",
+        {
+          p_finalization_id: draftId,
+          p_type: type,
+          p_signed_scan_path: path,
+        },
+      );
+      if (rpcErr) throw rpcErr;
+
+      return path;
+    },
+    onSuccess: (_path, vars) => {
+      qc.invalidateQueries({ queryKey: [FINALIZATION_KEY, vars.requestId] });
+      qc.invalidateQueries({
+        queryKey: [QUERY_KEY, "detail", vars.requestId],
+      });
+      qc.invalidateQueries({ queryKey: [QUERY_KEY, "queue"] });
+      qc.invalidateQueries({
+        queryKey: [QUERY_KEY, "by_employee", vars.employeeId],
+      });
+    },
+  });
+}
