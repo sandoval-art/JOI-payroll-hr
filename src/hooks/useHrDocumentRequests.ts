@@ -4,6 +4,8 @@ import type {
   HrDocumentRequest,
   HrDocumentRequestType,
   HrDocumentRequestStatus,
+  CartaKpiRow,
+  ActaWitness,
 } from "@/types/hr-docs";
 
 const QUERY_KEY = "hr_document_requests";
@@ -269,6 +271,11 @@ export interface FinalizationDraft {
   createdAt: string;
   updatedAt: string;
   type: "carta" | "acta";
+  // Carta-specific
+  kpiTable: CartaKpiRow[];
+  // Acta-specific
+  witnesses: ActaWitness[];
+  reincidenciaPriorCartaId: string | null;
 }
 
 function mapFinalizationRow(
@@ -298,6 +305,10 @@ function mapFinalizationRow(
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     type,
+    kpiTable: (row.kpi_table as CartaKpiRow[]) ?? [],
+    witnesses: (row.witnesses as ActaWitness[]) ?? [],
+    reincidenciaPriorCartaId:
+      (row.reincidencia_prior_carta_id as string) ?? null,
   };
 }
 
@@ -376,6 +387,9 @@ export interface DraftUpdateFields {
   company_legal_name_snapshot?: string | null;
   company_legal_address_snapshot?: string | null;
   incident_date_long_snapshot?: string | null;
+  kpi_table?: CartaKpiRow[];
+  witnesses?: ActaWitness[];
+  reincidencia_prior_carta_id?: string | null;
 }
 
 /**
@@ -410,5 +424,36 @@ export function useSaveFinalizationDraft() {
         queryKey: [FINALIZATION_KEY, vars.requestId],
       });
     },
+  });
+}
+
+/**
+ * Find the most recent signed carta for an employee (for reincidencia auto-cite).
+ * Returns null if no prior signed carta exists.
+ */
+export function usePriorSignedCartaForEmployee(
+  employeeId: string | undefined,
+) {
+  return useQuery({
+    queryKey: ["prior_signed_carta", employeeId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cartas_compromiso")
+        .select("id, doc_ref, created_at, signed_at")
+        .eq("employee_id", employeeId!)
+        .not("signed_at", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as {
+        id: string;
+        doc_ref: string | null;
+        created_at: string;
+        signed_at: string;
+      } | null;
+    },
+    enabled: !!employeeId,
   });
 }
