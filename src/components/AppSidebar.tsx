@@ -51,6 +51,7 @@ const hrItems = [
   { title: "Document Types", url: "/settings/document-types", icon: FileCheck },
   { title: "Departments", url: "/settings/departments", icon: Building2 },
   { title: "Manage Policies", url: "/settings/policies", icon: ScrollText },
+  { title: "Cartas y Actas", url: "/hr/document-queue", icon: ClipboardList },
   { title: "My Timeclock", url: "/reloj", icon: Timer },
   { title: "My EOD History", url: "/eod", icon: ClipboardCheck },
 ];

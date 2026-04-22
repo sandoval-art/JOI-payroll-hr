@@ -32,6 +32,7 @@ import DocumentTypes from "@/pages/DocumentTypes";
 import Departments from "@/pages/Departments";
 import Policies from "@/pages/Policies";
 import MyPolicies from "@/pages/MyPolicies";
+import HrDocumentQueue from "@/pages/HrDocumentQueue";
 import { RequireLeadership, RequireTeamLeadOrAbove } from "@/components/RequireRole";
 
 const queryClient = new QueryClient();
@@ -115,6 +116,7 @@ const App = () => (
                     <Route path="/settings/document-types" element={<RequireLeadership><DocumentTypes /></RequireLeadership>} />
                     <Route path="/settings/departments" element={<RequireLeadership><Departments /></RequireLeadership>} />
                     <Route path="/settings/policies" element={<RequireLeadership><Policies /></RequireLeadership>} />
+                    <Route path="/hr/document-queue" element={<RequireLeadership><HrDocumentQueue /></RequireLeadership>} />
                     <Route path="/policies" element={<MyPolicies />} />
                     <Route path="/account" element={<Account />} />
                     <Route path="*" element={<NotFound />} />
