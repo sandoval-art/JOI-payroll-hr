@@ -12,7 +12,7 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
-import { ArrowLeft, Save, FileText, Plus, Trash2, AlertTriangle, Unlink } from "lucide-react";
+import { ArrowLeft, Save, FileText, Plus, Trash2, AlertTriangle, Unlink, Eye, Upload, ExternalLink, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDateMX, formatDateMXLong } from "@/lib/localDate";
@@ -26,9 +26,13 @@ import {
   useCreateHrFinalizationDraft,
   useSaveFinalizationDraft,
   usePriorSignedCartaForEmployee,
+  useCartaById,
+  useUploadFinalizedPdf,
   type FinalizationDraft,
 } from "@/hooks/useHrDocumentRequests";
 import type { CartaKpiRow, ActaWitness } from "@/types/hr-docs";
+import { generateCartaPdf } from "@/lib/pdf/generateCartaPdf";
+import { generateActaPdf } from "@/lib/pdf/generateActaPdf";
 
 // ── Snapshot auto-populate helpers ──────────────────────────────────
 
@@ -292,6 +296,66 @@ export default function HrDocumentDraft() {
     }
   }
 
+  // ── PDF hooks + handlers ───────────────────────────────────────────
+  const uploadPdf = useUploadFinalizedPdf();
+  // For acta reincidencia: fetch linked carta (may differ from priorCarta after desvincular)
+  const { data: linkedCarta } = useCartaById(
+    draft?.type === "acta" ? draft?.reincidenciaPriorCartaId : undefined,
+  );
+
+  function generatePdfBlob(): Blob | null {
+    if (!draft || !request) return null;
+    if (request.requestType === "carta") {
+      return generateCartaPdf(draft, request);
+    }
+    return generateActaPdf(
+      draft,
+      request,
+      linkedCarta ?? null,
+    );
+  }
+
+  function handlePreviewPdf() {
+    const blob = generatePdfBlob();
+    if (!blob) {
+      toast.error("Guarda el borrador primero");
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  }
+
+  async function handleFinalizePdf() {
+    if (!draft || !request) return;
+    const blob = generatePdfBlob();
+    if (!blob) return;
+    try {
+      await uploadPdf.mutateAsync({
+        draftId: draft.id,
+        type: draft.type,
+        employeeId: request.employeeId,
+        docRef: draft.docRef ?? draft.id,
+        pdfBlob: blob,
+        requestId: request.id,
+      });
+      toast.success("PDF guardado");
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }
+
+  async function handleViewSavedPdf() {
+    if (!draft?.pdfPath) return;
+    const { data, error } = await supabase.storage
+      .from("hr-documents")
+      .createSignedUrl(draft.pdfPath, 3600);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    window.open(data.signedUrl, "_blank");
+  }
+
   // ── Loading / not found ────────────────────────────────────────────
 
   if (reqLoading || draftLoading) {
@@ -347,13 +411,47 @@ export default function HrDocumentDraft() {
             </span>
           )}
           {!isTerminal && (
-            <Button onClick={handleSave} disabled={saving} size="sm">
-              <Save className="mr-1 h-4 w-4" />
-              {saving ? "Guardando..." : "Guardar borrador"}
+            <>
+              <Button onClick={handleSave} disabled={saving} size="sm">
+                <Save className="mr-1 h-4 w-4" />
+                {saving ? "Guardando..." : "Guardar borrador"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePreviewPdf}
+                disabled={!draft || !form.narrative.trim()}
+              >
+                <Eye className="mr-1 h-4 w-4" /> Vista previa PDF
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleFinalizePdf}
+                disabled={!draft || uploadPdf.isPending}
+              >
+                <Upload className="mr-1 h-4 w-4" />
+                {uploadPdf.isPending ? "Subiendo..." : "Finalizar y guardar PDF"}
+              </Button>
+            </>
+          )}
+          {draft?.pdfPath && (
+            <Button variant="link" size="sm" onClick={handleViewSavedPdf}>
+              <ExternalLink className="mr-1 h-3 w-3" /> Ver PDF guardado
             </Button>
           )}
         </div>
       </div>
+
+      {/* Stale PDF warning */}
+      {formDirty.current && draft?.pdfPath && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+          <p className="text-sm text-amber-800">
+            Tienes cambios sin guardar. El PDF guardado refleja la versión anterior — regenera después de guardar para actualizarlo.
+          </p>
+        </div>
+      )}
 
       {isTerminal && (
         <div className="rounded-lg border border-destructive/30 p-3 text-sm bg-destructive/5">

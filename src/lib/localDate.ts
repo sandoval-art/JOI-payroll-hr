@@ -49,3 +49,41 @@ export function formatDateMXLong(d: string | Date | null | undefined): string {
   const yyyy = String(date.getFullYear());
   return `${dd}/${mm}/${yyyy}`;
 }
+
+const WEEKDAYS_ES = [
+  "domingo", "lunes", "martes", "miércoles",
+  "jueves", "viernes", "sábado",
+];
+const MONTHS_ES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+/**
+ * Spanish long-form date with weekday: "sabado 18 de abril 2026"
+ * Used in acta opening paragraph for {incident_day_short}.
+ */
+export function formatDateSpanishFull(d: string | Date | null | undefined): string {
+  if (d == null) return "";
+  const date = typeof d === "string" ? parseLocalDate(d.slice(0, 10)) : d;
+  if (isNaN(date.getTime())) return "";
+  const wd = WEEKDAYS_ES[date.getDay()];
+  const day = date.getDate();
+  const month = MONTHS_ES[date.getMonth()];
+  const year = date.getFullYear();
+  return `${wd} ${day} de ${month} ${year}`;
+}
+
+/**
+ * Spanish medium-long date without weekday: "21 de abril de 2026"
+ * Used in acta closing for {incident_date_short}.
+ */
+export function formatDateSpanishMedium(d: string | Date | null | undefined): string {
+  if (d == null) return "";
+  const date = typeof d === "string" ? parseLocalDate(d.slice(0, 10)) : d;
+  if (isNaN(date.getTime())) return "";
+  const day = date.getDate();
+  const month = MONTHS_ES[date.getMonth()];
+  const year = date.getFullYear();
+  return `${day} de ${month} de ${year}`;
+}
