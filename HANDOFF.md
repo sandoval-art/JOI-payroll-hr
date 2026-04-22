@@ -177,14 +177,14 @@ One-off fix files (run once, not migrations):
 - **TL restricted agent profile access** — TLs can navigate from `/asistencia` to agent profiles on their own team. See: basic info, required docs status (no file view, no actions), notes/warnings card, attendance incidents. Hidden: tax info, salary, compliance enforcement, biweekly breakdown.
 - **Policy catalog** (C1) — `/settings/policies` admin for leadership. Create policies with campaign + role scope toggles. Multiple versions per policy (atomic server-side version numbering via `insert_policy_version` RPC). Per-employee ack status card on profile.
 - **Agent-facing policy acknowledgments** (C2) — `/policies` page for every role. Lists applicable policies with "View document" + "I've read and agree". Home page badge counts unacknowledged policies.
-- **B2/B3 data model** (Phase 1 only) — `hr_document_requests`, `cartas_compromiso`, `actas_administrativas` tables + `hr-documents` bucket + RLS. Schema landed; no UI yet. Phases 2–5 queued.
+- **B2/B3 cartas + actas** — Phase 1 (data model, PR #42) + Phase 2 (TL request-filing form + requests card on agent profile, PR #43). TL/leadership can file carta or acta requests from an agent's profile; list shows status, filer, narrative preview. Phases 3–5 queued: HR queue, split-view editor + PDF, signed-scan upload.
 - **CI workflow** — `.github/workflows/supabase-deploy.yml` auto-deploys edge functions on push to main. Migration auto-apply is intentionally skipped (blocked on migration history cleanup); migrations currently applied manually via MCP.
 
 ## What's left
 
 **Known blockers:**
 
-- **Feature B2/B3 — Carta de compromiso + acta administrativa.** Phase 1 (data model) shipped. Phases 2–5 remain: TL request form, HR queue/status management, split-view editor + PDF generation + doc-ref generator, signed-scan upload + agent view. Phase 4 is gated on the break-times file D hasn't uploaded yet (needed for `horario_snapshot` in the carta/acta template).
+- **Feature B2/B3 — Carta de compromiso + acta administrativa.** Phase 1 (data model) + Phase 2 (TL request form) shipped. Phases 3–5 remain: HR queue/status management, split-view editor + PDF generation + doc-ref generator, signed-scan upload + agent view. Phase 4 is gated on the break-times file D hasn't uploaded yet (needed for `horario_snapshot` in the carta/acta template).
 - **A3b real email delivery.** Edge function is deployed and running in DRY_RUN. Remaining manual steps in Supabase dashboard: set `APP_URL` env var on `compliance-notifications`, then flip `DRY_RUN=false`. No code changes needed.
 
 **Audit followups — ALL SHIPPED 2026-04-21 (PRs #32, #37–#41). See `docs/hr-roadmap.md` § Followups for details.**

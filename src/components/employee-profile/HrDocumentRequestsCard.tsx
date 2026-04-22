@@ -1,0 +1,322 @@
+import { useState } from "react";
+import { toast } from "sonner";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FileText, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { formatDateMX } from "@/lib/localDate";
+import {
+  useHrDocumentRequestsForEmployee,
+  useCreateHrDocumentRequest,
+} from "@/hooks/useHrDocumentRequests";
+import type { HrDocumentRequestType } from "@/types/hr-docs";
+
+const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  pending: { label: "Pendiente", variant: "secondary" },
+  in_progress: { label: "En proceso", variant: "default" },
+  fulfilled: { label: "Completada", variant: "outline" },
+  canceled: { label: "Cancelada", variant: "destructive" },
+  downgraded: { label: "Degradada", variant: "outline" },
+};
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "justo ahora";
+  if (mins < 60) return `hace ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `hace ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `hace ${days}d`;
+  return formatDateMX(dateStr);
+}
+
+export default function HrDocumentRequestsCard({
+  employeeId,
+  authEmployeeId,
+}: {
+  employeeId: string;
+  authEmployeeId: string;
+}) {
+  const { data: requests = [], isLoading } =
+    useHrDocumentRequestsForEmployee(employeeId);
+  const createRequest = useCreateHrDocumentRequest();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [requestType, setRequestType] = useState<HrDocumentRequestType>("carta");
+  const [incidentDate, setIncidentDate] = useState(
+    () => new Date().toISOString().split("T")[0],
+  );
+  const [reason, setReason] = useState("");
+  const [narrative, setNarrative] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const today = new Date().toISOString().split("T")[0];
+  const isValid =
+    narrative.trim().length > 0 && incidentDate && incidentDate <= today;
+
+  function resetForm() {
+    setRequestType("carta");
+    setIncidentDate(new Date().toISOString().split("T")[0]);
+    setReason("");
+    setNarrative("");
+  }
+
+  function handleSubmit() {
+    createRequest.mutate(
+      {
+        employeeId,
+        requestType,
+        incidentDate,
+        tlNarrative: narrative.trim(),
+        reason: reason.trim() || null,
+        filedBy: authEmployeeId,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Solicitud enviada a HR");
+          setDialogOpen(false);
+          resetForm();
+        },
+        onError: (err) => {
+          toast.error((err as Error).message);
+        },
+      },
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Cartas y Actas
+          </CardTitle>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              resetForm();
+              setDialogOpen(true);
+            }}
+          >
+            <Plus className="mr-1 h-3 w-3" /> Solicitar
+          </Button>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {isLoading && (
+          <p className="text-sm text-muted-foreground">Cargando...</p>
+        )}
+
+        {!isLoading && requests.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No hay solicitudes filadas para este agente aún.
+          </p>
+        )}
+
+        {requests.length > 0 && (
+          <ul className="space-y-3">
+            {requests.map((req) => {
+              const statusInfo = STATUS_LABELS[req.status] ?? {
+                label: req.status,
+                variant: "outline" as const,
+              };
+              const isExpanded = expandedId === req.id;
+              const preview =
+                req.tlNarrative.length > 100
+                  ? req.tlNarrative.slice(0, 100) + "…"
+                  : req.tlNarrative;
+
+              return (
+                <li
+                  key={req.id}
+                  className="border-l-2 border-muted pl-3 space-y-1"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge
+                      variant={
+                        req.requestType === "acta" ? "destructive" : "outline"
+                      }
+                      className="text-xs"
+                    >
+                      {req.requestType === "acta"
+                        ? "Acta administrativa"
+                        : "Carta de compromiso"}
+                    </Badge>
+                    <Badge variant={statusInfo.variant} className="text-xs">
+                      {statusInfo.label}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDateMX(req.incidentDate)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      — {req.filerName ?? "Desconocido"} · {timeAgo(req.filedAt)}
+                    </span>
+                  </div>
+
+                  {req.reason && (
+                    <p className="text-xs text-muted-foreground italic">
+                      {req.reason}
+                    </p>
+                  )}
+
+                  <p className="text-sm">
+                    {isExpanded ? req.tlNarrative : preview}
+                  </p>
+
+                  {req.tlNarrative.length > 100 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={() =>
+                        setExpandedId(isExpanded ? null : req.id)
+                      }
+                    >
+                      {isExpanded ? (
+                        <>
+                          <ChevronUp className="mr-1 h-3 w-3" /> Menos
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="mr-1 h-3 w-3" /> Más
+                        </>
+                      )}
+                    </Button>
+                  )}
+
+                  {req.status === "fulfilled" &&
+                    (req.fulfilledCartaId || req.fulfilledActaId) && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-6 px-0 text-xs"
+                        disabled
+                      >
+                        {/* TODO(phase3): link to HR queue detail or signed PDF download */}
+                        Ver documento
+                      </Button>
+                    )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+
+      {/* ── File request dialog ────────────────────────── */}
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(o) => {
+          if (!o) setDialogOpen(false);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Solicitar carta o acta</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Type selector */}
+            <div className="space-y-2">
+              <Label>Tipo</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="request-type"
+                    checked={requestType === "carta"}
+                    onChange={() => setRequestType("carta")}
+                    className="accent-primary"
+                  />
+                  <span className="text-sm">Carta de compromiso</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="request-type"
+                    checked={requestType === "acta"}
+                    onChange={() => setRequestType("acta")}
+                    className="accent-primary"
+                  />
+                  <span className="text-sm">Acta administrativa</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Incident date */}
+            <div className="space-y-2">
+              <Label htmlFor="incident-date">Fecha del incidente</Label>
+              <Input
+                id="incident-date"
+                type="date"
+                value={incidentDate}
+                onChange={(e) => setIncidentDate(e.target.value)}
+                max={today}
+              />
+            </div>
+
+            {/* Reason */}
+            <div className="space-y-2">
+              <Label htmlFor="request-reason">Motivo (opcional)</Label>
+              <Input
+                id="request-reason"
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Ej: tardanza reiterada, incumplimiento de KPI..."
+              />
+            </div>
+
+            {/* TL narrative */}
+            <div className="space-y-2">
+              <Label htmlFor="tl-narrative">Descripción del incidente</Label>
+              <Textarea
+                id="tl-narrative"
+                autoFocus
+                value={narrative}
+                onChange={(e) => setNarrative(e.target.value)}
+                placeholder="Describe qué pasó en tus propias palabras. HR usará esto para redactar la versión formal."
+                rows={5}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!isValid || createRequest.isPending}
+            >
+              {createRequest.isPending
+                ? "Enviando..."
+                : requestType === "acta"
+                  ? "Solicitar acta"
+                  : "Solicitar carta"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}

@@ -42,6 +42,7 @@ import { useDepartments } from "@/hooks/useDepartments";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDateMX } from "@/lib/localDate";
 import { getDisplayName } from "@/lib/displayName";
+import HrDocumentRequestsCard from "@/components/employee-profile/HrDocumentRequestsCard";
 
 // ── A1: Personal & Tax Info validation ──────────────────────────────
 const CURP_RE = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
@@ -595,6 +596,11 @@ export default function EmpleadoPerfil() {
       {/* B4: Attendance Incidents — leadership + TL on own campaign */}
       {(isLeadership || (isTeamLead && campaignId)) && (
         <AttendanceIncidentsCard agentId={emp._uuid!} employeeId={emp._uuid!} creatorEmployeeId={authEmployeeId!} />
+      )}
+
+      {/* B2/B3: Cartas & Actas — leadership + TL on own campaign */}
+      {(isLeadership || (isTeamLead && campaignId)) && (
+        <HrDocumentRequestsCard employeeId={emp._uuid!} authEmployeeId={authEmployeeId!} />
       )}
 
       {/* C1: Policy Acknowledgments — leadership only */}
