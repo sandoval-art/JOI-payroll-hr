@@ -36,6 +36,7 @@ import {
   useHrDocumentRequest,
   useUpdateHrDocumentRequestStatus,
   useHrDocumentRequestsForEmployee,
+  issueHrDocumentSignedUrl,
 } from "@/hooks/useHrDocumentRequests";
 import type { HrDocumentRequestStatus } from "@/types/hr-docs";
 
@@ -342,13 +343,13 @@ function RequestDetail({
             </div>
           )}
 
-          {/* Fulfilled stub */}
+          {/* Fulfilled doc links */}
           {req.status === "fulfilled" &&
             (req.fulfilledCartaId || req.fulfilledActaId) && (
-              <Button variant="outline" size="sm" disabled>
-                {/* TODO(phase4/5): link to signed PDF download */}
-                Ver documento
-              </Button>
+              <QueueFulfilledLinks
+                finalizationId={(req.fulfilledCartaId ?? req.fulfilledActaId)!}
+                type={req.requestType}
+              />
             )}
 
           {/* Actions */}
@@ -494,5 +495,50 @@ function RequestDetail({
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function QueueFulfilledLinks({
+  finalizationId,
+  type,
+}: {
+  finalizationId: string;
+  type: "carta" | "acta";
+}) {
+  const [loading, setLoading] = useState<string | null>(null);
+
+  async function handleView(fileType: "pdf" | "signed_scan") {
+    setLoading(fileType);
+    try {
+      const url = await issueHrDocumentSignedUrl(finalizationId, type, fileType);
+      window.open(url, "_blank");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={loading === "pdf"}
+        onClick={() => handleView("pdf")}
+      >
+        <ExternalLink className="mr-1 h-3 w-3" />
+        {loading === "pdf" ? "Abriendo..." : "Ver PDF"}
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={loading === "signed_scan"}
+        onClick={() => handleView("signed_scan")}
+      >
+        <ExternalLink className="mr-1 h-3 w-3" />
+        {loading === "signed_scan" ? "Abriendo..." : "Ver escaneo firmado"}
+      </Button>
+    </div>
   );
 }

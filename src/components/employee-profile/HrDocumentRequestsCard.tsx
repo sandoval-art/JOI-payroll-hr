@@ -18,11 +18,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileText, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { FileText, Plus, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { formatDateMX, todayLocal } from "@/lib/localDate";
 import {
   useHrDocumentRequestsForEmployee,
   useCreateHrDocumentRequest,
+  issueHrDocumentSignedUrl,
 } from "@/hooks/useHrDocumentRequests";
 import type { HrDocumentRequestType } from "@/types/hr-docs";
 
@@ -205,15 +206,12 @@ export default function HrDocumentRequestsCard({
 
                   {req.status === "fulfilled" &&
                     (req.fulfilledCartaId || req.fulfilledActaId) && (
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="h-6 px-0 text-xs"
-                        disabled
-                      >
-                        {/* TODO(phase3): link to HR queue detail or signed PDF download */}
-                        Ver documento
-                      </Button>
+                      <FulfilledDocLinks
+                        finalizationId={
+                          (req.fulfilledCartaId ?? req.fulfilledActaId)!
+                        }
+                        type={req.requestType}
+                      />
                     )}
                 </li>
               );
@@ -318,5 +316,52 @@ export default function HrDocumentRequestsCard({
         </DialogContent>
       </Dialog>
     </Card>
+  );
+}
+
+function FulfilledDocLinks({
+  finalizationId,
+  type,
+}: {
+  finalizationId: string;
+  type: "carta" | "acta";
+}) {
+  const [loading, setLoading] = useState<string | null>(null);
+
+  async function handleView(fileType: "pdf" | "signed_scan") {
+    setLoading(fileType);
+    try {
+      const url = await issueHrDocumentSignedUrl(finalizationId, type, fileType);
+      window.open(url, "_blank");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="link"
+        size="sm"
+        className="h-6 px-0 text-xs"
+        disabled={loading === "pdf"}
+        onClick={() => handleView("pdf")}
+      >
+        <ExternalLink className="mr-1 h-3 w-3" />
+        {loading === "pdf" ? "Abriendo..." : "Ver PDF"}
+      </Button>
+      <Button
+        variant="link"
+        size="sm"
+        className="h-6 px-0 text-xs"
+        disabled={loading === "signed_scan"}
+        onClick={() => handleView("signed_scan")}
+      >
+        <ExternalLink className="mr-1 h-3 w-3" />
+        {loading === "signed_scan" ? "Abriendo..." : "Ver escaneo firmado"}
+      </Button>
+    </div>
   );
 }

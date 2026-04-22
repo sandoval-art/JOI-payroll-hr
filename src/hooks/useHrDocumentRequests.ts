@@ -595,3 +595,88 @@ export function useUploadSignedScan() {
     },
   });
 }
+
+// ── Phase 5c: Signed-URL via edge function + agent query ────────────
+
+/**
+ * Issue a signed URL for a carta/acta file via the edge function.
+ * Works for all roles — the edge function uses the caller's JWT to
+ * verify table-level RLS access, then issues via service_role.
+ */
+export async function issueHrDocumentSignedUrl(
+  finalizationId: string,
+  type: "carta" | "acta",
+  fileType: "pdf" | "signed_scan",
+): Promise<string> {
+  const { data, error } = await supabase.functions.invoke(
+    "get-hr-document-signed-url",
+    { body: { finalizationId, type, fileType } },
+  );
+  if (error) throw error;
+  if (!data?.signedUrl) throw new Error("No signed URL returned");
+  return data.signedUrl as string;
+}
+
+export interface SignedHrDocument {
+  id: string;
+  type: "carta" | "acta";
+  docRef: string | null;
+  incidentDate: string;
+  signedAt: string;
+  pdfPath: string | null;
+  signedScanPath: string | null;
+}
+
+/**
+ * Fetch all signed cartas + actas for the current agent.
+ * RLS on both tables ensures agents only see their own signed docs.
+ */
+export function useMySignedHrDocuments(employeeId: string | null) {
+  return useQuery({
+    queryKey: ["my_signed_hr_documents", employeeId],
+    queryFn: async (): Promise<SignedHrDocument[]> => {
+      const [cartasRes, actasRes] = await Promise.all([
+        supabase
+          .from("cartas_compromiso")
+          .select("id, doc_ref, incident_date, signed_at, pdf_path, signed_scan_path")
+          .eq("employee_id", employeeId!)
+          .not("signed_at", "is", null)
+          .order("signed_at", { ascending: false }),
+        supabase
+          .from("actas_administrativas")
+          .select("id, doc_ref, incident_date, signed_at, pdf_path, signed_scan_path")
+          .eq("employee_id", employeeId!)
+          .not("signed_at", "is", null)
+          .order("signed_at", { ascending: false }),
+      ]);
+
+      if (cartasRes.error) throw cartasRes.error;
+      if (actasRes.error) throw actasRes.error;
+
+      const cartas: SignedHrDocument[] = (cartasRes.data ?? []).map((r) => ({
+        id: r.id,
+        type: "carta" as const,
+        docRef: r.doc_ref,
+        incidentDate: r.incident_date,
+        signedAt: r.signed_at!,
+        pdfPath: r.pdf_path,
+        signedScanPath: r.signed_scan_path,
+      }));
+
+      const actas: SignedHrDocument[] = (actasRes.data ?? []).map((r) => ({
+        id: r.id,
+        type: "acta" as const,
+        docRef: r.doc_ref,
+        incidentDate: r.incident_date,
+        signedAt: r.signed_at!,
+        pdfPath: r.pdf_path,
+        signedScanPath: r.signed_scan_path,
+      }));
+
+      return [...cartas, ...actas].sort(
+        (a, b) => new Date(b.signedAt).getTime() - new Date(a.signedAt).getTime(),
+      );
+    },
+    enabled: !!employeeId,
+  });
+}
