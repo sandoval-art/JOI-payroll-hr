@@ -14,30 +14,154 @@ export type Database = {
   }
   public: {
     Tables: {
+      actas_administrativas: {
+        Row: {
+          company_legal_address_snapshot: string | null
+          company_legal_name_snapshot: string | null
+          created_at: string
+          created_by: string
+          doc_ref: string | null
+          employee_id: string
+          horario_snapshot: string | null
+          id: string
+          incident_date: string
+          incident_date_long_snapshot: string | null
+          narrative: string | null
+          pdf_path: string | null
+          puesto_snapshot: string | null
+          reincidencia_prior_carta_id: string | null
+          request_id: string | null
+          signed_at: string | null
+          signed_scan_path: string | null
+          supervisor_name_snapshot: string | null
+          trabajador_name_snapshot: string | null
+          updated_at: string
+          witnesses: Json
+        }
+        Insert: {
+          company_legal_address_snapshot?: string | null
+          company_legal_name_snapshot?: string | null
+          created_at?: string
+          created_by: string
+          doc_ref?: string | null
+          employee_id: string
+          horario_snapshot?: string | null
+          id?: string
+          incident_date: string
+          incident_date_long_snapshot?: string | null
+          narrative?: string | null
+          pdf_path?: string | null
+          puesto_snapshot?: string | null
+          reincidencia_prior_carta_id?: string | null
+          request_id?: string | null
+          signed_at?: string | null
+          signed_scan_path?: string | null
+          supervisor_name_snapshot?: string | null
+          trabajador_name_snapshot?: string | null
+          updated_at?: string
+          witnesses?: Json
+        }
+        Update: {
+          company_legal_address_snapshot?: string | null
+          company_legal_name_snapshot?: string | null
+          created_at?: string
+          created_by?: string
+          doc_ref?: string | null
+          employee_id?: string
+          horario_snapshot?: string | null
+          id?: string
+          incident_date?: string
+          incident_date_long_snapshot?: string | null
+          narrative?: string | null
+          pdf_path?: string | null
+          puesto_snapshot?: string | null
+          reincidencia_prior_carta_id?: string | null
+          request_id?: string | null
+          signed_at?: string | null
+          signed_scan_path?: string | null
+          supervisor_name_snapshot?: string | null
+          trabajador_name_snapshot?: string | null
+          updated_at?: string
+          witnesses?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "actas_administrativas_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "actas_administrativas_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "actas_administrativas_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "actas_administrativas_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "actas_administrativas_reincidencia_prior_carta_id_fkey"
+            columns: ["reincidencia_prior_carta_id"]
+            isOneToOne: false
+            referencedRelation: "cartas_compromiso"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_actas_request_id"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "hr_document_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_coaching_notes: {
         Row: {
           agent_id: string
           author_id: string
           campaign_id: string
           created_at: string
+          entry_type: string
           id: string
           note: string
+          updated_at: string
+          visible_to_agent: boolean
         }
         Insert: {
           agent_id: string
           author_id: string
           campaign_id: string
           created_at?: string
+          entry_type?: string
           id?: string
           note: string
+          updated_at?: string
+          visible_to_agent?: boolean
         }
         Update: {
           agent_id?: string
           author_id?: string
           campaign_id?: string
           created_at?: string
+          entry_type?: string
           id?: string
           note?: string
+          updated_at?: string
+          visible_to_agent?: boolean
         }
         Relationships: [
           {
@@ -91,6 +215,71 @@ export type Database = {
           value?: string
         }
         Relationships: []
+      }
+      attendance_incidents: {
+        Row: {
+          created_at: string
+          created_by: string
+          date: string
+          employee_id: string
+          id: string
+          incident_type: string
+          notes: string | null
+          supporting_doc_path: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          date: string
+          employee_id: string
+          id?: string
+          incident_type: string
+          notes?: string | null
+          supporting_doc_path?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          date?: string
+          employee_id?: string
+          id?: string
+          incident_type?: string
+          notes?: string | null
+          supporting_doc_path?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_incidents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_incidents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_incidents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_incidents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       campaign_eod_recipients: {
         Row: {
@@ -290,6 +479,111 @@ export type Database = {
           },
         ]
       }
+      cartas_compromiso: {
+        Row: {
+          company_legal_address_snapshot: string | null
+          company_legal_name_snapshot: string | null
+          created_at: string
+          created_by: string
+          doc_ref: string | null
+          employee_id: string
+          horario_snapshot: string | null
+          id: string
+          incident_date: string
+          incident_date_long_snapshot: string | null
+          kpi_table: Json
+          narrative: string | null
+          pdf_path: string | null
+          puesto_snapshot: string | null
+          request_id: string | null
+          signed_at: string | null
+          signed_scan_path: string | null
+          supervisor_name_snapshot: string | null
+          trabajador_name_snapshot: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_legal_address_snapshot?: string | null
+          company_legal_name_snapshot?: string | null
+          created_at?: string
+          created_by: string
+          doc_ref?: string | null
+          employee_id: string
+          horario_snapshot?: string | null
+          id?: string
+          incident_date: string
+          incident_date_long_snapshot?: string | null
+          kpi_table?: Json
+          narrative?: string | null
+          pdf_path?: string | null
+          puesto_snapshot?: string | null
+          request_id?: string | null
+          signed_at?: string | null
+          signed_scan_path?: string | null
+          supervisor_name_snapshot?: string | null
+          trabajador_name_snapshot?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_legal_address_snapshot?: string | null
+          company_legal_name_snapshot?: string | null
+          created_at?: string
+          created_by?: string
+          doc_ref?: string | null
+          employee_id?: string
+          horario_snapshot?: string | null
+          id?: string
+          incident_date?: string
+          incident_date_long_snapshot?: string | null
+          kpi_table?: Json
+          narrative?: string | null
+          pdf_path?: string | null
+          puesto_snapshot?: string | null
+          request_id?: string | null
+          signed_at?: string | null
+          signed_scan_path?: string | null
+          supervisor_name_snapshot?: string | null
+          trabajador_name_snapshot?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cartas_compromiso_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cartas_compromiso_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cartas_compromiso_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cartas_compromiso_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_cartas_request_id"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "hr_document_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           bill_to_address: string | null
@@ -322,22 +616,22 @@ export type Database = {
       }
       compliance_notifications_sent: {
         Row: {
-          id: string
           employee_id: string
+          id: string
           notification_type: string
           related_document_id: string | null
           sent_at: string
         }
         Insert: {
-          id?: string
           employee_id: string
+          id?: string
           notification_type: string
           related_document_id?: string | null
           sent_at?: string
         }
         Update: {
-          id?: string
           employee_id?: string
+          id?: string
           notification_type?: string
           related_document_id?: string | null
           sent_at?: string
@@ -351,6 +645,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "compliance_notifications_sent_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "compliance_notifications_sent_related_document_id_fkey"
             columns: ["related_document_id"]
             isOneToOne: false
@@ -359,83 +660,105 @@ export type Database = {
           },
         ]
       }
-      employee_documents: {
+      departments: {
         Row: {
-          employee_id: string
-          document_type_id: string
-          file_path: string
-          file_name: string
-          mime_type: string
-          file_size_bytes: number
+          created_at: string
           id: string
-          rejection_reason: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          status: string
-          uploaded_at: string
-          uploaded_by: string
+          is_active: boolean
+          name: string
+          sort_order: number
           updated_at: string
         }
         Insert: {
-          employee_id: string
-          document_type_id: string
-          file_path: string
-          file_name: string
-          mime_type: string
-          file_size_bytes: number
+          created_at?: string
           id?: string
-          rejection_reason?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: string
-          uploaded_at?: string
-          uploaded_by?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
           updated_at?: string
         }
         Update: {
-          employee_id?: string
-          document_type_id?: string
-          file_path?: string
-          file_name?: string
-          mime_type?: string
-          file_size_bytes?: number
+          created_at?: string
           id?: string
-          rejection_reason?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: string
-          uploaded_at?: string
-          uploaded_by?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
           updated_at?: string
         }
         Relationships: []
       }
-      departments: {
+      employee_documents: {
         Row: {
+          document_type_id: string
+          employee_id: string
+          file_name: string
+          file_path: string
+          file_size_bytes: number
           id: string
-          name: string
-          is_active: boolean
-          sort_order: number
-          created_at: string
+          mime_type: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
           updated_at: string
+          uploaded_at: string
+          uploaded_by: string
         }
         Insert: {
+          document_type_id: string
+          employee_id: string
+          file_name: string
+          file_path: string
+          file_size_bytes: number
           id?: string
-          name: string
-          is_active?: boolean
-          sort_order?: number
-          created_at?: string
+          mime_type: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
           updated_at?: string
+          uploaded_at?: string
+          uploaded_by: string
         }
         Update: {
+          document_type_id?: string
+          employee_id?: string
+          file_name?: string
+          file_path?: string
+          file_size_bytes?: number
           id?: string
-          name?: string
-          is_active?: boolean
-          sort_order?: number
-          created_at?: string
+          mime_type?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
           updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "employee_documents_document_type_id_fkey"
+            columns: ["document_type_id"]
+            isOneToOne: false
+            referencedRelation: "required_document_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employees: {
         Row: {
@@ -673,6 +996,100 @@ export type Database = {
           },
         ]
       }
+      hr_document_requests: {
+        Row: {
+          canceled_reason: string | null
+          created_at: string
+          employee_id: string
+          filed_at: string
+          filed_by: string
+          fulfilled_acta_id: string | null
+          fulfilled_carta_id: string | null
+          id: string
+          incident_date: string
+          reason: string | null
+          request_type: string
+          status: string
+          tl_narrative: string
+          updated_at: string
+        }
+        Insert: {
+          canceled_reason?: string | null
+          created_at?: string
+          employee_id: string
+          filed_at?: string
+          filed_by: string
+          fulfilled_acta_id?: string | null
+          fulfilled_carta_id?: string | null
+          id?: string
+          incident_date: string
+          reason?: string | null
+          request_type: string
+          status?: string
+          tl_narrative: string
+          updated_at?: string
+        }
+        Update: {
+          canceled_reason?: string | null
+          created_at?: string
+          employee_id?: string
+          filed_at?: string
+          filed_by?: string
+          fulfilled_acta_id?: string | null
+          fulfilled_carta_id?: string | null
+          id?: string
+          incident_date?: string
+          reason?: string | null
+          request_type?: string
+          status?: string
+          tl_narrative?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_document_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_document_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_document_requests_filed_by_fkey"
+            columns: ["filed_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_document_requests_filed_by_fkey"
+            columns: ["filed_by"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_document_requests_fulfilled_acta_id_fkey"
+            columns: ["fulfilled_acta_id"]
+            isOneToOne: false
+            referencedRelation: "actas_administrativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_document_requests_fulfilled_carta_id_fkey"
+            columns: ["fulfilled_carta_id"]
+            isOneToOne: false
+            referencedRelation: "cartas_compromiso"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_lines: {
         Row: {
           agent_name: string
@@ -866,6 +1283,152 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      policy_acknowledgments: {
+        Row: {
+          acknowledged_at: string
+          employee_id: string
+          id: string
+          policy_document_version_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          employee_id: string
+          id?: string
+          policy_document_version_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          employee_id?: string
+          id?: string
+          policy_document_version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_acknowledgments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_acknowledgments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_acknowledgments_policy_document_version_id_fkey"
+            columns: ["policy_document_version_id"]
+            isOneToOne: false
+            referencedRelation: "policy_document_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      policy_document_versions: {
+        Row: {
+          change_notes: string | null
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size_bytes: number
+          id: string
+          mime_type: string
+          policy_document_id: string
+          published_at: string
+          uploaded_by: string
+          version_number: number
+        }
+        Insert: {
+          change_notes?: string | null
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size_bytes: number
+          id?: string
+          mime_type: string
+          policy_document_id: string
+          published_at?: string
+          uploaded_by: string
+          version_number: number
+        }
+        Update: {
+          change_notes?: string | null
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size_bytes?: number
+          id?: string
+          mime_type?: string
+          policy_document_id?: string
+          published_at?: string
+          uploaded_by?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_document_versions_policy_document_id_fkey"
+            columns: ["policy_document_id"]
+            isOneToOne: false
+            referencedRelation: "policy_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_document_versions_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_document_versions_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      policy_documents: {
+        Row: {
+          applicable_roles: string[] | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          is_global: boolean
+          scoped_campaign_ids: string[] | null
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          applicable_roles?: string[] | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_global?: boolean
+          scoped_campaign_ids?: string[] | null
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          applicable_roles?: string[] | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_global?: boolean
+          scoped_campaign_ids?: string[] | null
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       required_document_types: {
         Row: {
@@ -1241,6 +1804,36 @@ export type Database = {
       eod_before_cutoff: {
         Args: { p_campaign_id: string; p_date: string }
         Returns: boolean
+      }
+      insert_policy_version: {
+        Args: {
+          p_change_notes: string
+          p_file_name: string
+          p_file_path: string
+          p_file_size_bytes: number
+          p_mime_type: string
+          p_policy_id: string
+          p_uploaded_by: string
+        }
+        Returns: {
+          change_notes: string | null
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size_bytes: number
+          id: string
+          mime_type: string
+          policy_document_id: string
+          published_at: string
+          uploaded_by: string
+          version_number: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "policy_document_versions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       is_leadership: { Args: never; Returns: boolean }
       is_team_lead: { Args: never; Returns: boolean }
