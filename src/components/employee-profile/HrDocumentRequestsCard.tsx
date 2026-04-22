@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FileText, Plus, ChevronDown, ChevronUp } from "lucide-react";
-import { formatDateMX } from "@/lib/localDate";
+import { formatDateMX, todayLocal } from "@/lib/localDate";
 import {
   useHrDocumentRequestsForEmployee,
   useCreateHrDocumentRequest,
@@ -60,19 +60,19 @@ export default function HrDocumentRequestsCard({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [requestType, setRequestType] = useState<HrDocumentRequestType>("carta");
   const [incidentDate, setIncidentDate] = useState(
-    () => new Date().toISOString().split("T")[0],
+    () => todayLocal(),
   );
   const [reason, setReason] = useState("");
   const [narrative, setNarrative] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayLocal();
   const isValid =
     narrative.trim().length > 0 && incidentDate && incidentDate <= today;
 
   function resetForm() {
     setRequestType("carta");
-    setIncidentDate(new Date().toISOString().split("T")[0]);
+    setIncidentDate(todayLocal());
     setReason("");
     setNarrative("");
   }
