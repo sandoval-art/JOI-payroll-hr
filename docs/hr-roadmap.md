@@ -124,7 +124,7 @@ Per-agent view of:
 2. **A2 — Required docs upload + checklist (HR-uploaded, global list, HR-approved = submitted).** Supabase Storage + RLS. ✅ SHIPPED.
 3. **B1 — Notes + verbal warnings log (with type field + agent-visibility toggle + HR notification on verbals).** Single table with a type enum.
 4. **B4 — Attendance incident categorization.** Rides on existing EOD data.
-5. **B2/B3 — Carta + acta request flow with split-view editor + template engine + signed-scan upload.** Bigger. Blocked on templates being ready.
+5. **B2/B3 — Carta + acta request flow with split-view editor + template engine + signed-scan upload.** Phase 1 shipped (schema only, PR #42). `hr_document_requests`, `cartas_compromiso`, `actas_administrativas` tables + `hr-documents` Storage bucket + RLS. Phases 2–5 queued: TL request form → HR queue/status → split-view editor + PDF + doc-ref generator → signed-scan upload + agent view. Phase 4 editor is gated on the break-times file (needed for `horario_snapshot`).
 6. **A3 — Grace window (UI-controlled) + clock-in lock.** The enforcement layer. Needs A1 and A2 done first.
 7. **C — Policy shelf with ack tracking.** Last, and only if ack tracking is part of it.
 
