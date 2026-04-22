@@ -457,3 +457,78 @@ export function usePriorSignedCartaForEmployee(
     enabled: !!employeeId,
   });
 }
+
+/**
+ * Fetch a single carta by ID (for reincidencia display on PDF).
+ */
+export function useCartaById(id: string | null | undefined) {
+  return useQuery({
+    queryKey: ["carta_by_id", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cartas_compromiso")
+        .select("id, doc_ref, created_at")
+        .eq("id", id!)
+        .single();
+      if (error) throw error;
+      return data as { id: string; doc_ref: string | null; created_at: string };
+    },
+    enabled: !!id,
+  });
+}
+
+/**
+ * Upload a finalized PDF to hr-documents bucket and save pdf_path.
+ */
+export function useUploadFinalizedPdf() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      draftId,
+      type,
+      employeeId,
+      docRef,
+      pdfBlob,
+    }: {
+      draftId: string;
+      type: "carta" | "acta";
+      employeeId: string;
+      docRef: string;
+      pdfBlob: Blob;
+      requestId: string;
+    }) => {
+      const year = new Date().getFullYear();
+      const folder = type === "carta" ? "cartas" : "actas";
+      const path = `${folder}/${year}/${employeeId}/${docRef}.pdf`;
+
+      const { error: upErr } = await supabase.storage
+        .from("hr-documents")
+        .upload(path, pdfBlob, {
+          contentType: "application/pdf",
+          upsert: true,
+        });
+      if (upErr) throw upErr;
+
+      const table =
+        type === "acta" ? "actas_administrativas" : "cartas_compromiso";
+      const { error: dbErr } = await supabase
+        .from(table)
+        .update({ pdf_path: path })
+        .eq("id", draftId);
+      if (dbErr) throw dbErr;
+
+      return path;
+    },
+    onSuccess: (_path, vars) => {
+      qc.invalidateQueries({ queryKey: [FINALIZATION_KEY, vars.requestId] });
+      qc.invalidateQueries({
+        queryKey: [QUERY_KEY, "detail", vars.requestId],
+      });
+      qc.invalidateQueries({ queryKey: [QUERY_KEY, "queue"] });
+      qc.invalidateQueries({
+        queryKey: [QUERY_KEY, "by_employee", vars.employeeId],
+      });
+    },
+  });
+}

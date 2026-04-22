@@ -124,7 +124,7 @@ Per-agent view of:
 2. **A2 — Required docs upload + checklist (HR-uploaded, global list, HR-approved = submitted).** Supabase Storage + RLS. ✅ SHIPPED.
 3. **B1 — Notes + verbal warnings log (with type field + agent-visibility toggle + HR notification on verbals).** Single table with a type enum.
 4. **B4 — Attendance incident categorization.** Rides on existing EOD data.
-5. **B2/B3 — Carta + acta request flow with split-view editor + template engine + signed-scan upload.** Phase 1 shipped (schema, PR #42). Phase 2 shipped (TL request form, PR #43). Phase 3 shipped (HR queue + status transitions, PR #44). Phases 1–4 shipped (schema PR #42, TL form PR #43, HR queue PR #44, editor shell PR #45, KPI+witnesses+reincidencia PR #46). Phase 5 queued: PDF generation + signed-scan upload + status→fulfilled + agent view.
+5. **B2/B3 — Carta + acta request flow with split-view editor + template engine + signed-scan upload.** Phase 1 shipped (schema, PR #42). Phase 2 shipped (TL request form, PR #43). Phase 3 shipped (HR queue + status transitions, PR #44). Phases 1–4 + 5a shipped (schema PR #42, TL form PR #43, HR queue PR #44, editor shell PR #45, KPI+witnesses+reincidencia PR #46, PDF generation PR #47). Phase 5b queued: signed-scan upload + status→fulfilled + TL/agent viewing.
 6. **A3 — Grace window (UI-controlled) + clock-in lock.** The enforcement layer. Needs A1 and A2 done first.
 7. **C — Policy shelf with ack tracking.** Last, and only if ack tracking is part of it.
 
