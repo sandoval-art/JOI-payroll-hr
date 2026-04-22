@@ -234,7 +234,10 @@ function RequestDetail({
     updateStatus.mutate(
       { id, employeeId: req!.employeeId, status: "in_progress" },
       {
-        onSuccess: () => toast.success("Solicitud marcada como en proceso"),
+        onSuccess: () => {
+          toast.success("Solicitud marcada como en proceso");
+          navigate(`/hr/document-queue/${id}/edit`);
+        },
         onError: (err) => toast.error((err as Error).message),
       },
     );
@@ -361,6 +364,15 @@ function RequestDetail({
                   {updateStatus.isPending
                     ? "Actualizando..."
                     : "Empezar a redactar"}
+                </Button>
+              )}
+              {req.status === "in_progress" && (
+                <Button
+                  size="sm"
+                  onClick={() => navigate(`/hr/document-queue/${id}/edit`)}
+                >
+                  <Play className="mr-1 h-4 w-4" />
+                  Abrir borrador
                 </Button>
               )}
               <Button
