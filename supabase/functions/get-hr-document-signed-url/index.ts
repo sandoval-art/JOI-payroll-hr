@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!["carta", "acta"].includes(type)) {
+    if (!["carta", "acta", "renuncia"].includes(type)) {
       return new Response(
         JSON.stringify({ error: "Invalid type" }),
         { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const table = type === "carta" ? "cartas_compromiso" : "actas_administrativas";
+    const table = type === "renuncia" ? "resignation_packets" : type === "carta" ? "cartas_compromiso" : "actas_administrativas";
     const pathColumn = fileType === "pdf" ? "pdf_path" : "signed_scan_path";
 
     const { data: row, error: queryErr } = await userClient

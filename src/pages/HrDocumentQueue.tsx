@@ -147,11 +147,13 @@ export default function HrDocumentQueue() {
                               variant={
                                 req.requestType === "acta"
                                   ? "destructive"
-                                  : "outline"
+                                  : req.requestType === "renuncia"
+                                    ? "secondary"
+                                    : "outline"
                               }
                               className="text-xs"
                             >
-                              {req.requestType === "acta" ? "Acta" : "Carta"}
+                              {req.requestType === "acta" ? "Acta" : req.requestType === "renuncia" ? "Renuncia" : "Carta"}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -286,11 +288,13 @@ function RequestDetail({
           {/* Header info */}
           <div className="flex items-center gap-3 flex-wrap">
             <Badge
-              variant={req.requestType === "acta" ? "destructive" : "outline"}
+              variant={req.requestType === "acta" ? "destructive" : req.requestType === "renuncia" ? "secondary" : "outline"}
             >
               {req.requestType === "acta"
                 ? "Acta administrativa"
-                : "Carta de compromiso"}
+                : req.requestType === "renuncia"
+                  ? "Renuncia voluntaria"
+                  : "Carta de compromiso"}
             </Badge>
             <Badge variant={si.variant}>{si.label}</Badge>
           </div>
@@ -345,9 +349,9 @@ function RequestDetail({
 
           {/* Fulfilled doc links */}
           {req.status === "fulfilled" &&
-            (req.fulfilledCartaId || req.fulfilledActaId) && (
+            (req.fulfilledCartaId || req.fulfilledActaId || req.fulfilledRenunciaId) && (
               <QueueFulfilledLinks
-                finalizationId={(req.fulfilledCartaId ?? req.fulfilledActaId)!}
+                finalizationId={(req.fulfilledCartaId ?? req.fulfilledActaId ?? req.fulfilledRenunciaId)!}
                 type={req.requestType}
               />
             )}

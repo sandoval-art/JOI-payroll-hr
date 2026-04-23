@@ -1,7 +1,7 @@
 // B2/B3 domain types — cartas de compromiso + actas administrativas
 // Hand-curated shapes for UI/hook use. Snake_case in DB → camelCase here.
 
-export type HrDocumentRequestType = 'carta' | 'acta';
+export type HrDocumentRequestType = 'carta' | 'acta' | 'renuncia';
 
 export type HrDocumentRequestStatus =
   | 'pending'
@@ -22,6 +22,7 @@ export interface HrDocumentRequest {
   reason: string | null;
   fulfilledCartaId: string | null;
   fulfilledActaId: string | null;
+  fulfilledRenunciaId: string | null;
   canceledReason: string | null;
   createdAt: string;
   updatedAt: string;
