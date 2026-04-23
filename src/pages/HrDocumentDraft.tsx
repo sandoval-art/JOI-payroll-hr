@@ -34,6 +34,14 @@ import {
 import type { CartaKpiRow, ActaWitness } from "@/types/hr-docs";
 import { generateCartaPdf } from "@/lib/pdf/generateCartaPdf";
 import { generateActaPdf } from "@/lib/pdf/generateActaPdf";
+import { generateRenunciaPacketPdf } from "@/lib/pdf/generateRenunciaPacketPdf";
+import {
+  calcAguinaldoProporcional,
+  calcVacaciones,
+  calcPrimaVacacional,
+  calcFiniquitoTotal,
+  numberToSpanishWords,
+} from "@/lib/lftCalculations";
 
 // ── Snapshot auto-populate helpers ──────────────────────────────────
 
@@ -82,6 +90,19 @@ interface DraftFormState {
   kpiTable: CartaKpiRow[];
   witnesses: ActaWitness[];
   reincidenciaPriorCartaId: string | null;
+  // Renuncia-specific
+  effectiveDate: string;
+  renunciaNarrative: string;
+  hireDateSnapshot: string;
+  salarioDiarioSnapshot: string;
+  aguinaldoMonto: string;
+  vacacionesMonto: string;
+  primaVacacionalMonto: string;
+  totalMonto: string;
+  totalEnLetras: string;
+  curpSnapshot: string;
+  rfcSnapshot: string;
+  claveElector: string;
 }
 
 function draftToFormState(draft: FinalizationDraft): DraftFormState {
@@ -97,6 +118,18 @@ function draftToFormState(draft: FinalizationDraft): DraftFormState {
     kpiTable: draft.kpiTable ?? [],
     witnesses: draft.witnesses ?? [],
     reincidenciaPriorCartaId: draft.reincidenciaPriorCartaId,
+    effectiveDate: draft.effectiveDate ?? "",
+    renunciaNarrative: draft.renunciaNarrative ?? "",
+    hireDateSnapshot: draft.hireDateSnapshot ?? "",
+    salarioDiarioSnapshot: draft.salarioDiarioSnapshot != null ? String(draft.salarioDiarioSnapshot) : "",
+    aguinaldoMonto: draft.aguinaldoMonto != null ? String(draft.aguinaldoMonto) : "",
+    vacacionesMonto: draft.vacacionesMonto != null ? String(draft.vacacionesMonto) : "",
+    primaVacacionalMonto: draft.primaVacacionalMonto != null ? String(draft.primaVacacionalMonto) : "",
+    totalMonto: draft.totalMonto != null ? String(draft.totalMonto) : "",
+    totalEnLetras: draft.totalEnLetras ?? "",
+    curpSnapshot: draft.curpSnapshot ?? "",
+    rfcSnapshot: draft.rfcSnapshot ?? "",
+    claveElector: draft.claveElector ?? "",
   };
 }
 
@@ -106,6 +139,18 @@ function seedToFormState(seed: SnapshotSeed): DraftFormState {
     kpiTable: [],
     witnesses: [],
     reincidenciaPriorCartaId: null,
+    effectiveDate: "",
+    renunciaNarrative: "",
+    hireDateSnapshot: "",
+    salarioDiarioSnapshot: "",
+    aguinaldoMonto: "",
+    vacacionesMonto: "",
+    primaVacacionalMonto: "",
+    totalMonto: "",
+    totalEnLetras: "",
+    curpSnapshot: "",
+    rfcSnapshot: "",
+    claveElector: "",
     ...seed,
   };
 }
@@ -206,6 +251,18 @@ export default function HrDocumentDraft() {
     kpiTable: [],
     witnesses: [],
     reincidenciaPriorCartaId: null,
+    effectiveDate: "",
+    renunciaNarrative: "",
+    hireDateSnapshot: "",
+    salarioDiarioSnapshot: "",
+    aguinaldoMonto: "",
+    vacacionesMonto: "",
+    primaVacacionalMonto: "",
+    totalMonto: "",
+    totalEnLetras: "",
+    curpSnapshot: "",
+    rfcSnapshot: "",
+    claveElector: "",
   });
   const formDirty = useRef(false);
 
@@ -261,10 +318,23 @@ export default function HrDocumentDraft() {
 
     if (request.requestType === "carta") {
       fields.kpi_table = form.kpiTable;
-    } else {
+    } else if (request.requestType === "acta") {
       fields.witnesses = form.witnesses;
       fields.reincidencia_prior_carta_id =
         form.reincidenciaPriorCartaId || null;
+    } else if (request.requestType === "renuncia") {
+      fields.effective_date = form.effectiveDate || null;
+      fields.renuncia_narrative = form.renunciaNarrative || null;
+      fields.hire_date_snapshot = form.hireDateSnapshot || null;
+      fields.salario_diario_snapshot = form.salarioDiarioSnapshot ? parseFloat(form.salarioDiarioSnapshot) : null;
+      fields.aguinaldo_monto = form.aguinaldoMonto ? parseFloat(form.aguinaldoMonto) : null;
+      fields.vacaciones_monto = form.vacacionesMonto ? parseFloat(form.vacacionesMonto) : null;
+      fields.prima_vacacional_monto = form.primaVacacionalMonto ? parseFloat(form.primaVacacionalMonto) : null;
+      fields.total_monto = form.totalMonto ? parseFloat(form.totalMonto) : null;
+      fields.total_en_letras = form.totalEnLetras || null;
+      fields.curp_snapshot = form.curpSnapshot || null;
+      fields.rfc_snapshot = form.rfcSnapshot || null;
+      fields.clave_elector = form.claveElector || null;
     }
 
     try {
@@ -308,6 +378,9 @@ export default function HrDocumentDraft() {
     if (!draft || !request) return null;
     if (request.requestType === "carta") {
       return generateCartaPdf(draft, request);
+    }
+    if (request.requestType === "renuncia") {
+      return generateRenunciaPacketPdf(draft, request);
     }
     return generateActaPdf(
       draft,
@@ -453,7 +526,9 @@ export default function HrDocumentDraft() {
             <FileText className="h-5 w-5" />
             {request.requestType === "acta"
               ? "Acta administrativa"
-              : "Carta de compromiso"}
+              : request.requestType === "renuncia"
+                ? "Paquete de renuncia"
+                : "Carta de compromiso"}
           </h1>
           <Badge variant="outline" className="text-xs">
             {draft?.docRef ?? "— (se generará al guardar)"}
@@ -1022,6 +1097,237 @@ export default function HrDocumentDraft() {
                   ))}
                 </div>
               </>
+            )}
+
+            {/* ── Renuncia-specific: finiquito calculator ─────── */}
+            {request.requestType === "renuncia" && (
+              <div className="space-y-4 pt-2 border-t">
+                {/* Effective date */}
+                <div className="space-y-1">
+                  <Label htmlFor="effective-date" className="text-xs font-medium">
+                    Fecha efectiva de renuncia
+                  </Label>
+                  <Input
+                    id="effective-date"
+                    type="date"
+                    value={form.effectiveDate}
+                    onChange={(e) =>
+                      setFormDirty((f) => ({
+                        ...f,
+                        effectiveDate: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+
+                {/* Finiquito calculator */}
+                <div className="space-y-3 rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium uppercase tracking-wider">
+                      Finiquito — cálculo LFT
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const sd = parseFloat(form.salarioDiarioSnapshot);
+                        const hd = form.hireDateSnapshot;
+                        const rd = form.effectiveDate;
+                        if (!sd || !hd || !rd) {
+                          toast.error("Ingresa fecha de ingreso, salario diario y fecha efectiva primero");
+                          return;
+                        }
+                        const aguinaldo = calcAguinaldoProporcional({ salarioDiario: sd, hireDate: hd, resignationDate: rd });
+                        const vac = calcVacaciones({ salarioDiario: sd, hireDate: hd, resignationDate: rd });
+                        const prima = calcPrimaVacacional(vac.amount);
+                        const total = calcFiniquitoTotal({ aguinaldo, vacaciones: vac.amount, prima });
+                        setFormDirty((f) => ({
+                          ...f,
+                          aguinaldoMonto: String(aguinaldo),
+                          vacacionesMonto: String(vac.amount),
+                          primaVacacionalMonto: String(prima),
+                          totalMonto: String(total),
+                          totalEnLetras: numberToSpanishWords(total),
+                        }));
+                      }}
+                    >
+                      Calcular automáticamente
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">
+                        Fecha de ingreso
+                      </Label>
+                      <Input
+                        type="date"
+                        value={form.hireDateSnapshot}
+                        onChange={(e) =>
+                          setFormDirty((f) => ({
+                            ...f,
+                            hireDateSnapshot: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">
+                        Salario diario ($ MXN)
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={form.salarioDiarioSnapshot}
+                        onChange={(e) =>
+                          setFormDirty((f) => ({
+                            ...f,
+                            salarioDiarioSnapshot: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">
+                        Aguinaldo proporcional
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={form.aguinaldoMonto}
+                        onChange={(e) =>
+                          setFormDirty((f) => ({
+                            ...f,
+                            aguinaldoMonto: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">
+                        Vacaciones correspondientes
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={form.vacacionesMonto}
+                        onChange={(e) =>
+                          setFormDirty((f) => ({
+                            ...f,
+                            vacacionesMonto: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">
+                        Prima vacacional (25%)
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={form.primaVacacionalMonto}
+                        onChange={(e) =>
+                          setFormDirty((f) => ({
+                            ...f,
+                            primaVacacionalMonto: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground font-medium">
+                        Total
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={form.totalMonto}
+                        onChange={(e) =>
+                          setFormDirty((f) => ({
+                            ...f,
+                            totalMonto: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">
+                      Total en letras
+                    </Label>
+                    <Textarea
+                      rows={2}
+                      value={form.totalEnLetras}
+                      onChange={(e) =>
+                        setFormDirty((f) => ({
+                          ...f,
+                          totalEnLetras: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* Identity snapshots */}
+                <div className="space-y-3 rounded-lg border p-3">
+                  <Label className="text-xs font-medium uppercase tracking-wider">
+                    Datos de identidad
+                  </Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">
+                        CURP
+                      </Label>
+                      <Input
+                        value={form.curpSnapshot}
+                        readOnly
+                        className="bg-muted/30"
+                      />
+                      {!form.curpSnapshot && (
+                        <p className="text-[10px] text-amber-600">
+                          — (faltante)
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">
+                        RFC
+                      </Label>
+                      <Input
+                        value={form.rfcSnapshot}
+                        readOnly
+                        className="bg-muted/30"
+                      />
+                      {!form.rfcSnapshot && (
+                        <p className="text-[10px] text-amber-600">
+                          — (faltante)
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">
+                        Clave de Elector
+                      </Label>
+                      <Input
+                        value={form.claveElector}
+                        onChange={(e) =>
+                          setFormDirty((f) => ({
+                            ...f,
+                            claveElector: e.target.value,
+                          }))
+                        }
+                        placeholder="Ingresa clave de elector"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </ResizablePanel>

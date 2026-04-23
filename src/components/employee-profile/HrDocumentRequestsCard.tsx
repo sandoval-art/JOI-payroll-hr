@@ -154,13 +154,15 @@ export default function HrDocumentRequestsCard({
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge
                       variant={
-                        req.requestType === "acta" ? "destructive" : "outline"
+                        req.requestType === "acta" ? "destructive" : req.requestType === "renuncia" ? "secondary" : "outline"
                       }
                       className="text-xs"
                     >
                       {req.requestType === "acta"
                         ? "Acta administrativa"
-                        : "Carta de compromiso"}
+                        : req.requestType === "renuncia"
+                          ? "Renuncia"
+                          : "Carta de compromiso"}
                     </Badge>
                     <Badge variant={statusInfo.variant} className="text-xs">
                       {statusInfo.label}
@@ -205,10 +207,10 @@ export default function HrDocumentRequestsCard({
                   )}
 
                   {req.status === "fulfilled" &&
-                    (req.fulfilledCartaId || req.fulfilledActaId) && (
+                    (req.fulfilledCartaId || req.fulfilledActaId || req.fulfilledRenunciaId) && (
                       <FulfilledDocLinks
                         finalizationId={
-                          (req.fulfilledCartaId ?? req.fulfilledActaId)!
+                          (req.fulfilledCartaId ?? req.fulfilledActaId ?? req.fulfilledRenunciaId)!
                         }
                         type={req.requestType}
                       />
@@ -256,6 +258,16 @@ export default function HrDocumentRequestsCard({
                     className="accent-primary"
                   />
                   <span className="text-sm">Acta administrativa</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="request-type"
+                    checked={requestType === "renuncia"}
+                    onChange={() => setRequestType("renuncia")}
+                    className="accent-primary"
+                  />
+                  <span className="text-sm">Renuncia voluntaria</span>
                 </label>
               </div>
             </div>
@@ -310,7 +322,9 @@ export default function HrDocumentRequestsCard({
                 ? "Enviando..."
                 : requestType === "acta"
                   ? "Solicitar acta"
-                  : "Solicitar carta"}
+                  : requestType === "renuncia"
+                    ? "Solicitar renuncia"
+                    : "Solicitar carta"}
             </Button>
           </DialogFooter>
         </DialogContent>

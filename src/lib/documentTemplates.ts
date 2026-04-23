@@ -61,6 +61,101 @@ export const ACTA_CLOSING_3_TEMPLATE =
 export const ACTA_CLOSING_4_TEMPLATE =
   "Se cierra la presente Acta Administrativa siendo las _____:_____ horas del día {incident_date_short}, suscribiéndola quienes participaron en ella.";
 
+// ── Renuncia + Finiquito + Encuesta ─────────────────────────────────
+
+export const RENUNCIA_OPENING =
+  'Por este medio quiero presentar mi renuncia voluntaria e irrevocable al puesto de "{puesto}" que he venido desempeñando en esta empresa, siendo efectiva a partir del día de hoy {effective_date}. Tomo esta decisión de manera libre y consciente, por motivos personales y porque así conviene a mis intereses.';
+
+export const RENUNCIA_CLOSING =
+  "Agradezco sinceramente la oportunidad que me dieron de trabajar aquí, el buen trato que recibí durante mi tiempo en la empresa, recibir los pagos de mi salario puntualmente, así como todas las prestaciones de ley que me corresponden.";
+
+export const FINIQUITO_BODY_TEMPLATE =
+  'Por medio del presente, hago constar que recibo de la empresa "OUTSOURCE CONSULTING GROUP, S.A.S.", la cantidad total de ${total_monto} ({total_en_letras}) por concepto de finiquito derivado de mi renuncia voluntaria con fecha al {effective_date}, cantidad que recibo a mi entera satisfacción, mismo que se desglosa de la siguiente manera:';
+
+export const FINIQUITO_LEGAL_BOILERPLATE =
+  'Por tal motivo, extiendo el presente recibo de finiquito con el carácter liberatorio más amplio que en derecho proceda, manifestando expresamente que la empresa cubre de manera íntegra y suficiente todas las prestaciones legales generadas durante la vigencia de la relación laboral no me adeuda cantidad alguna por concepto de salarios ordinarios o extraordinarios, aguinaldo, vacaciones, prima vacacional, séptimos días, descansos legales u obligatorios, ni ninguna otra prestación derivada de la relación jurídica que nos unía.\n\nDeclaro que mi salario me fue cubierto en tiempo y forma, durante toda la relación laboral, y que jamás laboré en días de descanso obligatorio, como resultado, no existe adeudo alguno por ese concepto. En virtud de lo anterior, y habiéndoseme cubierto a entera satisfacción todos mis derechos conforme a la Ley Federal del Trabajo, manifiesto que no me reservo acción legal alguna de carácter laboral, civil, mercantil ni penal en contra de "OUTSOURCE CONSULTING GROUP, S.A.S.", ni de sus representantes, socios, apoderados o persona alguna que este o haya estado relacionada con la fuente de trabajo. Firmo el presente documento para constancia y en señal de mi plena conformidad.';
+
+export const ENCUESTA_INTRO =
+  'Evaluación de su experiencia durante su estancia laboral. En OUTSOURCE CONSULTING GROUP, S.A.S. agradecemos que haya laborado con nosotros, lamentamos su renuncia y esperamos ser un centro de trabajo de calidad para nuestros colaboradores, por lo que lo invitamos amablemente a que nos apoye con la siguiente encuesta de salida. Por favor, marque con una "X" la opción que mejor refleje su nivel de satisfacción:';
+
+export const ENCUESTA_CATEGORIES: { title: string; questions: string[] }[] = [
+  {
+    title: "Liderazgo y supervisión",
+    questions: [
+      "Trato y apoyo por parte de su jefe inmediato",
+      "Retroalimentación recibida sobre su desempeño",
+      "Claridad de instrucciones por parte de supervisión",
+      "Solución oportuna de problemas por parte de sus superiores",
+    ],
+  },
+  {
+    title: "Organización del trabajo",
+    questions: [
+      "Carga de trabajo asignada",
+      "Distribución de actividades dentro del área",
+      "Herramientas y recursos para desempeñar sus funciones",
+      "Planeación y organización de su área de trabajo",
+    ],
+  },
+  {
+    title: "Desarrollo laboral",
+    questions: [
+      "Oportunidades de crecimiento dentro de la empresa",
+      "Capacitación recibida para desempeñar su puesto",
+      "Reconocimiento a su esfuerzo y resultados",
+      "Posibilidad de aprender nuevas habilidades",
+    ],
+  },
+  {
+    title: "Condiciones laborales",
+    questions: [
+      "Prestaciones otorgadas por la empresa",
+      "Condiciones de seguridad e higiene en el trabajo",
+      "Equilibrio entre vida personal y trabajo",
+      "Cumplimiento de horarios, descansos y condiciones pactadas",
+    ],
+  },
+  {
+    title: "Cultura y clima laboral",
+    questions: [
+      "Respeto en el trato dentro de la empresa",
+      "Inclusión y sentido de pertenencia",
+      "Manejo de conflictos dentro del área",
+      "Confianza para expresar inquietudes o inconformidades",
+    ],
+  },
+  {
+    title: "Comunicación institucional",
+    questions: [
+      "Claridad de las políticas internas",
+      "Información recibida sobre cambios o decisiones relevantes",
+      "Facilidad para acudir a Recursos Humanos o Administración",
+      "Atención recibida cuando presentó dudas o necesidades",
+    ],
+  },
+];
+
+export const ENCUESTA_OPEN_QUESTIONS: string[] = [
+  "¿Cuál considera que fue la principal razón de su separación de la empresa?",
+  "¿Qué considera que la empresa podría mejorar?",
+  "¿Qué fue lo que más le agradó de trabajar con nosotros?",
+  "¿Desea compartir algún comentario adicional?",
+];
+
+export const ENCUESTA_CAUSA_OPTIONS: string[] = [
+  "Motivos personales",
+  "Mejora salarial",
+  "Mejor oportunidad laboral",
+  "Problemas de horario",
+  "Distancia o traslado",
+  "Inconformidad con jefe inmediato",
+  "Inconformidad con ambiente laboral",
+  "Inconformidad con salario o prestaciones",
+  "Falta de crecimiento",
+  "Cambio de residencia",
+  "Otro: ______________",
+];
+
 // ── Template rendering helper ───────────────────────────────────────
 
 export function renderTemplate(

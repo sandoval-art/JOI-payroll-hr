@@ -62,12 +62,14 @@ export default function SignedHrDocumentsCard({
           >
             <div className="flex items-center gap-2 flex-wrap">
               <Badge
-                variant={doc.type === "acta" ? "destructive" : "outline"}
+                variant={doc.type === "acta" ? "destructive" : doc.type === "renuncia" ? "secondary" : "outline"}
                 className="text-xs"
               >
                 {doc.type === "acta"
                   ? "Acta administrativa"
-                  : "Carta de compromiso"}
+                  : doc.type === "renuncia"
+                    ? "Renuncia"
+                    : "Carta de compromiso"}
               </Badge>
               {doc.docRef && (
                 <span className="text-xs font-mono text-muted-foreground">

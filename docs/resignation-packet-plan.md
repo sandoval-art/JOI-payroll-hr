@@ -153,18 +153,15 @@ Schema-only + pure math. No UI.
 - 28 unit tests including Edgar Barron template sanity check (all 3 financial figures match to 2 decimals). Uses 365 days uniformly (no leap-year adjustment). Resignation date counted as a worked day (inclusive both ends).
 - Supabase types regen deferred to post-migration-apply.
 
-### Phase F2 — PDF renderer + editor UI
+### Phase F2 — PDF renderer + editor UI ✅ SHIPPED 2026-04-23 (PR #52)
 
-- `src/lib/pdf/generateRenunciaPacketPdf.ts` — single PDF, 4 pages: renuncia letter + finiquito + encuesta (blank).
-- Extend `src/pages/HrDocumentDraft.tsx` with renuncia-specific right-panel:
-  - Effective date picker.
-  - Finiquito calculator section: hire_date + salario_diario inputs; auto-compute button fills aguinaldo / vacaciones / prima / total with calculations; any field editable by HR for override.
-  - CURP / RFC pre-populated from employee (read-only display); Clave de Elector input (HR enters per finiquito).
-  - Total-en-letras auto-updates when total changes; editable as fallback.
-- Extend TL request dialog (`HrDocumentRequestsCard`) to include `'renuncia'` as a third type option.
-- Extend HR queue badge and editor type display.
-- Status transitions reuse Phase 3 machinery.
-- PDF generation + signed-scan upload reuse Phase 5a/5b machinery.
+- `src/lib/pdf/generateRenunciaPacketPdf.ts` — 4-page PDF: renuncia letter + finiquito with LFT itemized table + 2-page encuesta de salida (Likert + open questions + causa checkboxes).
+- `src/lib/documentTemplates.ts` extended with renuncia/finiquito/encuesta boilerplate + full encuesta question catalog (6 categories, 23 questions, 4 open questions, 11 causa options).
+- Editor right-panel: effective date picker, finiquito auto-calculator ("Calcular automáticamente" button calls F1 LFT engine), 4 amount fields (HR-overridable), total-en-letras textarea, CURP/RFC readonly + clave de elector input.
+- TL request dialog: third radio option "Renuncia voluntaria" with "Solicitar renuncia" button.
+- HR queue + detail + TL card: renuncia badges (secondary variant), fulfilled doc links extended.
+- All existing B2/B3 infrastructure (PDF gen, signed-scan, signed-URL edge function, agent signed-docs card) extended for 'renuncia' type.
+- Types extended: `HrDocumentRequestType`, `FinalizationDraft`, `DraftUpdateFields`, `SignedHrDocument`, `HrDocumentRequestRow` all include renuncia fields/variants.
 
 ## Followups beyond F2
 
