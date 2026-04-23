@@ -1061,8 +1061,13 @@ const INCIDENT_BADGE_COLORS: Record<IncidentType, string> = {
 function AgentAttendanceCard({ employeeId }: { employeeId: string | null }) {
   const { data: incidents = [], isLoading } = useAgentIncidents(employeeId);
   const { toast } = useToast();
+  const [showAll, setShowAll] = useState(false);
+  const LIMIT = 5;
 
   if (isLoading || incidents.length === 0) return null;
+
+  const visible = showAll ? incidents : incidents.slice(0, LIMIT);
+  const hiddenCount = incidents.length - LIMIT;
 
   const handleViewDoc = async (filePath: string) => {
     try {
@@ -1079,11 +1084,12 @@ function AgentAttendanceCard({ employeeId }: { employeeId: string | null }) {
         <CardTitle className="flex items-center gap-2 text-lg">
           <Clock className="h-5 w-5" />
           My Attendance History
+          <Badge variant="secondary" className="text-xs">{incidents.length}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="space-y-3">
-          {incidents.map((incident) => (
+          {visible.map((incident) => (
             <li key={incident.id} className="border-l-2 border-muted pl-3 space-y-1">
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className={`text-xs ${INCIDENT_BADGE_COLORS[incident.incident_type]}`}>
@@ -1102,6 +1108,26 @@ function AgentAttendanceCard({ employeeId }: { employeeId: string | null }) {
             </li>
           ))}
         </ul>
+        {!showAll && hiddenCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full mt-2 text-xs text-muted-foreground"
+            onClick={() => setShowAll(true)}
+          >
+            Ver {hiddenCount} más
+          </Button>
+        )}
+        {showAll && incidents.length > LIMIT && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full mt-2 text-xs text-muted-foreground"
+            onClick={() => setShowAll(false)}
+          >
+            Mostrar menos
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

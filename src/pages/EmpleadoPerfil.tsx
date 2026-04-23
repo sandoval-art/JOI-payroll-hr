@@ -1013,6 +1013,8 @@ function AgentLogCard({
   const [entryType, setEntryType] = useState<"note" | "verbal_warning">("note");
   const [noteText, setNoteText] = useState("");
   const [shareWithAgent, setShareWithAgent] = useState(false);
+  const [showAllEntries, setShowAllEntries] = useState(false);
+  const ENTRIES_LIMIT = 5;
 
   const warningCount = entries.filter((e) => e.entry_type === "verbal_warning").length;
   const canCreate = !!campaignId && !!authorEmployeeId;
@@ -1059,6 +1061,9 @@ function AgentLogCard({
             <CardTitle className="text-lg flex items-center gap-2">
               <StickyNote className="h-5 w-5" />
               Notes & Verbal Warnings
+              {entries.length > 0 && (
+                <Badge variant="secondary" className="text-xs">{entries.length}</Badge>
+              )}
             </CardTitle>
             {canCreate && (
               <Button
@@ -1091,44 +1096,60 @@ function AgentLogCard({
             <p className="text-sm text-muted-foreground text-center py-4">No entries yet.</p>
           )}
 
-          {entries.length > 0 && (
-            <ul className="space-y-3">
-              {entries.map((entry) => (
-                <li key={entry.id} className="border-l-2 border-muted pl-3 space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {entry.entry_type === "verbal_warning" ? (
-                      <Badge variant="destructive" className="text-xs"><FileWarning className="mr-1 h-3 w-3" />Verbal Warning</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs"><StickyNote className="mr-1 h-3 w-3" />Note</Badge>
-                    )}
-                    <span className="text-xs text-muted-foreground">
-                      {formatDateMX(entry.created_at)}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      — {entry.author?.full_name ?? "Unknown"}
-                    </span>
-                    {entry.visible_to_agent ? (
-                      <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700"><Eye className="mr-1 h-3 w-3" />Visible to agent</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs bg-muted text-muted-foreground"><EyeOff className="mr-1 h-3 w-3" />Internal</Badge>
-                    )}
-                  </div>
-                  <p className="text-sm">{entry.note}</p>
-                  {isLeadership && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs"
-                      onClick={() => handleToggleVisibility(entry)}
-                      disabled={toggleVisibility.isPending}
-                    >
-                      {entry.visible_to_agent ? "Hide from agent" : "Share with agent"}
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
+          {entries.length > 0 && (() => {
+            const visibleEntries = showAllEntries ? entries : entries.slice(0, ENTRIES_LIMIT);
+            const hiddenEntryCount = entries.length - ENTRIES_LIMIT;
+            return (
+              <>
+                <ul className="space-y-3">
+                  {visibleEntries.map((entry) => (
+                    <li key={entry.id} className="border-l-2 border-muted pl-3 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {entry.entry_type === "verbal_warning" ? (
+                          <Badge variant="destructive" className="text-xs"><FileWarning className="mr-1 h-3 w-3" />Verbal Warning</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs"><StickyNote className="mr-1 h-3 w-3" />Note</Badge>
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {formatDateMX(entry.created_at)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          — {entry.author?.full_name ?? "Unknown"}
+                        </span>
+                        {entry.visible_to_agent ? (
+                          <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700"><Eye className="mr-1 h-3 w-3" />Visible to agent</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs bg-muted text-muted-foreground"><EyeOff className="mr-1 h-3 w-3" />Internal</Badge>
+                        )}
+                      </div>
+                      <p className="text-sm">{entry.note}</p>
+                      {isLeadership && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => handleToggleVisibility(entry)}
+                          disabled={toggleVisibility.isPending}
+                        >
+                          {entry.visible_to_agent ? "Hide from agent" : "Share with agent"}
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                {!showAllEntries && hiddenEntryCount > 0 && (
+                  <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={() => setShowAllEntries(true)}>
+                    Ver {hiddenEntryCount} más
+                  </Button>
+                )}
+                {showAllEntries && entries.length > ENTRIES_LIMIT && (
+                  <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={() => setShowAllEntries(false)}>
+                    Mostrar menos
+                  </Button>
+                )}
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
 
@@ -1293,6 +1314,10 @@ function AttendanceIncidentsCard({ agentId, employeeId, creatorEmployeeId }: { a
   };
 
   const isSaving = createIncident.isPending || updateIncident.isPending;
+  const [showAllIncidents, setShowAllIncidents] = useState(false);
+  const VISIBLE_LIMIT = 5;
+  const visibleIncidents = showAllIncidents ? incidents : incidents.slice(0, VISIBLE_LIMIT);
+  const hiddenCount = incidents.length - VISIBLE_LIMIT;
 
   return (
     <>
@@ -1302,6 +1327,9 @@ function AttendanceIncidentsCard({ agentId, employeeId, creatorEmployeeId }: { a
             <CardTitle className="text-lg flex items-center gap-2">
               <Clock className="h-5 w-5" />
               Attendance Incidents
+              {incidents.length > 0 && (
+                <Badge variant="secondary" className="text-xs">{incidents.length}</Badge>
+              )}
             </CardTitle>
             <Button size="sm" variant="outline" onClick={openCreate}>
               <Plus className="mr-1 h-3 w-3" /> Log incident
@@ -1313,7 +1341,7 @@ function AttendanceIncidentsCard({ agentId, employeeId, creatorEmployeeId }: { a
           {!isLoading && incidents.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">No attendance incidents on record.</p>
           )}
-          {incidents.map((incident) => (
+          {visibleIncidents.map((incident) => (
             <div key={incident.id} className="flex items-start justify-between gap-3 border-l-2 border-muted pl-3">
               <div className="space-y-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1339,6 +1367,26 @@ function AttendanceIncidentsCard({ agentId, employeeId, creatorEmployeeId }: { a
               </Button>
             </div>
           ))}
+          {!showAllIncidents && hiddenCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs text-muted-foreground"
+              onClick={() => setShowAllIncidents(true)}
+            >
+              Ver {hiddenCount} más
+            </Button>
+          )}
+          {showAllIncidents && incidents.length > VISIBLE_LIMIT && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs text-muted-foreground"
+              onClick={() => setShowAllIncidents(false)}
+            >
+              Mostrar menos
+            </Button>
+          )}
         </CardContent>
       </Card>
 
