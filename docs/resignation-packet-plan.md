@@ -144,15 +144,14 @@ Plus:
 
 Two phases.
 
-### Phase F1 — Data model + LFT calculation engine
+### Phase F1 — Data model + LFT calculation engine ✅ SHIPPED 2026-04-23 (PR #51)
 
 Schema-only + pure math. No UI.
 
-- Migration: `resignation_packets` table + FK + RLS + CHECK updates on requests table.
-- Extend `hr_create_finalization_draft` and `hr_mark_finalization_signed` RPCs.
-- `src/lib/lftCalculations.ts` — pure functions for aguinaldo/vacaciones/prima/total + `numberToSpanishWords`.
-- Unit tests for each calculation function against the Edgar template example + a few additional edge cases.
-- Regen Supabase types.
+- Migration `20260423100001`: `resignation_packets` table + FK + RLS + CHECK updates on requests table. Both RPCs extended for `'renuncia'` type.
+- `src/lib/lftCalculations.ts` — pure functions for aguinaldo/vacaciones/prima/total + `numberToSpanishWords` (MX peso format).
+- 28 unit tests including Edgar Barron template sanity check (all 3 financial figures match to 2 decimals). Uses 365 days uniformly (no leap-year adjustment). Resignation date counted as a worked day (inclusive both ends).
+- Supabase types regen deferred to post-migration-apply.
 
 ### Phase F2 — PDF renderer + editor UI
 
