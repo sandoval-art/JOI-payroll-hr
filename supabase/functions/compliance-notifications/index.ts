@@ -18,7 +18,8 @@
  *   GMAIL_USER          e.g. EOD@justoutsource.it
  *   GMAIL_APP_PASSWORD  Google Workspace App Password
  *   CRON_SECRET         Must match app.cron_secret in Postgres
- *   DRY_RUN             Leave unset (dry run) until ready; set to "false" to send
+ *   DRY_RUN_COMPLIANCE  Leave unset (dry run) until ready; set to "false" to send.
+ *                        Per-function flag — independent of send-eod-digest's DRY_RUN_EOD.
  *   APP_URL             e.g. https://joi-payroll-hr.vercel.app (for email links)
  *
  * Auto-provided by Supabase:
@@ -34,7 +35,7 @@ import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 const GMAIL_USER = Deno.env.get("GMAIL_USER") ?? "";
 const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD") ?? "";
-const DRY_RUN = Deno.env.get("DRY_RUN") !== "false"; // safe default: true
+const DRY_RUN = Deno.env.get("DRY_RUN_COMPLIANCE") !== "false"; // safe default: true
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const APP_URL = Deno.env.get("APP_URL") ?? "https://joi-payroll-hr.vercel.app";
@@ -42,8 +43,12 @@ const APP_URL = Deno.env.get("APP_URL") ?? "https://joi-payroll-hr.vercel.app";
 // ---------------------------------------------------------------------------
 // CORS (for browser-originated calls from the reject button)
 // ---------------------------------------------------------------------------
+// Env-driven allowlist. Default "*" keeps dev unblocked; set ALLOWED_ORIGIN
+// in Supabase dashboard to lock down when going public
+// (e.g. "https://joi-payroll-hr.vercel.app").
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-cron-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",

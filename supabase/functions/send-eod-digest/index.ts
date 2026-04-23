@@ -20,7 +20,8 @@
  *   GMAIL_USER          e.g. EOD@justoutsource.it
  *   GMAIL_APP_PASSWORD  Google Workspace App Password (myaccount.google.com/apppasswords)
  *   CRON_SECRET         Any random string — must match app.cron_secret in Postgres
- *   DRY_RUN             Leave unset (dry run) until ready; set to "false" to send real email
+ *   DRY_RUN_EOD         Leave unset (dry run) until ready; set to "false" to send real email.
+ *                        Per-function flag — independent of compliance-notifications' DRY_RUN_COMPLIANCE.
  *
  * Auto-provided by Supabase:
  *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
@@ -35,7 +36,7 @@ import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 const GMAIL_USER = Deno.env.get("GMAIL_USER") ?? "";
 const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD") ?? "";
-const DRY_RUN = Deno.env.get("DRY_RUN") !== "false"; // safe default: true
+const DRY_RUN = Deno.env.get("DRY_RUN_EOD") !== "false"; // safe default: true
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
