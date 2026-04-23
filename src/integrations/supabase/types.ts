@@ -1005,6 +1005,7 @@ export type Database = {
           filed_by: string
           fulfilled_acta_id: string | null
           fulfilled_carta_id: string | null
+          fulfilled_renuncia_id: string | null
           id: string
           incident_date: string
           reason: string | null
@@ -1021,6 +1022,7 @@ export type Database = {
           filed_by: string
           fulfilled_acta_id?: string | null
           fulfilled_carta_id?: string | null
+          fulfilled_renuncia_id?: string | null
           id?: string
           incident_date: string
           reason?: string | null
@@ -1037,6 +1039,7 @@ export type Database = {
           filed_by?: string
           fulfilled_acta_id?: string | null
           fulfilled_carta_id?: string | null
+          fulfilled_renuncia_id?: string | null
           id?: string
           incident_date?: string
           reason?: string | null
@@ -1086,6 +1089,13 @@ export type Database = {
             columns: ["fulfilled_carta_id"]
             isOneToOne: false
             referencedRelation: "cartas_compromiso"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_document_requests_fulfilled_renuncia_id_fkey"
+            columns: ["fulfilled_renuncia_id"]
+            isOneToOne: false
+            referencedRelation: "resignation_packets"
             referencedColumns: ["id"]
           },
         ]
@@ -1460,6 +1470,132 @@ export type Database = {
         }
         Relationships: []
       }
+      resignation_packets: {
+        Row: {
+          aguinaldo_monto: number | null
+          clave_elector: string | null
+          company_legal_address_snapshot: string | null
+          company_legal_name_snapshot: string | null
+          created_at: string
+          created_by: string
+          curp_snapshot: string | null
+          doc_ref: string | null
+          effective_date: string
+          employee_id: string
+          hire_date_snapshot: string | null
+          horario_snapshot: string | null
+          id: string
+          pdf_path: string | null
+          prima_vacacional_monto: number | null
+          puesto_snapshot: string | null
+          renuncia_narrative: string | null
+          request_id: string | null
+          rfc_snapshot: string | null
+          salario_diario_snapshot: number | null
+          signed_at: string | null
+          signed_scan_path: string | null
+          total_en_letras: string | null
+          total_monto: number | null
+          trabajador_name_snapshot: string | null
+          updated_at: string
+          vacaciones_monto: number | null
+        }
+        Insert: {
+          aguinaldo_monto?: number | null
+          clave_elector?: string | null
+          company_legal_address_snapshot?: string | null
+          company_legal_name_snapshot?: string | null
+          created_at?: string
+          created_by: string
+          curp_snapshot?: string | null
+          doc_ref?: string | null
+          effective_date: string
+          employee_id: string
+          hire_date_snapshot?: string | null
+          horario_snapshot?: string | null
+          id?: string
+          pdf_path?: string | null
+          prima_vacacional_monto?: number | null
+          puesto_snapshot?: string | null
+          renuncia_narrative?: string | null
+          request_id?: string | null
+          rfc_snapshot?: string | null
+          salario_diario_snapshot?: number | null
+          signed_at?: string | null
+          signed_scan_path?: string | null
+          total_en_letras?: string | null
+          total_monto?: number | null
+          trabajador_name_snapshot?: string | null
+          updated_at?: string
+          vacaciones_monto?: number | null
+        }
+        Update: {
+          aguinaldo_monto?: number | null
+          clave_elector?: string | null
+          company_legal_address_snapshot?: string | null
+          company_legal_name_snapshot?: string | null
+          created_at?: string
+          created_by?: string
+          curp_snapshot?: string | null
+          doc_ref?: string | null
+          effective_date?: string
+          employee_id?: string
+          hire_date_snapshot?: string | null
+          horario_snapshot?: string | null
+          id?: string
+          pdf_path?: string | null
+          prima_vacacional_monto?: number | null
+          puesto_snapshot?: string | null
+          renuncia_narrative?: string | null
+          request_id?: string | null
+          rfc_snapshot?: string | null
+          salario_diario_snapshot?: number | null
+          signed_at?: string | null
+          signed_scan_path?: string | null
+          total_en_letras?: string | null
+          total_monto?: number | null
+          trabajador_name_snapshot?: string | null
+          updated_at?: string
+          vacaciones_monto?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resignation_packets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resignation_packets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resignation_packets_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resignation_packets_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resignation_packets_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "hr_document_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shift_settings: {
         Row: {
           campaign_id: string
@@ -1804,6 +1940,18 @@ export type Database = {
       eod_before_cutoff: {
         Args: { p_campaign_id: string; p_date: string }
         Returns: boolean
+      }
+      hr_create_finalization_draft: {
+        Args: { p_created_by: string; p_request_id: string }
+        Returns: Json
+      }
+      hr_mark_finalization_signed: {
+        Args: {
+          p_finalization_id: string
+          p_signed_scan_path: string
+          p_type: string
+        }
+        Returns: Json
       }
       insert_policy_version: {
         Args: {
