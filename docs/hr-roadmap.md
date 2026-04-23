@@ -192,6 +192,6 @@ All migrations applied via MCP + tracker aligned. Edge function auto-deployed vi
 
 **Two non-blocking production-hardening items for pre-public:** (a) apply same env-driven CORS pattern to `create-employee` + `compliance-notifications` edge functions, (b) revisit rate-limiting on `get-hr-document-signed-url` if real abuse patterns appear.
 
-**Next substantive work:** Feature E (client portal) — see `docs/client-portal-plan.md`. Feature D (holiday calendar) queued after E.
+**Next substantive work:** Feature E (client portal) — see `docs/client-portal-plan.md`. Feature F (resignation packet: renuncia + finiquito + encuesta de salida) queued after E — see `docs/resignation-packet-plan.md`. Feature D (holiday calendar) queued after those.
 
 - **"Outdated ack" status not distinguished from "never ack'd" on /policies.** When an agent ack'd v1 of a policy and HR publishes v2, the agent's /policies page shows "Not acknowledged" — same label as a first-time view. Functionally re-ack works fine (creates a new row for v2), but the UX should show "A new version was published, please re-acknowledge" when the agent has prior acks on older versions of this policy. Fix: extend `PolicyDocument` with `all_version_ids: string[]` populated in `usePolicies()`, then in `getStatus()` check if any ack matches any older version ID when current isn't ack'd. Added during C2 (2026-04-20).
