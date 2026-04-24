@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils";
 
 const SIZES = {
-  sm: "h-6 w-6",
-  md: "h-10 w-10",
-  lg: "h-16 w-16",
+  sm: "h-10 w-10",
+  md: "h-16 w-16",
+  lg: "h-24 w-24",
 } as const;
 
 export function LogoLoadingIndicator({
@@ -18,7 +18,7 @@ export function LogoLoadingIndicator({
   return (
     <div className={cn("flex flex-col items-center justify-center gap-2", className)}>
       <img
-        src="/joi-logo.svg"
+        src="/joi-favicon.svg"
         alt=""
         className={cn("animate-joi-pulse select-none", SIZES[size])}
         draggable={false}

@@ -122,6 +122,8 @@ export function useCreateHrDocumentRequest() {
       qc.invalidateQueries({
         queryKey: [QUERY_KEY, "by_employee", vars.employeeId],
       });
+      qc.invalidateQueries({ queryKey: [QUERY_KEY, "pending_count"] });
+      qc.invalidateQueries({ queryKey: [QUERY_KEY, "queue"] });
     },
   });
 }
