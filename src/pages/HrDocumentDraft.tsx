@@ -301,13 +301,22 @@ export default function HrDocumentDraft() {
       ) {
         state.reincidenciaPriorCartaId = priorCarta.id;
       }
-      // For renuncia: backfill empty fields from live employee data
-      if (draft.type === "renuncia" && snapshotSeed) {
-        if (!state.curpSnapshot) state.curpSnapshot = snapshotSeed.curpSnapshot ?? "";
-        if (!state.rfcSnapshot) state.rfcSnapshot = snapshotSeed.rfcSnapshot ?? "";
-        if (!state.hireDateSnapshot) state.hireDateSnapshot = snapshotSeed.hireDateSnapshot ?? "";
-        if (!state.salarioDiarioSnapshot) state.salarioDiarioSnapshot = snapshotSeed.salarioDiarioSnapshot ?? "";
-        if (!state.effectiveDate) state.effectiveDate = snapshotSeed.effectiveDate ?? "";
+      // Backfill any empty snapshot fields from live employee/company data
+      if (snapshotSeed) {
+        if (!state.trabajadorNameSnapshot) state.trabajadorNameSnapshot = snapshotSeed.trabajadorNameSnapshot;
+        if (!state.puestoSnapshot) state.puestoSnapshot = snapshotSeed.puestoSnapshot;
+        if (!state.horarioSnapshot) state.horarioSnapshot = snapshotSeed.horarioSnapshot;
+        if (!state.supervisorNameSnapshot) state.supervisorNameSnapshot = snapshotSeed.supervisorNameSnapshot;
+        if (!state.companyLegalNameSnapshot) state.companyLegalNameSnapshot = snapshotSeed.companyLegalNameSnapshot;
+        if (!state.companyLegalAddressSnapshot) state.companyLegalAddressSnapshot = snapshotSeed.companyLegalAddressSnapshot;
+        if (!state.incidentDateLongSnapshot) state.incidentDateLongSnapshot = snapshotSeed.incidentDateLongSnapshot;
+        if (draft.type === "renuncia") {
+          if (!state.curpSnapshot) state.curpSnapshot = snapshotSeed.curpSnapshot ?? "";
+          if (!state.rfcSnapshot) state.rfcSnapshot = snapshotSeed.rfcSnapshot ?? "";
+          if (!state.hireDateSnapshot) state.hireDateSnapshot = snapshotSeed.hireDateSnapshot ?? "";
+          if (!state.salarioDiarioSnapshot) state.salarioDiarioSnapshot = snapshotSeed.salarioDiarioSnapshot ?? "";
+          if (!state.effectiveDate) state.effectiveDate = snapshotSeed.effectiveDate ?? "";
+        }
       }
       setForm(state);
     } else if (snapshotSeed) {
