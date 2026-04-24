@@ -27,6 +27,7 @@ import { Clock, CalendarDays, TrendingUp, AlertTriangle, CheckCircle2, XCircle, 
 import { toast } from "sonner";
 import { todayLocal, formatDateMX } from "@/lib/localDate";
 import { getDisplayName } from "@/lib/displayName";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 
 const TZ_LABELS: Record<string, string> = {
   "America/Denver": "Mountain",
@@ -446,7 +447,7 @@ export default function TeamLeadHome() {
           </CardHeader>
           <CardContent className="space-y-2">
             {timeclock.isLoading && (
-              <p className="text-sm text-muted-foreground">Loading...</p>
+              <LogoLoadingIndicator size="sm" />
             )}
             {!timeclock.isLoading && (!timeclock.data || timeclock.data.length === 0) && (
               <p className="text-sm text-muted-foreground">No attendance data for today.</p>
@@ -495,7 +496,7 @@ export default function TeamLeadHome() {
           </CardHeader>
           <CardContent className="space-y-2">
             {pendingTimeOff.isLoading && (
-              <p className="text-sm text-muted-foreground">Loading...</p>
+              <LogoLoadingIndicator size="sm" />
             )}
             {!pendingTimeOff.isLoading &&
               (!pendingTimeOff.data || pendingTimeOff.data.length === 0) && (
@@ -554,7 +555,7 @@ export default function TeamLeadHome() {
           </CardHeader>
           <CardContent>
             {eodWeek.isLoading && (
-              <p className="text-sm text-muted-foreground">Loading...</p>
+              <LogoLoadingIndicator size="sm" />
             )}
             {!eodWeek.isLoading && eodData.length === 0 && (
               <p className="text-sm text-muted-foreground">No EOD data this week.</p>
@@ -632,7 +633,7 @@ export default function TeamLeadHome() {
           </CardHeader>
           <CardContent>
             {alerts.isLoading && (
-              <p className="text-sm text-muted-foreground">Loading...</p>
+              <LogoLoadingIndicator size="sm" />
             )}
             {!alerts.isLoading && (!alerts.data || alerts.data.length === 0) && (
               <div className="flex items-center gap-2 rounded-md bg-green-50 px-4 py-3">

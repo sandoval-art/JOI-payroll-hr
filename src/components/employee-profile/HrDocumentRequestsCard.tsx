@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -124,7 +125,7 @@ export default function HrDocumentRequestsCard({
 
       <CardContent className="space-y-4">
         {isLoading && (
-          <p className="text-sm text-muted-foreground">Cargando...</p>
+          <LogoLoadingIndicator size="sm" />
         )}
 
         {!isLoading && requests.length === 0 && (

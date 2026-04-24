@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDateMXLong } from "@/lib/localDate";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 import {
   useMyApplicablePolicies,
   useMyPolicyAcks,
@@ -76,7 +77,7 @@ export default function MyPolicies() {
   const isLoading = policiesLoading || acksLoading || !myEmployee;
 
   if (isLoading) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
+    return <div className="flex items-center justify-center py-20"><LogoLoadingIndicator /></div>;
   }
 
   return (

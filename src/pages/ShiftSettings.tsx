@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 import {
   Dialog,
   DialogContent,
@@ -171,7 +172,7 @@ export default function ShiftSettings() {
   }
 
   if (loadingCampaigns || loadingShifts) {
-    return <p className="text-muted-foreground">Loading...</p>;
+    return <LogoLoadingIndicator size="sm" />;
   }
 
   const shiftsByCampaign = new Map<string, ShiftSetting[]>();

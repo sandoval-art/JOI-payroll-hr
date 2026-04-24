@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, FileText } from "lucide-react";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 
 const statusColors: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -54,7 +55,7 @@ export default function Facturas() {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="py-12 text-center text-muted-foreground">Loading...</div>
+            <div className="flex items-center justify-center py-12"><LogoLoadingIndicator /></div>
           ) : invoices.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground flex flex-col items-center gap-3">
               <FileText className="h-10 w-10 text-muted-foreground/40" />
