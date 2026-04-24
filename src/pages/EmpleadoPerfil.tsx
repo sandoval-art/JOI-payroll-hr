@@ -8,6 +8,7 @@ import type { EmployeeWithMeta } from "@/types/payroll";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -243,10 +244,10 @@ export default function EmpleadoPerfil() {
   }, [empCurp, empRfc, empAddress, empPhone, empBankClabe, empWorkName, empPersonalEmail, empHireDate, empEmergencyContact, empBankName, empDateOfBirth, empMaritalStatus, empNss, empLastWorkedDay, empDepartmentId]);
 
   if (isLoading) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
+    return <div className="flex items-center justify-center py-20"><LogoLoadingIndicator /></div>;
   }
   if (needsTlFallback && !tlFallback && tlFallbackLoading) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
+    return <div className="flex items-center justify-center py-20"><LogoLoadingIndicator /></div>;
   }
 
   if (!emp) {
@@ -1091,7 +1092,7 @@ function AgentLogCard({
             </div>
           )}
 
-          {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
+          {isLoading && <LogoLoadingIndicator size="sm" />}
           {!isLoading && entries.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">No entries yet.</p>
           )}
@@ -1337,7 +1338,7 @@ function AttendanceIncidentsCard({ agentId, employeeId, creatorEmployeeId }: { a
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
+          {isLoading && <LogoLoadingIndicator size="sm" />}
           {!isLoading && incidents.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">No attendance incidents on record.</p>
           )}

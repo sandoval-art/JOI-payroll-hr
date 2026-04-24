@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -239,8 +240,8 @@ export default function Historial() {
 
       {isLoading ? (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            Loading...
+          <CardContent className="py-8 flex items-center justify-center">
+            <LogoLoadingIndicator />
           </CardContent>
         </Card>
       ) : periods.length === 0 ? (

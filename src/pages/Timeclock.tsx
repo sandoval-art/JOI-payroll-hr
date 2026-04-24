@@ -7,6 +7,7 @@ import { formatDateMX, formatDateMXLong } from "@/lib/localDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 import {
   Table,
   TableBody,
@@ -388,8 +389,8 @@ export default function Timeclock() {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        Loading...
+      <div className="flex items-center justify-center py-20">
+        <LogoLoadingIndicator />
       </div>
     );
   }

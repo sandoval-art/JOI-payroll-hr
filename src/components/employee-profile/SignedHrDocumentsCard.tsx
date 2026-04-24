@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, ExternalLink } from "lucide-react";
 import { formatDateMX } from "@/lib/localDate";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 import {
   useMySignedHrDocuments,
   issueHrDocumentSignedUrl,
@@ -46,7 +47,7 @@ export default function SignedHrDocumentsCard({
       </CardHeader>
       <CardContent className="space-y-3">
         {isLoading && (
-          <p className="text-sm text-muted-foreground">Cargando...</p>
+          <LogoLoadingIndicator size="sm" />
         )}
 
         {!isLoading && docs.length === 0 && (
