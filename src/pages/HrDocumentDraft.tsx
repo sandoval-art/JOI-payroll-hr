@@ -670,10 +670,10 @@ export default function HrDocumentDraft() {
       )}
 
       {/* Split-view */}
-      <ResizablePanelGroup direction="horizontal" className="min-h-[600px] rounded-lg border">
+      <ResizablePanelGroup direction="horizontal" className="rounded-lg border">
         {/* Left: TL narrative (read-only) */}
         <ResizablePanel defaultSize={40} minSize={25}>
-          <div className="h-full overflow-y-auto p-4 space-y-4">
+          <div className="md:sticky md:top-4 md:max-h-[calc(100vh-2rem)] overflow-y-auto p-4 space-y-4">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               Solicitud del TL
             </h2>
