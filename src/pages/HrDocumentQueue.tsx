@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 import {
   Table,
   TableBody,
@@ -104,7 +105,7 @@ export default function HrDocumentQueue() {
         {TAB_CONFIG.map((t) => (
           <TabsContent key={t.value} value={t.value} className="mt-4">
             {isLoading ? (
-              <p className="text-sm text-muted-foreground p-4">Cargando...</p>
+              <LogoLoadingIndicator size="sm" />
             ) : requests.length === 0 ? (
               <p className="text-sm text-muted-foreground p-4">
                 {t.value === "pending" && "No hay solicitudes pendientes."}
@@ -218,7 +219,7 @@ function RequestDetail({
     return (
       <Card>
         <CardContent className="p-6">
-          <p className="text-sm text-muted-foreground">Cargando detalle...</p>
+          <LogoLoadingIndicator size="sm" />
         </CardContent>
       </Card>
     );

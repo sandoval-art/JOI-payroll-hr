@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { formatDateMXLong } from "@/lib/localDate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -134,7 +135,7 @@ export default function EODHistory() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-muted-foreground text-sm">Loading...</p>
+            <LogoLoadingIndicator size="sm" />
           ) : logs.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">
               No EOD reports yet. Your next one will be submitted when you clock out.

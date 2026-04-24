@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Users, DollarSign, TrendingUp, Calculator, Upload, Pencil, ChevronDown, ChevronUp, AlertTriangle, UserPlus } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
@@ -208,7 +209,7 @@ export default function Dashboard() {
   };
 
   if (loadingEmps) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
+    return <div className="flex items-center justify-center py-20"><LogoLoadingIndicator /></div>;
   }
 
   const displayCutoffDate = overriddenCutoff || cutoffInfo?.suggestedCutoff;

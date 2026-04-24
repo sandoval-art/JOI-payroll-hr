@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Printer, Send, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 
 const BILL_FROM = "JOI\n2886 Avenida Pablo Neruda\nProvidencia 4A Seccion\nGuadalajara, Jalisco, 44369";
 
@@ -29,7 +30,7 @@ export default function FacturaDetalle() {
   const updateStatus = useUpdateInvoiceStatus();
 
   if (isLoading) {
-    return <div className="py-20 text-center text-muted-foreground">Loading...</div>;
+    return <div className="flex items-center justify-center py-20"><LogoLoadingIndicator /></div>;
   }
 
   if (!invoice) {

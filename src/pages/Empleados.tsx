@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Upload, Plus, Trash2, Download, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -144,7 +145,7 @@ export default function Empleados() {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
+    return <div className="flex items-center justify-center py-20"><LogoLoadingIndicator /></div>;
   }
 
   return (

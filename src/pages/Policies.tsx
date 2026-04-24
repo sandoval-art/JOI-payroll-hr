@@ -9,6 +9,7 @@ import {
   type PolicyDocument,
   type PolicyDocumentVersion,
 } from "@/hooks/usePolicies";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -164,7 +165,7 @@ export default function Policies() {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
+    return <div className="flex items-center justify-center py-20"><LogoLoadingIndicator /></div>;
   }
 
   return (
@@ -408,7 +409,7 @@ function VersionHistoryDialog({
           <DialogTitle>Version History — {policy.title}</DialogTitle>
         </DialogHeader>
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading...</p>
+          <LogoLoadingIndicator size="sm" />
         ) : versions.length === 0 ? (
           <p className="text-sm text-muted-foreground">No versions yet.</p>
         ) : (
