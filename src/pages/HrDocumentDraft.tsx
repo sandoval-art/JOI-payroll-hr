@@ -12,7 +12,8 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
-import { ArrowLeft, Save, FileText, Plus, Trash2, AlertTriangle, Unlink, Eye, Upload, ExternalLink, AlertCircle, CheckCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, Save, FileText, Plus, Trash2, AlertTriangle, Unlink, Eye, Upload, ExternalLink, AlertCircle, CheckCircle, RefreshCw, User, Briefcase, Calendar, Quote } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDateMX, formatDateMXLong } from "@/lib/localDate";
@@ -673,44 +674,86 @@ export default function HrDocumentDraft() {
       <ResizablePanelGroup direction="horizontal" className="min-h-[600px] rounded-lg border">
         {/* Left: TL narrative (read-only) */}
         <ResizablePanel defaultSize={40} minSize={25}>
-          <div className="h-full overflow-y-auto p-4 space-y-4">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Solicitud del TL
-            </h2>
-            <div className="space-y-2 text-sm">
-              <div>
-                <span className="text-muted-foreground">Agente:</span>{" "}
-                <span className="font-medium">
+          <div className="h-full overflow-y-auto p-5 space-y-4">
+            {/* ── Agent identity card ──────────────────────── */}
+            <div className="rounded-lg border bg-card p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-lg font-semibold">
                   {request.employeeName ?? "—"}
                 </span>
               </div>
-              <div>
-                <span className="text-muted-foreground">Campaña:</span>{" "}
-                {request.campaignName ?? "—"}
+              <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
+                {request.campaignName && (
+                  <span className="flex items-center gap-1">
+                    <Briefcase className="h-3 w-3" />
+                    {request.campaignName}
+                  </span>
+                )}
               </div>
-              <div>
-                <span className="text-muted-foreground">
-                  Fecha del incidente:
-                </span>{" "}
-                {formatDateMX(request.incidentDate)}
+            </div>
+
+            {/* ── Request metadata card ────────────────────── */}
+            <div className="rounded-lg border bg-card p-4 space-y-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge
+                  variant={
+                    request.requestType === "acta"
+                      ? "destructive"
+                      : request.requestType === "renuncia"
+                        ? "secondary"
+                        : "outline"
+                  }
+                >
+                  {request.requestType === "acta"
+                    ? "Acta administrativa"
+                    : request.requestType === "renuncia"
+                      ? "Renuncia voluntaria"
+                      : "Carta de compromiso"}
+                </Badge>
+                <Badge variant="secondary" className="text-xs">
+                  {request.status === "pending"
+                    ? "Pendiente"
+                    : request.status === "in_progress"
+                      ? "En proceso"
+                      : request.status === "fulfilled"
+                        ? "Completada"
+                        : request.status}
+                </Badge>
               </div>
-              <div>
-                <span className="text-muted-foreground">Solicitante:</span>{" "}
-                {request.filerName ?? "—"}
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-xs text-muted-foreground block">Fecha del incidente</span>
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3 text-muted-foreground" />
+                    {formatDateMX(request.incidentDate)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Solicitante</span>
+                  <span>{request.filerName ?? "—"}</span>
+                </div>
               </div>
               {request.reason && (
-                <div>
-                  <span className="text-muted-foreground">Motivo:</span>{" "}
-                  <span className="italic">{request.reason}</span>
-                </div>
+                <>
+                  <Separator />
+                  <div className="text-sm">
+                    <span className="text-xs text-muted-foreground block mb-1">Motivo</span>
+                    <span className="italic">{request.reason}</span>
+                  </div>
+                </>
               )}
             </div>
 
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">
-                Narrativa del TL
-              </p>
-              <div className="rounded-lg border p-3 text-sm whitespace-pre-wrap bg-muted/30">
+            {/* ── TL narrative card ───────────────────────── */}
+            <div className="rounded-lg border bg-card p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Quote className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Narrativa del TL
+                </span>
+              </div>
+              <div className="rounded-md border-l-4 border-primary/30 bg-muted/20 p-4 text-sm leading-relaxed whitespace-pre-wrap italic">
                 {request.tlNarrative}
               </div>
             </div>
@@ -721,135 +764,153 @@ export default function HrDocumentDraft() {
 
         {/* Right: HR draft form */}
         <ResizablePanel defaultSize={60} minSize={30}>
-          <div className="h-full overflow-y-auto p-4 space-y-4">
+          <div className="h-full overflow-y-auto p-5 space-y-5">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               Redacción formal (HR)
             </h2>
 
-            {/* Snapshot fields */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="snap-name" className="text-xs">
-                  Trabajador (nombre legal)
-                </Label>
-                <Input
-                  id="snap-name"
-                  value={form.trabajadorNameSnapshot}
-                  onChange={(e) =>
-                    setFormDirty((f) => ({
-                      ...f,
-                      trabajadorNameSnapshot: e.target.value,
-                    }))
-                  }
-                />
+            {/* ── Section: Datos del trabajador ─────────────── */}
+            <section className="space-y-3">
+              <div className="flex items-center gap-2">
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Datos del trabajador</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="snap-name" className="text-xs text-muted-foreground">
+                    Trabajador (nombre legal)
+                  </Label>
+                  <Input
+                    id="snap-name"
+                    value={form.trabajadorNameSnapshot}
+                    onChange={(e) =>
+                      setFormDirty((f) => ({
+                        ...f,
+                        trabajadorNameSnapshot: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="snap-puesto" className="text-xs text-muted-foreground">
+                    Puesto
+                  </Label>
+                  <Input
+                    id="snap-puesto"
+                    value={form.puestoSnapshot}
+                    onChange={(e) =>
+                      setFormDirty((f) => ({
+                        ...f,
+                        puestoSnapshot: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="snap-supervisor" className="text-xs text-muted-foreground">
+                    Supervisor
+                  </Label>
+                  <Input
+                    id="snap-supervisor"
+                    value={form.supervisorNameSnapshot}
+                    onChange={(e) =>
+                      setFormDirty((f) => ({
+                        ...f,
+                        supervisorNameSnapshot: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="snap-date" className="text-xs text-muted-foreground">
+                    Fecha del incidente (forma larga)
+                  </Label>
+                  <Input
+                    id="snap-date"
+                    value={form.incidentDateLongSnapshot}
+                    onChange={(e) =>
+                      setFormDirty((f) => ({
+                        ...f,
+                        incidentDateLongSnapshot: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="snap-puesto" className="text-xs">
-                  Puesto
-                </Label>
-                <Input
-                  id="snap-puesto"
-                  value={form.puestoSnapshot}
-                  onChange={(e) =>
-                    setFormDirty((f) => ({
-                      ...f,
-                      puestoSnapshot: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="snap-supervisor" className="text-xs">
-                  Supervisor
-                </Label>
-                <Input
-                  id="snap-supervisor"
-                  value={form.supervisorNameSnapshot}
-                  onChange={(e) =>
-                    setFormDirty((f) => ({
-                      ...f,
-                      supervisorNameSnapshot: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="snap-date" className="text-xs">
-                  Fecha del incidente (forma larga)
-                </Label>
-                <Input
-                  id="snap-date"
-                  value={form.incidentDateLongSnapshot}
-                  onChange={(e) =>
-                    setFormDirty((f) => ({
-                      ...f,
-                      incidentDateLongSnapshot: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="snap-horario" className="text-xs">
-                Horario
-              </Label>
-              <Textarea
-                id="snap-horario"
-                rows={2}
-                value={form.horarioSnapshot}
-                onChange={(e) =>
-                  setFormDirty((f) => ({
-                    ...f,
-                    horarioSnapshot: e.target.value,
-                  }))
-                }
-                placeholder="Ej: Lun-Vie 9:00 AM – 6:00 PM"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="snap-company" className="text-xs">
-                  Razón social
-                </Label>
-                <Input
-                  id="snap-company"
-                  value={form.companyLegalNameSnapshot}
-                  onChange={(e) =>
-                    setFormDirty((f) => ({
-                      ...f,
-                      companyLegalNameSnapshot: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="snap-address" className="text-xs">
-                  Domicilio fiscal
+                <Label htmlFor="snap-horario" className="text-xs text-muted-foreground">
+                  Horario
                 </Label>
                 <Textarea
-                  id="snap-address"
+                  id="snap-horario"
                   rows={2}
-                  value={form.companyLegalAddressSnapshot}
+                  value={form.horarioSnapshot}
                   onChange={(e) =>
                     setFormDirty((f) => ({
                       ...f,
-                      companyLegalAddressSnapshot: e.target.value,
+                      horarioSnapshot: e.target.value,
                     }))
                   }
+                  placeholder="Ej: Lun-Vie 9:00 AM – 6:00 PM"
                 />
               </div>
-            </div>
+            </section>
 
-            {/* Main narrative */}
-            <div className="space-y-1">
-              <Label htmlFor="narrative" className="text-xs font-medium">
-                Narrativa formal (redactada por HR)
-              </Label>
+            <Separator />
+
+            {/* ── Section: Empresa ──────────────────────────── */}
+            <section className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Empresa</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="snap-company" className="text-xs text-muted-foreground">
+                    Razón social
+                  </Label>
+                  <Input
+                    id="snap-company"
+                    value={form.companyLegalNameSnapshot}
+                    onChange={(e) =>
+                      setFormDirty((f) => ({
+                        ...f,
+                        companyLegalNameSnapshot: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="snap-address" className="text-xs text-muted-foreground">
+                    Domicilio fiscal
+                  </Label>
+                  <Textarea
+                    id="snap-address"
+                    rows={2}
+                    value={form.companyLegalAddressSnapshot}
+                    onChange={(e) =>
+                      setFormDirty((f) => ({
+                        ...f,
+                        companyLegalAddressSnapshot: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+            </section>
+
+            <Separator />
+
+            {/* ── Section: Narrativa formal ─────────────────── */}
+            <section className="space-y-3">
+              <div className="flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Narrativa formal</span>
+              </div>
               <Textarea
                 id="narrative"
-                rows={12}
+                rows={14}
+                className="min-h-[200px] text-sm leading-relaxed"
                 value={form.narrative}
                 onChange={(e) =>
                   setFormDirty((f) => ({
@@ -859,7 +920,7 @@ export default function HrDocumentDraft() {
                 }
                 placeholder="Redacta la versión formal basándote en la narrativa del TL a la izquierda."
               />
-            </div>
+            </section>
 
             {/* ── KPI table editor (cartas only) ──────────────── */}
             {request.requestType === "carta" && (
