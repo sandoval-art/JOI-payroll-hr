@@ -8,6 +8,7 @@ import {
 } from "@/hooks/useDocumentTypes";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -110,7 +111,7 @@ export default function DocumentTypes() {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
+    return <div className="flex items-center justify-center py-20"><LogoLoadingIndicator /></div>;
   }
 
   return (

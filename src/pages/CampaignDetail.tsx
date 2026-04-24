@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
@@ -658,7 +659,7 @@ export default function CampaignDetail() {
     (fieldForm.field_type !== 'dropdown' ||
       (fieldForm.dropdown_options && fieldForm.dropdown_options.length >= 2));
 
-  if (isLoading) return <div className="py-20 text-center text-muted-foreground">Loading...</div>;
+  if (isLoading) return <div className="flex items-center justify-center py-20"><LogoLoadingIndicator /></div>;
   if (!campaign) return <Navigate to="/campaigns" replace />;
 
   const clientName = campaign.clients?.name ?? '';

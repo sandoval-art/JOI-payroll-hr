@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -489,7 +490,7 @@ export default function HrDocumentDraft() {
   if (reqLoading || draftLoading) {
     return (
       <div className="flex items-center justify-center p-12">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+        <LogoLoadingIndicator size="lg" />
       </div>
     );
   }
