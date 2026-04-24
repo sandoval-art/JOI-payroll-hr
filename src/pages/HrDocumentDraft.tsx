@@ -55,6 +55,11 @@ interface SnapshotSeed {
   companyLegalNameSnapshot: string;
   companyLegalAddressSnapshot: string;
   incidentDateLongSnapshot: string;
+  curpSnapshot?: string;
+  rfcSnapshot?: string;
+  hireDateSnapshot?: string;
+  salarioDiarioSnapshot?: string;
+  effectiveDate?: string;
 }
 
 function formatShiftRange(
@@ -184,7 +189,7 @@ export default function HrDocumentDraft() {
       const { data: emp } = await supabase
         .from("employees")
         .select(
-          "full_name, department_id, campaign_id, departments(name), campaigns!employees_campaign_id_fkey(name, team_lead_id)",
+          "full_name, department_id, campaign_id, curp, rfc, hire_date, monthly_base_salary, departments(name), campaigns!campaign_id(name, team_lead_id)",
         )
         .eq("id", request.employeeId)
         .single();
@@ -222,6 +227,9 @@ export default function HrDocumentDraft() {
         }
       }
 
+      const monthlyBase = (emp as Record<string, unknown>)?.monthly_base_salary as number | null;
+      const salarioDiario = monthlyBase ? Math.round((monthlyBase / 30) * 100) / 100 : null;
+
       setSnapshotSeed({
         trabajadorNameSnapshot: (emp?.full_name ?? "").toUpperCase(),
         puestoSnapshot:
@@ -231,6 +239,11 @@ export default function HrDocumentDraft() {
         companyLegalNameSnapshot: COMPANY_LEGAL_NAME,
         companyLegalAddressSnapshot: COMPANY_LEGAL_ADDRESS,
         incidentDateLongSnapshot: formatDateMXLong(request.incidentDate),
+        curpSnapshot: (emp as Record<string, unknown>)?.curp as string ?? "",
+        rfcSnapshot: (emp as Record<string, unknown>)?.rfc as string ?? "",
+        hireDateSnapshot: (emp as Record<string, unknown>)?.hire_date as string ?? "",
+        salarioDiarioSnapshot: salarioDiario != null ? String(salarioDiario) : "",
+        effectiveDate: request.incidentDate ?? "",
       });
     })();
   }, [request]);
@@ -315,12 +328,13 @@ export default function HrDocumentDraft() {
       company_legal_name_snapshot: form.companyLegalNameSnapshot || null,
       company_legal_address_snapshot:
         form.companyLegalAddressSnapshot || null,
-      incident_date_long_snapshot: form.incidentDateLongSnapshot || null,
     };
 
     if (request.requestType === "carta") {
+      fields.incident_date_long_snapshot = form.incidentDateLongSnapshot || null;
       fields.kpi_table = form.kpiTable;
     } else if (request.requestType === "acta") {
+      fields.incident_date_long_snapshot = form.incidentDateLongSnapshot || null;
       fields.witnesses = form.witnesses;
       fields.reincidencia_prior_carta_id =
         form.reincidenciaPriorCartaId || null;
