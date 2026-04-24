@@ -239,13 +239,32 @@ export function useUpdateHrDocumentRequestStatus() {
       if (error) throw error;
     },
     onSuccess: (_data, vars) => {
-      // Invalidate all queue filters + detail + employee-scoped list
       qc.invalidateQueries({ queryKey: [QUERY_KEY, "queue"] });
+      qc.invalidateQueries({ queryKey: [QUERY_KEY, "pending_count"] });
       qc.invalidateQueries({ queryKey: [QUERY_KEY, "detail", vars.id] });
       qc.invalidateQueries({
         queryKey: [QUERY_KEY, "by_employee", vars.employeeId],
       });
     },
+  });
+}
+
+/**
+ * Count of hr_document_requests with status='pending'.
+ * RLS scopes automatically. Used by sidebar badge. Polls every 30s.
+ */
+export function usePendingHrDocumentRequestsCount() {
+  return useQuery({
+    queryKey: [QUERY_KEY, "pending_count"],
+    queryFn: async (): Promise<number> => {
+      const { count, error } = await supabase
+        .from("hr_document_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending");
+      if (error) throw error;
+      return count ?? 0;
+    },
+    refetchInterval: 30_000,
   });
 }
 

@@ -168,6 +168,7 @@ export default function TimeOff() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pendingTimeOffRequests"] });
       queryClient.invalidateQueries({ queryKey: ["reviewedTimeOffRequests"] });
+      queryClient.invalidateQueries({ queryKey: ["time_off_requests", "pending_count"] });
     },
   });
 
@@ -188,6 +189,7 @@ export default function TimeOff() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pendingTimeOffRequests"] });
       queryClient.invalidateQueries({ queryKey: ["reviewedTimeOffRequests"] });
+      queryClient.invalidateQueries({ queryKey: ["time_off_requests", "pending_count"] });
     },
   });
 
