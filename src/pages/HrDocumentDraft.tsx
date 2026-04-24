@@ -301,6 +301,14 @@ export default function HrDocumentDraft() {
       ) {
         state.reincidenciaPriorCartaId = priorCarta.id;
       }
+      // For renuncia: backfill empty fields from live employee data
+      if (draft.type === "renuncia" && snapshotSeed) {
+        if (!state.curpSnapshot) state.curpSnapshot = snapshotSeed.curpSnapshot ?? "";
+        if (!state.rfcSnapshot) state.rfcSnapshot = snapshotSeed.rfcSnapshot ?? "";
+        if (!state.hireDateSnapshot) state.hireDateSnapshot = snapshotSeed.hireDateSnapshot ?? "";
+        if (!state.salarioDiarioSnapshot) state.salarioDiarioSnapshot = snapshotSeed.salarioDiarioSnapshot ?? "";
+        if (!state.effectiveDate) state.effectiveDate = snapshotSeed.effectiveDate ?? "";
+      }
       setForm(state);
     } else if (snapshotSeed) {
       const state = seedToFormState(snapshotSeed);
