@@ -672,15 +672,26 @@ export default function HrDocumentDraft() {
       )}
 
       {/* Split-view */}
-      <ResizablePanelGroup direction="horizontal" className="min-h-[600px] rounded-lg border">
+      <ResizablePanelGroup direction="horizontal" className="rounded-lg border">
         {/* Left: TL narrative (read-only) */}
         <ResizablePanel defaultSize={40} minSize={25}>
+<<<<<<< feat/hr-editor-sticky-left-panel
+          <div className="md:sticky md:top-4 md:max-h-[calc(100vh-2rem)] overflow-y-auto p-4 space-y-4">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Solicitud del TL
+            </h2>
+            <div className="space-y-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Agente:</span>{" "}
+                <span className="font-medium">
+=======
           <div className="h-full overflow-y-auto p-5 space-y-4">
             {/* ── Agent identity card ──────────────────────── */}
             <div className="rounded-lg border bg-card p-4 space-y-2">
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="text-lg font-semibold">
+>>>>>>> main
                   {request.employeeName ?? "—"}
                 </span>
               </div>
