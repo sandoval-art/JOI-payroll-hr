@@ -167,7 +167,7 @@ export function useHrDocumentRequestsQueue(
       let query = supabase
         .from("hr_document_requests")
         .select(
-          "*, filer:filed_by(full_name, work_name), employee:employee_id!hr_document_requests_employee_id_fkey(full_name, work_name, campaign_id, campaigns!employees_campaign_id_fkey(name))",
+          "*, filer:employees!filed_by(full_name, work_name), employee:employees!employee_id(full_name, work_name, campaign_id, campaigns!campaign_id(name))",
         )
         .order("filed_at", { ascending: false });
 
@@ -194,7 +194,7 @@ export function useHrDocumentRequest(id: string | undefined) {
       const { data, error } = await supabase
         .from("hr_document_requests")
         .select(
-          "*, filer:filed_by(full_name, work_name), employee:employee_id!hr_document_requests_employee_id_fkey(full_name, work_name, campaign_id, campaigns!employees_campaign_id_fkey(name))",
+          "*, filer:employees!filed_by(full_name, work_name), employee:employees!employee_id(full_name, work_name, campaign_id, campaigns!campaign_id(name))",
         )
         .eq("id", id!)
         .single();
