@@ -12,7 +12,7 @@ import { ArrowLeft, Save, FileText, Plus, Trash2, AlertTriangle, Unlink, Eye, Up
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { formatDateMX, formatDateMXLong } from "@/lib/localDate";
+import { formatDateMX, formatDateMXLong, formatDateSpanishFull } from "@/lib/localDate";
 import {
   COMPANY_LEGAL_NAME,
   COMPANY_LEGAL_ADDRESS,
@@ -233,7 +233,7 @@ export default function HrDocumentDraft() {
         supervisorNameSnapshot: supervisorName,
         companyLegalNameSnapshot: COMPANY_LEGAL_NAME,
         companyLegalAddressSnapshot: COMPANY_LEGAL_ADDRESS,
-        incidentDateLongSnapshot: formatDateMXLong(request.incidentDate),
+        incidentDateLongSnapshot: formatDateSpanishFull(request.incidentDate),
         curpSnapshot: (emp as Record<string, unknown>)?.curp as string ?? "",
         rfcSnapshot: (emp as Record<string, unknown>)?.rfc as string ?? "",
         hireDateSnapshot: (emp as Record<string, unknown>)?.hire_date as string ?? "",
