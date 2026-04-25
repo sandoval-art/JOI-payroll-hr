@@ -118,12 +118,19 @@ export function useCreateHrDocumentRequest() {
       if (error) throw error;
       return mapRow(data as unknown as HrDocumentRequestRow);
     },
-    onSuccess: (_data, vars) => {
+    onSuccess: (data, vars) => {
       qc.invalidateQueries({
         queryKey: [QUERY_KEY, "by_employee", vars.employeeId],
       });
-      qc.invalidateQueries({ queryKey: [QUERY_KEY, "pending_count"] });
       qc.invalidateQueries({ queryKey: [QUERY_KEY, "queue"] });
+
+      // Fire-and-forget: notify leadership via email
+      supabase.functions
+        .invoke("notify-hr-request-filed", { body: { requestId: data.id } })
+        .then(({ error }) => {
+          if (error) console.warn("HR notification email failed:", error);
+        })
+        .catch((err) => console.warn("HR notification email error:", err));
     },
   });
 }
@@ -242,31 +249,11 @@ export function useUpdateHrDocumentRequestStatus() {
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: [QUERY_KEY, "queue"] });
-      qc.invalidateQueries({ queryKey: [QUERY_KEY, "pending_count"] });
       qc.invalidateQueries({ queryKey: [QUERY_KEY, "detail", vars.id] });
       qc.invalidateQueries({
         queryKey: [QUERY_KEY, "by_employee", vars.employeeId],
       });
     },
-  });
-}
-
-/**
- * Count of hr_document_requests with status='pending'.
- * RLS scopes automatically. Used by sidebar badge. Polls every 30s.
- */
-export function usePendingHrDocumentRequestsCount() {
-  return useQuery({
-    queryKey: [QUERY_KEY, "pending_count"],
-    queryFn: async (): Promise<number> => {
-      const { count, error } = await supabase
-        .from("hr_document_requests")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "pending");
-      if (error) throw error;
-      return count ?? 0;
-    },
-    refetchInterval: 30_000,
   });
 }
 

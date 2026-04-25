@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
-import { usePendingHrDocumentRequestsCount } from "@/hooks/useHrDocumentRequests";
 import { usePendingTimeOffCount } from "@/hooks/useTimeOffCount";
 import {
   Sidebar,
@@ -83,11 +82,9 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
 
   // Sidebar badge counts (RLS scopes: leadership=all, TL=team, agent=0)
-  const { data: pendingCartasCount = 0 } = usePendingHrDocumentRequestsCount();
   const { data: pendingTimeOffCount = 0 } = usePendingTimeOffCount();
 
   const badgeCounts: Record<string, number> = {
-    "/hr/document-queue": pendingCartasCount,
     "/solicitudes": pendingTimeOffCount,
   };
 
