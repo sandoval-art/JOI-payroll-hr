@@ -7,7 +7,7 @@ External client users (Torro, BTC, HFB, etc.) log in and see read-only dashboard
 Confirmed scope from 2026-04-22 planning:
 
 - Daily/weekly productivity metrics (aggregated KPIs per campaign; Torro uses full feed, BTC/HFB use agent self-report EOD logs).
-- Agent roster with **work_name only** (no full legal name, no photos, no tax info, no personal contact).
+- Agent roster with a single **display name** column (work_name when set, full_name as fallback — see locked design call #2). No photos, no tax info, no personal contact.
 - Individual agent performance (per-agent KPI scorecards).
 
 Explicitly **not** in scope:
@@ -58,8 +58,8 @@ Schema-only phase. No UI.
   - CHECK constraint on user_profiles enforcing the role/client_id/employee_id invariant.
   - Updates to `guard_user_profile_role` trigger to accept `'client'` as a valid role.
   - New helpers `is_client()` (boolean) and `my_client_id()` (uuid). Mirror the pattern of `is_team_lead()` + `my_tl_campaign_ids()`.
-  - New view `employees_client_view` — projects only `id`, `work_name`, `campaign_id`, `title`, `is_active`. No `full_name`, no tax fields, no contact, no salary, no DOB, no personal info. Use `security_invoker=off` with role-gated WHERE (same pattern as `employees_no_pay`).
-  - New view `eod_logs_client_view` — exposes productivity metrics + `date` + `employee_id` + `campaign_id`. Hides coaching notes, internal amend trail, any field not client-safe.
+  - New view `employees_client_view` — projects only `id`, `display_name` (= `COALESCE(NULLIF(work_name, ''), full_name)`), `campaign_id`, `title`, `is_active`. No raw `full_name` column, no tax fields, no contact, no salary, no DOB, no personal info. Use `security_invoker=off` with role-gated WHERE (same pattern as `employees_no_pay`).
+  - New view `eod_logs_client_view` — exposes productivity metrics + `date` + `employee_id` + `campaign_id`. Hides coaching notes, internal amend trail, any field not client-safe. Productivity columns enumerated explicitly — never `SELECT *`.
   - RLS: `'client'` role gets SELECT-only on `clients` (own row only), `campaigns` (own client only), `employees_client_view` (scoped to campaigns for own client), `eod_logs_client_view` (same), `campaign_kpi_config` (own campaigns only).
 - Seed one test client user via MCP (pick Torro or BTC, D chooses).
 - Regen Supabase types.
@@ -73,17 +73,17 @@ Single route `/client`, gated by `role === 'client'`. Auth routing: client users
 
 - If client has multiple campaigns, campaign picker at top (default: most recent active).
 - Section 1 — **This-week aggregate KPIs** for selected campaign. Cards showing key metrics (credit pulls, deals, whatever the campaign's KPI config exposes).
-- Section 2 — **Agent roster** with per-agent week numbers. Work_name column, per-agent KPI scorecard, simple over/under-target indicator. No drill-down in the first pass.
+- Section 2 — **Agent roster** with per-agent week numbers. Display name column (sourced from `display_name` in `employees_client_view`), per-agent KPI scorecard, simple over/under-target indicator. No drill-down in the first pass.
 - New sidebar for `'client'` role — minimal, just "Dashboard" + "Log out". Completely separate from the existing three menus (leadership/team_lead/agent).
 - No attendance, no HR records, no pay, no admin controls.
 
-## Three open design calls (answered before E1 ships)
+## Design calls locked 2026-04-24
 
-1. **Multiple users per client?** Simple model: one login per client (`user_profiles.client_id` direct FK). Flexible model: many-to-many via new `client_users` join table. MVP-safe is simple. Upgrade to join table if a client actually asks for multiple logins.
+1. **One login per client.** Direct FK `user_profiles.client_id`. Multi-user-per-client deferred. If a client asks for multiple logins later, migration to a `client_users` join table is straightforward — touch user_profiles + helpers and the dashboard hooks; no view changes needed.
 
-2. **work_name fallback when missing.** 12 of 57 employees don't have `work_name` populated (from A1b backfill). Client-facing view can either show "—" (strict, privacy-preserving but ugly) or fall back to `full_name` (leaky). Strict with a backlog task to populate `work_name` for the missing 12 is probably right, but confirm.
+2. **work_name fallback exposed via `display_name` in the view.** When `work_name` is null, fall back to `full_name`. Computed in the view as `COALESCE(NULLIF(work_name, ''), full_name) AS display_name` — clients see only one name field per row, never both side by side. This is friendlier than a "—" placeholder for the 12 of 57 employees without work_name set, and tighter than exposing both columns to the UI. Privacy boundary: clients see whatever name we have on file, but cannot pivot off the legal name when a stage name exists.
 
-3. **EOD amend trail exposure.** Clients see current approved numbers — should they also see edit counts / timestamps / who amended? Recommended: no. Client sees the current truth, the operational edit trail stays internal.
+3. **No EOD audit trail exposed to clients.** Clients see current approved numbers only. Internal amend history (`last_edited_at`, `edit_count`, who amended) stays internal. The client view selects only productivity columns + date + ids — explicitly enumerated, never `SELECT *`, so a future sensitive column added to `eod_logs` cannot silently leak.
 
 ## Followups after E2 ships
 
