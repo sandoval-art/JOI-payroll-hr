@@ -42,3 +42,11 @@ export function RequireOwner({ children, redirectTo = "/", fallback = null }: Gu
   if (!isOwner) return <Navigate to={redirectTo} replace />;
   return <>{children}</>;
 }
+
+/** Allows only users with role === 'client'. Non-clients are sent to redirectTo (default "/"). */
+export function RequireClient({ children, redirectTo = "/", fallback = null }: GuardProps) {
+  const { isClient, loading } = useAuth();
+  if (loading) return <>{fallback}</>;
+  if (!isClient) return <Navigate to={redirectTo} replace />;
+  return <>{children}</>;
+}

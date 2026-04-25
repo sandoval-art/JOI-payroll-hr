@@ -7,14 +7,18 @@ export type UserTitle = "owner" | "admin" | "manager" | "team_lead" | "agent";
 interface UserProfileData {
   id: string;
   employee_id: string | null;
+  client_id: string | null;
   // role mirrors employees.title (kept in sync by trigger). May still hold
   // legacy values like 'employee' until the migration runs.
-  role: UserTitle | "employee" | null;
+  // 'client' is set directly by leadership for external client users.
+  role: UserTitle | "employee" | "client" | null;
   created_at: string;
 }
 
-// Map any legacy/unknown role value to the new title enum
-function normalizeTitle(role: string | null | undefined): UserTitle {
+// Map any legacy/unknown role value to the new title enum.
+// Returns null for 'client' — clients are not employees and have no title.
+function normalizeTitle(role: string | null | undefined): UserTitle | null {
+  if (role === "client") return null;
   if (role === "employee") return "agent";
   if (
     role === "owner" ||
@@ -54,6 +58,8 @@ interface AuthContextValue {
   isAgent: boolean;
   isLeadership: boolean;
   isEmployee: boolean;
+  isClient: boolean;
+  clientId: string | null;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -131,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const isClient = profile?.role === "client";
   const title: UserTitle | null = profile ? normalizeTitle(profile.role) : null;
 
   // Leadership = owner + admin + manager. They see everything (including pay).
@@ -141,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading: loading || (user !== null && profileLoadedForId !== user.id),
     signOut,
-    // Title (single source of truth)
+    // Title (single source of truth; null for client users)
     title,
     role: title, // alias for back-compat
     employeeId: profile?.employee_id ?? null,
@@ -155,6 +162,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLeadership,
     // Back-compat alias — old code reads isEmployee to mean "regular worker"
     isEmployee: title === "agent",
+    // Client portal
+    isClient,
+    clientId: profile?.client_id ?? null,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

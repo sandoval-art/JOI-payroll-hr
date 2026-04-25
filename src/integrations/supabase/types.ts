@@ -1815,18 +1815,21 @@ export type Database = {
       }
       user_profiles: {
         Row: {
+          client_id: string | null
           created_at: string | null
           employee_id: string | null
           id: string
           role: string
         }
         Insert: {
+          client_id?: string | null
           created_at?: string | null
           employee_id?: string | null
           id: string
           role: string
         }
         Update: {
+          client_id?: string | null
           created_at?: string | null
           employee_id?: string | null
           id?: string
@@ -1912,8 +1915,68 @@ export type Database = {
           },
         ]
       }
+      employees_client_view: {
+        Row: {
+          campaign_id: string | null
+          display_name: string | null
+          id: string | null
+          is_active: boolean | null
+          title: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          display_name?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          title?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          display_name?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          title?: string | null
+        }
+        Relationships: []
+      }
+      eod_logs_client_view: {
+        Row: {
+          campaign_id: string | null
+          date: string | null
+          employee_id: string | null
+          id: string | null
+          metrics: Json | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          date?: string | null
+          employee_id?: string | null
+          id?: string | null
+          metrics?: Json | null
+        }
+        Update: {
+          campaign_id?: string | null
+          date?: string | null
+          employee_id?: string | null
+          id?: string | null
+          metrics?: Json | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      is_client: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      my_client_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      my_client_campaign_ids: {
+        Args: Record<PropertyKey, never>
+        Returns: string[]
+      }
       amend_eod_log: {
         Args: { p_log_id: string; p_metrics: Json; p_notes: string }
         Returns: undefined

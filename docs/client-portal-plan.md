@@ -67,15 +67,17 @@ Schema-only phase. No UI.
 
 No UI. No hooks.
 
-### Phase E2 — Client dashboard UI
+### ✅ Phase E2 — Client dashboard UI — SHIPPED PR #65
 
-Single route `/client`, gated by `role === 'client'`. Auth routing: client users land at `/client` instead of `/` or `/home`.
-
-- If client has multiple campaigns, campaign picker at top (default: most recent active).
-- Section 1 — **This-week aggregate KPIs** for selected campaign. Cards showing key metrics (credit pulls, deals, whatever the campaign's KPI config exposes).
-- Section 2 — **Agent roster** with per-agent week numbers. Display name column (sourced from `display_name` in `employees_client_view`), per-agent KPI scorecard, simple over/under-target indicator. No drill-down in the first pass.
-- New sidebar for `'client'` role — minimal, just "Dashboard" + "Log out". Completely separate from the existing three menus (leadership/team_lead/agent).
-- No attendance, no HR records, no pay, no admin controls.
+- **Auth routing**: `RoleHome` redirects `isClient` users to `/client`; `PublicRoute` sends authenticated clients to `/client` on login. `RequireClient` guard (new export in `RequireRole.tsx`) blocks non-clients from `/client/*`.
+- **`ClientLayout`** (`src/components/ClientLayout.tsx`) — standalone layout with minimal sidebar ("Dashboard" + "Sign Out"). Completely separate from `AppLayout`/`AppSidebar` — client routes never see the internal menus.
+- **`/client` — `ClientDashboard`**: one card per campaign showing name + agent count (total / active). Clicking a card navigates to `/client/campaign/:id`.
+- **`/client/campaign/:id` — `ClientCampaignDetail`**: two sections:
+  1. Agent roster from `employees_client_view` — display_name, title, active status.
+  2. This-week KPI table from `eod_logs_client_view` — per-agent rows × date columns. KPI column headers derived from the union of `metrics` jsonb keys across the week's logs. Missing submissions shown as `—`.
+- **`useClientPortal.ts`** (`src/hooks/useClientPortal.ts`) — three hooks: `useClientCampaigns`, `useClientEmployees`, `useClientEodLogsThisWeek`. All query the scoped views; no raw table access.
+- **`types.ts` updated** — `employees_client_view`, `eod_logs_client_view` added to Views; `is_client`/`my_client_id`/`my_client_campaign_ids` to Functions; `client_id` to `user_profiles`.
+- No attendance, no HR records, no pay, no admin controls — read-only throughout.
 
 ## Design calls locked 2026-04-24
 
