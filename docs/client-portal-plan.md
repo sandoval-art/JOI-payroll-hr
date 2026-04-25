@@ -49,23 +49,23 @@ Leadership creates client accounts manually (no self-signup). One test client ac
 
 Two phases. Keep it lean — this is simpler than B2/B3.
 
-### Phase E1 — Data model + RLS + test client
+### ✅ Phase E1 — Data model + RLS + test client — SHIPPED PR #64
 
 Schema-only phase. No UI.
 
-- Migration adds:
-  - `user_profiles.client_id uuid REFERENCES public.clients(id)` (nullable).
-  - CHECK constraint on user_profiles enforcing the role/client_id/employee_id invariant.
-  - Updates to `guard_user_profile_role` trigger to accept `'client'` as a valid role.
-  - New helpers `is_client()` (boolean) and `my_client_id()` (uuid). Mirror the pattern of `is_team_lead()` + `my_tl_campaign_ids()`.
-  - New view `employees_client_view` — projects only `id`, `display_name` (= `COALESCE(NULLIF(work_name, ''), full_name)`), `campaign_id`, `title`, `is_active`. No raw `full_name` column, no tax fields, no contact, no salary, no DOB, no personal info. Use `security_invoker=off` with role-gated WHERE (same pattern as `employees_no_pay`).
-  - New view `eod_logs_client_view` — exposes productivity metrics + `date` + `employee_id` + `campaign_id`. Hides coaching notes, internal amend trail, any field not client-safe. Productivity columns enumerated explicitly — never `SELECT *`.
-  - RLS: `'client'` role gets SELECT-only on `clients` (own row only), `campaigns` (own client only), `employees_client_view` (scoped to campaigns for own client), `eod_logs_client_view` (same), `campaign_kpi_config` (own campaigns only).
-- Seed one test client user via MCP (pick Torro or BTC, D chooses).
-- Regen Supabase types.
-- Add `is_client` to any existing role helper hook (e.g. `useRole`).
+- Migration `20260424300001_e1_client_portal_data_model.sql` adds:
+  - `user_profiles.client_id uuid REFERENCES public.clients(id) ON DELETE RESTRICT` (nullable).
+  - Two CHECK constraints on `user_profiles`: role enum extended to include `'client'`; invariant enforcing client rows have `client_id IS NOT NULL AND employee_id IS NULL`, non-client rows have `client_id IS NULL`.
+  - `guard_user_profile_role` trigger updated to allow direct role changes when either old or new role is `'client'` (client users have no employee record, so the sync-trigger heuristic doesn't apply).
+  - Three SECURITY DEFINER helpers: `is_client()` (boolean), `my_client_id()` (uuid), `my_client_campaign_ids()` (SETOF uuid). Third helper insulates views + RLS from upstream `campaigns` RLS tightening — same lesson as the TL subquery fix in migration 49.
+  - New view `employees_client_view` — projects `id`, `display_name` (= `COALESCE(NULLIF(work_name, ''), full_name)`), `campaign_id`, `title`, `is_active`. No raw `full_name` column, no tax fields, no contact, no salary, no DOB, no personal info. `security_invoker=off` with role-gated WHERE (same pattern as `employees_no_pay`).
+  - New view `eod_logs_client_view` — exposes `id, employee_id, campaign_id, date, metrics` only. Hides `notes, created_at, last_edited_at, edit_count`. Explicitly enumerated — never `SELECT *`. `eod_logs_client_view.metrics` exposes the raw jsonb; safe today because the form only writes keys present in `campaign_kpi_config`. Revisit if that contract ever breaks.
+  - RLS: `authenticated_select_clients/campaigns/campaign_kpi_config` policies replaced — non-clients still see all rows (preserving existing behavior); clients see only their own scope via `my_client_id()` / `my_client_campaign_ids()`.
+- Test client seed + auth user creation: handled separately post-merge via MCP (D chooses Torro or BTC).
+- Types regen: post-merge.
+- `is_client` hook integration: Phase E2.
 
-No UI. No hooks beyond the role flag.
+No UI. No hooks.
 
 ### Phase E2 — Client dashboard UI
 
