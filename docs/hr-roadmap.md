@@ -1,6 +1,6 @@
 # HR Feature Roadmap
 
-Last updated: 2026-04-21
+Last updated: 2026-04-25
 
 Brainstormed after the EOD digest system finished shipping. This doc captures what's next on the HR side, consolidates overlapping ideas, and records the pushbacks that shaped the plan.
 
@@ -192,6 +192,8 @@ All migrations applied via MCP + tracker aligned. Edge function auto-deployed vi
 
 **Two non-blocking production-hardening items for pre-public:** (a) apply same env-driven CORS pattern to `create-employee` + `compliance-notifications` edge functions, (b) revisit rate-limiting on `get-hr-document-signed-url` if real abuse patterns appear.
 
-**Next substantive work:** Feature E (client portal) — see `docs/client-portal-plan.md`. Feature F (resignation packet: renuncia + finiquito + encuesta de salida) queued after E — see `docs/resignation-packet-plan.md`. Feature D (holiday calendar) queued after those.
+**✅ Feature F resignation packet COMPLETE 2026-04-23/24** — see `docs/resignation-packet-plan.md`. F1 data model + LFT calc engine (PR #51), F2 PDF renderer + editor UI (PR #52). Plus a string of polish PRs through 2026-04-24 (#58–#62) covering layout, snapshot pre-fill, schema-rename fixes, Spanish→English UI strings, and PDF formatting. Both finalization RPCs extended for `'renuncia'` type. TL RLS subquery bug surfaced + fixed during F testing (migration `20260423200001`, SECURITY DEFINER `tl_employee_on_my_team` helper) — applies broadly across hr_document_requests / cartas / actas / renuncias / attendance / docs / storage.
+
+**Next substantive work:** Feature E (client portal) — see `docs/client-portal-plan.md`. Phase E1 (data model + RLS + scoped views) up next. Feature D (holiday calendar) queued after E.
 
 - **"Outdated ack" status not distinguished from "never ack'd" on /policies.** When an agent ack'd v1 of a policy and HR publishes v2, the agent's /policies page shows "Not acknowledged" — same label as a first-time view. Functionally re-ack works fine (creates a new row for v2), but the UX should show "A new version was published, please re-acknowledge" when the agent has prior acks on older versions of this policy. Fix: extend `PolicyDocument` with `all_version_ids: string[]` populated in `usePolicies()`, then in `getStatus()` check if any ack matches any older version ID when current isn't ack'd. Added during C2 (2026-04-20).
