@@ -92,52 +92,7 @@ export default function ClientCampaignDetail() {
         </h2>
       </div>
 
-      {/* Section 1 — Agent roster */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            Agent Roster
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {campaignEmployees.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No agents on this campaign.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {campaignEmployees.map((emp) => (
-                  <TableRow key={emp.id}>
-                    <TableCell className="font-medium">
-                      {emp.display_name ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground capitalize">
-                      {emp.title?.replace(/_/g, " ") ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={emp.is_active ? "outline" : "secondary"}
-                        className="text-xs"
-                      >
-                        {emp.is_active ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Section 2 — This-week KPIs */}
+      {/* Section 1 — This-week KPIs */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
@@ -215,6 +170,52 @@ export default function ClientCampaignDetail() {
           )}
         </CardContent>
       </Card>
+
+      {/* Section 2 — Agent roster */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            Agent Roster
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {campaignEmployees.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No agents on this campaign.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {campaignEmployees.map((emp) => (
+                  <TableRow key={emp.id}>
+                    <TableCell className="font-medium">
+                      {emp.display_name ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground capitalize">
+                      {emp.title?.replace(/_/g, " ") ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={emp.is_active ? "outline" : "secondary"}
+                        className="text-xs"
+                      >
+                        {emp.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
     </div>
   );
 }
