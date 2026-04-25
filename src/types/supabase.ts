@@ -96,6 +96,13 @@ export type Database = {
             foreignKeyName: "actas_administrativas_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "employees_client_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "actas_administrativas_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "employees_no_pay"
             referencedColumns: ["id"]
           },
@@ -104,6 +111,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "actas_administrativas_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_client_view"
             referencedColumns: ["id"]
           },
           {
@@ -175,6 +189,13 @@ export type Database = {
             foreignKeyName: "agent_coaching_notes_agent_id_fkey"
             columns: ["agent_id"]
             isOneToOne: false
+            referencedRelation: "employees_client_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_coaching_notes_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
             referencedRelation: "employees_no_pay"
             referencedColumns: ["id"]
           },
@@ -183,6 +204,13 @@ export type Database = {
             columns: ["author_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_coaching_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "employees_client_view"
             referencedColumns: ["id"]
           },
           {
@@ -262,6 +290,13 @@ export type Database = {
             foreignKeyName: "attendance_incidents_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "employees_client_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_incidents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "employees_no_pay"
             referencedColumns: ["id"]
           },
@@ -270,6 +305,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_incidents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_client_view"
             referencedColumns: ["id"]
           },
           {
@@ -357,6 +399,13 @@ export type Database = {
             columns: ["written_by"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_eod_tl_notes_written_by_fkey"
+            columns: ["written_by"]
+            isOneToOne: false
+            referencedRelation: "employees_client_view"
             referencedColumns: ["id"]
           },
           {
@@ -474,6 +523,13 @@ export type Database = {
             foreignKeyName: "campaigns_team_lead_id_fkey"
             columns: ["team_lead_id"]
             isOneToOne: false
+            referencedRelation: "employees_client_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaigns_team_lead_id_fkey"
+            columns: ["team_lead_id"]
+            isOneToOne: false
             referencedRelation: "employees_no_pay"
             referencedColumns: ["id"]
           },
@@ -558,6 +614,13 @@ export type Database = {
             foreignKeyName: "cartas_compromiso_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "employees_client_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cartas_compromiso_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "employees_no_pay"
             referencedColumns: ["id"]
           },
@@ -566,6 +629,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cartas_compromiso_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_client_view"
             referencedColumns: ["id"]
           },
           {
@@ -642,6 +712,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_notifications_sent_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_client_view"
             referencedColumns: ["id"]
           },
           {
@@ -749,6 +826,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_client_view"
             referencedColumns: ["id"]
           },
           {
@@ -880,6 +964,13 @@ export type Database = {
             foreignKeyName: "employees_reports_to_fkey"
             columns: ["reports_to"]
             isOneToOne: false
+            referencedRelation: "employees_client_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_reports_to_fkey"
+            columns: ["reports_to"]
+            isOneToOne: false
             referencedRelation: "employees_no_pay"
             referencedColumns: ["id"]
           },
@@ -991,6 +1082,13 @@ export type Database = {
             foreignKeyName: "eod_logs_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "employees_client_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eod_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "employees_no_pay"
             referencedColumns: ["id"]
           },
@@ -1060,6 +1158,13 @@ export type Database = {
             foreignKeyName: "hr_document_requests_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "employees_client_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_document_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "employees_no_pay"
             referencedColumns: ["id"]
           },
@@ -1068,6 +1173,13 @@ export type Database = {
             columns: ["filed_by"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_document_requests_filed_by_fkey"
+            columns: ["filed_by"]
+            isOneToOne: false
+            referencedRelation: "employees_client_view"
             referencedColumns: ["id"]
           },
           {
@@ -1282,6 +1394,13 @@ export type Database = {
             foreignKeyName: "payroll_records_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "employees_client_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "employees_no_pay"
             referencedColumns: ["id"]
           },
@@ -1319,6 +1438,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_acknowledgments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_client_view"
             referencedColumns: ["id"]
           },
           {
@@ -1390,6 +1516,13 @@ export type Database = {
             columns: ["uploaded_by"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_document_versions_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "employees_client_view"
             referencedColumns: ["id"]
           },
           {
@@ -1570,6 +1703,13 @@ export type Database = {
             foreignKeyName: "resignation_packets_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "employees_client_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resignation_packets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "employees_no_pay"
             referencedColumns: ["id"]
           },
@@ -1578,6 +1718,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resignation_packets_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_client_view"
             referencedColumns: ["id"]
           },
           {
@@ -1754,6 +1901,13 @@ export type Database = {
             foreignKeyName: "time_clock_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "employees_client_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_clock_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "employees_no_pay"
             referencedColumns: ["id"]
           },
@@ -1808,6 +1962,13 @@ export type Database = {
             foreignKeyName: "time_off_requests_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "employees_client_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_off_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "employees_no_pay"
             referencedColumns: ["id"]
           },
@@ -1837,10 +1998,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "user_profiles_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "user_profiles_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_profiles_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_client_view"
             referencedColumns: ["id"]
           },
           {
@@ -1854,6 +2029,38 @@ export type Database = {
       }
     }
     Views: {
+      employees_client_view: {
+        Row: {
+          campaign_id: string | null
+          display_name: string | null
+          id: string | null
+          is_active: boolean | null
+          title: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          display_name?: never
+          id?: string | null
+          is_active?: boolean | null
+          title?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          display_name?: never
+          id?: string | null
+          is_active?: boolean | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees_no_pay: {
         Row: {
           campaign_id: string | null
@@ -1910,34 +2117,17 @@ export type Database = {
             foreignKeyName: "employees_reports_to_fkey"
             columns: ["reports_to"]
             isOneToOne: false
+            referencedRelation: "employees_client_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_reports_to_fkey"
+            columns: ["reports_to"]
+            isOneToOne: false
             referencedRelation: "employees_no_pay"
             referencedColumns: ["id"]
           },
         ]
-      }
-      employees_client_view: {
-        Row: {
-          campaign_id: string | null
-          display_name: string | null
-          id: string | null
-          is_active: boolean | null
-          title: string | null
-        }
-        Insert: {
-          campaign_id?: string | null
-          display_name?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          title?: string | null
-        }
-        Update: {
-          campaign_id?: string | null
-          display_name?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          title?: string | null
-        }
-        Relationships: []
       }
       eod_logs_client_view: {
         Row: {
@@ -1961,22 +2151,39 @@ export type Database = {
           id?: string | null
           metrics?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "eod_logs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eod_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eod_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_client_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eod_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
-      is_client: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      my_client_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      my_client_campaign_ids: {
-        Args: Record<PropertyKey, never>
-        Returns: string[]
-      }
       amend_eod_log: {
         Args: { p_log_id: string; p_metrics: Json; p_notes: string }
         Returns: undefined
@@ -2046,8 +2253,11 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      is_client: { Args: never; Returns: boolean }
       is_leadership: { Args: never; Returns: boolean }
       is_team_lead: { Args: never; Returns: boolean }
+      my_client_campaign_ids: { Args: never; Returns: string[] }
+      my_client_id: { Args: never; Returns: string }
       my_employee_id: { Args: never; Returns: string }
       my_team_member_ids: { Args: never; Returns: string[] }
       my_tl_campaign_ids: { Args: never; Returns: string[] }
@@ -2090,13 +2300,13 @@ export type Tables<
     : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
         DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
+  ? (DefaultSchema["Tables"] &
+      DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+      Row: infer R
+    }
+    ? R
     : never
+  : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
@@ -2116,12 +2326,12 @@ export type TablesInsert<
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+      Insert: infer I
+    }
+    ? I
     : never
+  : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
@@ -2141,12 +2351,12 @@ export type TablesUpdate<
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+      Update: infer U
+    }
+    ? U
     : never
+  : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
@@ -2162,8 +2372,8 @@ export type Enums<
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
+  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
@@ -2179,8 +2389,8 @@ export type CompositeTypes<
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : never
 
 export const Constants = {
   public: {

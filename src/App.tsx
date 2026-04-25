@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
+import { ClientLayout } from "@/components/ClientLayout";
 import { useAuth, AuthProvider } from "@/hooks/useAuth";
 import Dashboard from "@/pages/Dashboard";
 import EmployeeHome from "@/pages/EmployeeHome";
@@ -34,7 +35,9 @@ import Policies from "@/pages/Policies";
 import MyPolicies from "@/pages/MyPolicies";
 import HrDocumentQueue from "@/pages/HrDocumentQueue";
 import HrDocumentDraft from "@/pages/HrDocumentDraft";
-import { RequireLeadership, RequireTeamLeadOrAbove } from "@/components/RequireRole";
+import ClientDashboard from "@/pages/ClientDashboard";
+import ClientCampaignDetail from "@/pages/ClientCampaignDetail";
+import { RequireLeadership, RequireTeamLeadOrAbove, RequireClient } from "@/components/RequireRole";
 import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 
 const queryClient = new QueryClient();
@@ -58,14 +61,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function RoleHome() {
-  const { isLeadership, isTeamLead } = useAuth();
+  const { isLeadership, isTeamLead, isClient } = useAuth();
+  // Client users get their own portal — redirect out of AppLayout
+  if (isClient) return <Navigate to="/client" replace />;
   if (isLeadership) return <Dashboard />;
   if (isTeamLead) return <TeamLeadHome />;
   return <EmployeeHome />;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth();
+  const { session, loading, isClient } = useAuth();
 
   if (loading) {
     return (
@@ -76,7 +81,8 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (session) {
-    return <Navigate to="/" replace />;
+    // Send authenticated clients directly to their portal
+    return <Navigate to={isClient ? "/client" : "/"} replace />;
   }
 
   return <>{children}</>;
@@ -92,6 +98,25 @@ const App = () => (
         <Routes>
           <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
           <Route path="/reset-password" element={<ResetPassword />} />
+
+          {/* Client portal — own layout, completely separate from AppLayout / AppSidebar */}
+          <Route
+            path="/client/*"
+            element={
+              <ProtectedRoute>
+                <RequireClient>
+                  <ClientLayout>
+                    <Routes>
+                      <Route index element={<ClientDashboard />} />
+                      <Route path="campaign/:id" element={<ClientCampaignDetail />} />
+                    </Routes>
+                  </ClientLayout>
+                </RequireClient>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* All other routes — AppLayout with AppSidebar */}
           <Route
             path="/*"
             element={
