@@ -29,22 +29,22 @@ import {
 import type { HrDocumentRequestType } from "@/types/hr-docs";
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  pending: { label: "Pendiente", variant: "secondary" },
-  in_progress: { label: "En proceso", variant: "default" },
-  fulfilled: { label: "Completada", variant: "outline" },
-  canceled: { label: "Cancelada", variant: "destructive" },
-  downgraded: { label: "Degradada", variant: "outline" },
+  pending: { label: "Pending", variant: "secondary" },
+  in_progress: { label: "In Progress", variant: "default" },
+  fulfilled: { label: "Fulfilled", variant: "outline" },
+  canceled: { label: "Canceled", variant: "destructive" },
+  downgraded: { label: "Downgraded", variant: "outline" },
 };
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "justo ahora";
-  if (mins < 60) return `hace ${mins} min`;
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `hace ${hours}h`;
+  if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return `hace ${days}d`;
+  if (days < 30) return `${days}d ago`;
   return formatDateMX(dateStr);
 }
 
@@ -91,7 +91,7 @@ export default function HrDocumentRequestsCard({
       },
       {
         onSuccess: () => {
-          toast.success("Solicitud enviada a HR");
+          toast.success("Request sent to HR");
           setDialogOpen(false);
           resetForm();
         },
@@ -322,10 +322,10 @@ export default function HrDocumentRequestsCard({
               {createRequest.isPending
                 ? "Enviando..."
                 : requestType === "acta"
-                  ? "Solicitar acta"
+                  ? "Request Act"
                   : requestType === "renuncia"
-                    ? "Solicitar renuncia"
-                    : "Solicitar carta"}
+                    ? "Request Resignation"
+                    : "Request Letter"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -365,7 +365,7 @@ function FulfilledDocLinks({
         onClick={() => handleView("pdf")}
       >
         <ExternalLink className="mr-1 h-3 w-3" />
-        {loading === "pdf" ? "Abriendo..." : "Ver PDF"}
+        {loading === "pdf" ? "Opening..." : "View PDF"}
       </Button>
       <Button
         variant="link"
@@ -375,7 +375,7 @@ function FulfilledDocLinks({
         onClick={() => handleView("signed_scan")}
       >
         <ExternalLink className="mr-1 h-3 w-3" />
-        {loading === "signed_scan" ? "Abriendo..." : "Ver escaneo firmado"}
+        {loading === "signed_scan" ? "Opening..." : "View Signed Scan"}
       </Button>
     </div>
   );

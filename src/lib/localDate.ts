@@ -71,7 +71,7 @@ export function formatDateSpanishFull(d: string | Date | null | undefined): stri
   const day = date.getDate();
   const month = MONTHS_ES[date.getMonth()];
   const year = date.getFullYear();
-  return `${wd} ${day} de ${month} ${year}`;
+  return `${wd}, ${day} de ${month} de ${year}`;
 }
 
 /**
