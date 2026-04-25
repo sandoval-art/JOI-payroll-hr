@@ -8,11 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from "@/components/ui/resizable";
 import { ArrowLeft, Save, FileText, Plus, Trash2, AlertTriangle, Unlink, Eye, Upload, ExternalLink, AlertCircle, CheckCircle, RefreshCw, User, Briefcase, Calendar, Quote } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
@@ -702,11 +697,10 @@ export default function HrDocumentDraft() {
         </div>
       )}
 
-      {/* Split-view */}
-      <ResizablePanelGroup direction="horizontal" className="rounded-lg border">
-        {/* Left: TL narrative (read-only) */}
-        <ResizablePanel defaultSize={40} minSize={25}>
-          <div className="md:sticky md:top-4 md:max-h-[calc(100vh-2rem)] overflow-y-auto p-5 space-y-4">
+      {/* Split-view: CSS grid + sticky left */}
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-4 items-start">
+        {/* Left: TL narrative (read-only, sticky on desktop) */}
+        <aside className="md:sticky md:top-4 md:max-h-[calc(100vh-2rem)] md:overflow-y-auto space-y-4">
             {/* ── Agent identity card ──────────────────────── */}
             <div className="rounded-lg border bg-card p-4 space-y-2">
               <div className="flex items-center gap-2">
@@ -789,14 +783,10 @@ export default function HrDocumentDraft() {
                 {request.tlNarrative}
               </div>
             </div>
-          </div>
-        </ResizablePanel>
-
-        <ResizableHandle withHandle />
+        </aside>
 
         {/* Right: HR draft form */}
-        <ResizablePanel defaultSize={60} minSize={30}>
-          <div className="h-full overflow-y-auto p-5 space-y-5">
+        <section className="space-y-5">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               Redacción formal (HR)
             </h2>
@@ -1422,9 +1412,8 @@ export default function HrDocumentDraft() {
                 </div>
               </div>
             )}
-          </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+        </section>
+      </div>
     </div>
   );
 }
