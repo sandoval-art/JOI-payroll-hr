@@ -353,7 +353,7 @@ export default function HrDocumentDraft() {
         form.reincidenciaPriorCartaId || null;
     } else if (request.requestType === "renuncia") {
       fields.effective_date = form.effectiveDate || null;
-      fields.renuncia_narrative = form.renunciaNarrative || null;
+      fields.narrative = form.renunciaNarrative || null;
       fields.hire_date_snapshot = form.hireDateSnapshot || null;
       fields.salario_diario_snapshot = form.salarioDiarioSnapshot ? parseFloat(form.salarioDiarioSnapshot) : null;
       fields.aguinaldo_monto = form.aguinaldoMonto ? parseFloat(form.aguinaldoMonto) : null;

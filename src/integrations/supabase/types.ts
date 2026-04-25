@@ -1485,10 +1485,10 @@ export type Database = {
           hire_date_snapshot: string | null
           horario_snapshot: string | null
           id: string
+          narrative: string | null
           pdf_path: string | null
           prima_vacacional_monto: number | null
           puesto_snapshot: string | null
-          renuncia_narrative: string | null
           request_id: string | null
           rfc_snapshot: string | null
           salario_diario_snapshot: number | null
@@ -1514,10 +1514,10 @@ export type Database = {
           hire_date_snapshot?: string | null
           horario_snapshot?: string | null
           id?: string
+          narrative?: string | null
           pdf_path?: string | null
           prima_vacacional_monto?: number | null
           puesto_snapshot?: string | null
-          renuncia_narrative?: string | null
           request_id?: string | null
           rfc_snapshot?: string | null
           salario_diario_snapshot?: number | null
@@ -1543,10 +1543,10 @@ export type Database = {
           hire_date_snapshot?: string | null
           horario_snapshot?: string | null
           id?: string
+          narrative?: string | null
           pdf_path?: string | null
           prima_vacacional_monto?: number | null
           puesto_snapshot?: string | null
-          renuncia_narrative?: string | null
           request_id?: string | null
           rfc_snapshot?: string | null
           salario_diario_snapshot?: number | null
@@ -1988,6 +1988,10 @@ export type Database = {
       my_employee_id: { Args: never; Returns: string }
       my_team_member_ids: { Args: never; Returns: string[] }
       my_tl_campaign_ids: { Args: never; Returns: string[] }
+      tl_employee_on_my_team: {
+        Args: { p_employee_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

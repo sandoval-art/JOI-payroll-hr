@@ -334,7 +334,7 @@ function mapFinalizationRow(
       (row.reincidencia_prior_carta_id as string) ?? null,
     // Renuncia-specific
     effectiveDate: (row.effective_date as string) ?? null,
-    renunciaNarrative: (row.renuncia_narrative as string) ?? null,
+    renunciaNarrative: (row.narrative as string) ?? null,
     hireDateSnapshot: (row.hire_date_snapshot as string) ?? null,
     salarioDiarioSnapshot: (row.salario_diario_snapshot as number) ?? null,
     aguinaldoMonto: (row.aguinaldo_monto as number) ?? null,
@@ -428,9 +428,9 @@ export interface DraftUpdateFields {
   kpi_table?: CartaKpiRow[];
   witnesses?: ActaWitness[];
   reincidencia_prior_carta_id?: string | null;
-  // Renuncia-specific
+  // Renuncia-specific (note: narrative is already declared above and is shared
+  // across carta/acta/renuncia — same column on all three finalization tables)
   effective_date?: string | null;
-  renuncia_narrative?: string | null;
   hire_date_snapshot?: string | null;
   salario_diario_snapshot?: number | null;
   aguinaldo_monto?: number | null;

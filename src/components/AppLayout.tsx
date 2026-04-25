@@ -4,7 +4,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="h-screen flex w-full overflow-hidden">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="sticky top-0 z-10 h-14 flex items-center px-6 gap-3 bg-background/80 backdrop-blur-xl">
