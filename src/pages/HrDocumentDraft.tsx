@@ -336,16 +336,17 @@ export default function HrDocumentDraft() {
       trabajador_name_snapshot: form.trabajadorNameSnapshot || null,
       puesto_snapshot: form.puestoSnapshot || null,
       horario_snapshot: form.horarioSnapshot || null,
-      supervisor_name_snapshot: form.supervisorNameSnapshot || null,
       company_legal_name_snapshot: form.companyLegalNameSnapshot || null,
       company_legal_address_snapshot:
         form.companyLegalAddressSnapshot || null,
     };
 
     if (request.requestType === "carta") {
+      fields.supervisor_name_snapshot = form.supervisorNameSnapshot || null;
       fields.incident_date_long_snapshot = form.incidentDateLongSnapshot || null;
       fields.kpi_table = form.kpiTable;
     } else if (request.requestType === "acta") {
+      fields.supervisor_name_snapshot = form.supervisorNameSnapshot || null;
       fields.incident_date_long_snapshot = form.incidentDateLongSnapshot || null;
       fields.witnesses = form.witnesses;
       fields.reincidencia_prior_carta_id =
@@ -376,7 +377,7 @@ export default function HrDocumentDraft() {
         // Now update the freshly-created row with the form fields
         await saveDraft.mutateAsync({
           draftId: result.id,
-          type: result.type as "carta" | "acta",
+          type: result.type as "carta" | "acta" | "renuncia",
           fields,
           requestId: request.id,
         });
@@ -402,33 +403,72 @@ export default function HrDocumentDraft() {
     draft?.type === "acta" ? draft?.reincidenciaPriorCartaId : undefined,
   );
 
+  /** Merge current form state onto the draft so PDF always uses live UI values. */
+  function draftWithFormOverlay(): FinalizationDraft | null {
+    if (!draft) return null;
+    return {
+      ...draft,
+      narrative: form.narrative || draft.narrative,
+      trabajadorNameSnapshot: form.trabajadorNameSnapshot || draft.trabajadorNameSnapshot,
+      puestoSnapshot: form.puestoSnapshot || draft.puestoSnapshot,
+      horarioSnapshot: form.horarioSnapshot || draft.horarioSnapshot,
+      supervisorNameSnapshot: form.supervisorNameSnapshot || draft.supervisorNameSnapshot,
+      companyLegalNameSnapshot: form.companyLegalNameSnapshot || draft.companyLegalNameSnapshot,
+      companyLegalAddressSnapshot: form.companyLegalAddressSnapshot || draft.companyLegalAddressSnapshot,
+      incidentDateLongSnapshot: form.incidentDateLongSnapshot || draft.incidentDateLongSnapshot,
+      kpiTable: form.kpiTable.length > 0 ? form.kpiTable : draft.kpiTable,
+      witnesses: form.witnesses.length > 0 ? form.witnesses : draft.witnesses,
+      effectiveDate: form.effectiveDate || draft.effectiveDate,
+      hireDateSnapshot: form.hireDateSnapshot || draft.hireDateSnapshot,
+      salarioDiarioSnapshot: form.salarioDiarioSnapshot ? parseFloat(form.salarioDiarioSnapshot) : draft.salarioDiarioSnapshot,
+      aguinaldoMonto: form.aguinaldoMonto ? parseFloat(form.aguinaldoMonto) : draft.aguinaldoMonto,
+      vacacionesMonto: form.vacacionesMonto ? parseFloat(form.vacacionesMonto) : draft.vacacionesMonto,
+      primaVacacionalMonto: form.primaVacacionalMonto ? parseFloat(form.primaVacacionalMonto) : draft.primaVacacionalMonto,
+      totalMonto: form.totalMonto ? parseFloat(form.totalMonto) : draft.totalMonto,
+      totalEnLetras: form.totalEnLetras || draft.totalEnLetras,
+      curpSnapshot: form.curpSnapshot || draft.curpSnapshot,
+      rfcSnapshot: form.rfcSnapshot || draft.rfcSnapshot,
+      claveElector: form.claveElector || draft.claveElector,
+    };
+  }
+
   function generatePdfBlob(): Blob | null {
-    if (!draft || !request) return null;
+    const liveDraft = draftWithFormOverlay();
+    if (!liveDraft || !request) return null;
     if (request.requestType === "carta") {
-      return generateCartaPdf(draft, request);
+      return generateCartaPdf(liveDraft, request);
     }
     if (request.requestType === "renuncia") {
-      return generateRenunciaPacketPdf(draft, request);
+      return generateRenunciaPacketPdf(liveDraft, request);
     }
     return generateActaPdf(
-      draft,
+      liveDraft,
       request,
       linkedCarta ?? null,
     );
   }
 
-  function handlePreviewPdf() {
-    const blob = generatePdfBlob();
-    if (!blob) {
+  async function handlePreviewPdf() {
+    if (!draft || !request) {
       toast.error("Guarda el borrador primero");
       return;
     }
+    // Auto-save before preview so DB matches what HR sees
+    if (formDirty.current) {
+      await handleSave();
+    }
+    const blob = generatePdfBlob();
+    if (!blob) return;
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank");
   }
 
   async function handleFinalizePdf() {
     if (!draft || !request) return;
+    // Auto-save before PDF generation
+    if (formDirty.current) {
+      await handleSave();
+    }
     const blob = generatePdfBlob();
     if (!blob) return;
     try {
