@@ -1,5 +1,5 @@
 import type { FinalizationDraft, HrDocumentRequestQueueItem } from "@/hooks/useHrDocumentRequests";
-import { formatDateSpanishFull } from "@/lib/localDate";
+import { formatDateSpanishFull, formatDateSpanishMedium } from "@/lib/localDate";
 import {
   RENUNCIA_OPENING,
   RENUNCIA_CLOSING,
@@ -115,7 +115,7 @@ export function generateRenunciaPacketPdf(
 
   // Metadata table
   const hireDateFormatted = draft.hireDateSnapshot
-    ? formatDateSpanishFull(draft.hireDateSnapshot)
+    ? formatDateSpanishMedium(draft.hireDateSnapshot)
     : "";
   y = drawMetadataTable(
     doc,
@@ -123,7 +123,7 @@ export function generateRenunciaPacketPdf(
       { label: "Nombre del trabajador:", value: trabajador },
       { label: "Fecha de ingreso:", value: hireDateFormatted },
       { label: "Fecha de renuncia:", value: effectiveDateLong },
-      { label: "Puesto desempeñado:", value: puesto },
+      { label: "Puesto desempeñado:", value: puesto.toUpperCase() },
       { label: "Horario de Trabajo:", value: draft.horarioSnapshot ?? "" },
       { label: "Salario Diario:", value: fmtMoney(draft.salarioDiarioSnapshot) },
     ],
@@ -195,7 +195,8 @@ export function generateRenunciaPacketPdf(
   y = drawSignatureBlock(doc, MARGIN_LEFT, y, CONTENT_WIDTH / 2, "");
   y += 0.1;
 
-  // Identity info
+  // Identity info + fingerprint boxes (same vertical zone, left + right)
+  const idY = y;
   doc.setFont("Helvetica", "italic");
   doc.setFontSize(9);
   doc.text(`CLAVE DE ELECTOR: ${draft.claveElector ?? ""}`, MARGIN_LEFT, y);
@@ -205,17 +206,16 @@ export function generateRenunciaPacketPdf(
   doc.text(`RFC: ${draft.rfcSnapshot ?? ""}`, MARGIN_LEFT, y);
   y += 0.3;
 
-  // Fingerprint boxes
-  const boxSize = 0.8;
+  // Fingerprint boxes — right-aligned on same Y as identity block
+  const boxSize = 0.7;
   const boxX1 = PAGE_WIDTH - 0.75 - boxSize * 2 - 0.3;
   const boxX2 = PAGE_WIDTH - 0.75 - boxSize;
-  y = ensureSpace(doc, y, boxSize + 0.3);
   doc.setFont("Helvetica", "normal");
   doc.setFontSize(7);
-  doc.rect(boxX1, y, boxSize, boxSize);
-  doc.text("Huella Digital izquierda", boxX1, y + boxSize + 0.12, { align: "left" });
-  doc.rect(boxX2, y, boxSize, boxSize);
-  doc.text("Huella digital derecha", boxX2, y + boxSize + 0.12, { align: "left" });
+  doc.rect(boxX1, idY, boxSize, boxSize);
+  doc.text("Huella Digital izquierda", boxX1, idY + boxSize + 0.1, { align: "left" });
+  doc.rect(boxX2, idY, boxSize, boxSize);
+  doc.text("Huella digital derecha", boxX2, idY + boxSize + 0.1, { align: "left" });
 
   // ── Page 3: Encuesta part 1 ────────────────────────────────────
   doc.addPage();
@@ -240,23 +240,28 @@ export function generateRenunciaPacketPdf(
 
   // Likert table
   const likertHeaders = ["MUY\nSATISFECHO", "SATISFECHO", "NEUTRAL", "INSATISFECHO", "MUY\nINSATISFECHO"];
-  const qColW = CONTENT_WIDTH * 0.42;
+  const qColW = CONTENT_WIDTH * 0.40;
   const optColW = (CONTENT_WIDTH - qColW) / 5;
   const rowH = 0.25;
+  const headerRowH = 0.4;
 
   // Header row
-  y = ensureSpace(doc, y, 0.4);
+  y = ensureSpace(doc, y, headerRowH);
   doc.setFillColor(220, 220, 220);
-  doc.rect(MARGIN_LEFT, y, qColW, 0.35, "FD");
+  doc.rect(MARGIN_LEFT, y, qColW, headerRowH, "FD");
   doc.setFont("Helvetica", "bold");
-  doc.setFontSize(6);
+  doc.setFontSize(5);
   for (let i = 0; i < 5; i++) {
     const cx = MARGIN_LEFT + qColW + optColW * i;
-    doc.rect(cx, y, optColW, 0.35, "FD");
+    doc.rect(cx, y, optColW, headerRowH, "FD");
     const lines = likertHeaders[i].split("\n");
-    doc.text(lines, cx + optColW / 2, y + 0.12, { align: "center" });
+    const lineH = 0.08;
+    const startY = y + (headerRowH - lines.length * lineH) / 2 + lineH;
+    for (let j = 0; j < lines.length; j++) {
+      doc.text(lines[j], cx + optColW / 2, startY + j * lineH, { align: "center" });
+    }
   }
-  y += 0.35;
+  y += headerRowH;
 
   // Categories + questions
   for (const cat of ENCUESTA_CATEGORIES) {
