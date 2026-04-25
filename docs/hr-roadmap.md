@@ -194,6 +194,112 @@ All migrations applied via MCP + tracker aligned. Edge function auto-deployed vi
 
 **✅ Feature F resignation packet COMPLETE 2026-04-23/24** — see `docs/resignation-packet-plan.md`. F1 data model + LFT calc engine (PR #51), F2 PDF renderer + editor UI (PR #52). Plus a string of polish PRs through 2026-04-24 (#58–#62) covering layout, snapshot pre-fill, schema-rename fixes, Spanish→English UI strings, and PDF formatting. Both finalization RPCs extended for `'renuncia'` type. TL RLS subquery bug surfaced + fixed during F testing (migration `20260423200001`, SECURITY DEFINER `tl_employee_on_my_team` helper) — applies broadly across hr_document_requests / cartas / actas / renuncias / attendance / docs / storage.
 
-**Next substantive work:** Feature E (client portal) — see `docs/client-portal-plan.md`. Phase E1 (data model + RLS + scoped views) up next. Feature D (holiday calendar) queued after E.
+**Next substantive work:** Feature D (holiday calendar) — full spec below. Feature E COMPLETE (PRs #64–#65, 2026-04-25).
+
+---
+
+## Feature D — Holiday Calendar (spec locked 2026-04-25)
+
+### Locked engineering rules (2026-04-21, not revisited)
+- Statutory MX holidays: Jan 1, Feb 5, Mar 21, May 1, Sep 16, Nov 20, Dec 25 + election day every 6 years. `mexican_holidays` table already exists in DB.
+- Client emails fire 14d + 7d before each holiday. Only for campaigns with "requires holiday coverage" toggle ON.
+- 20% of campaign headcount can have the day off per holiday, minimum 1 (e.g. team of 3 = 1 slot).
+- Approval: hybrid — auto-approve up to cap, HR can override denials or additions.
+- Rotation: display historical "who took which holiday off" — humans decide, system does not hard-enforce.
+- No-show detection: auto-create `attendance_incidents` row type `no_call_no_show` when agent was scheduled to work a holiday and didn't clock in.
+
+### Agent experience
+- 14d + 7d email notification per upcoming holiday with a link into the app.
+- Left sidebar: "Holiday Requests" tab (visible to agents only).
+- Page shows all upcoming statutory holidays for the year as a list.
+- Each holiday card has a capacity meter: green = slots available, red = 20% cap hit.
+- Agent can request any upcoming holiday (not just the next one).
+- Under cap → auto-approved immediately, card reflects "Approved."
+- At cap → flat message: "Speak with your TL." No waitlist.
+- If pending TL review, agent sees rotation message: "Holidays rotate — if this one isn't approved, you're at the top of the list for the next holiday."
+- Agent can cancel their own approved request.
+
+### Team Lead experience
+- Home screen card: upcoming holiday name + date, list of approved-off agents on their team, list of pending over-cap requests needing review.
+- Card is removed after the holiday date passes.
+- TL can approve over-cap requests (manually overrides the cap after speaking with the agent).
+- TL can dismiss a pending request.
+- TL receives 14d + 7d email awareness (same cadence as agents and clients).
+- No other required proactive actions.
+
+### HR / Leadership experience
+- **Per-campaign toggle** on campaign settings page: "Requires holiday coverage." Controls whether client emails fire and whether the cap + request system applies to that campaign.
+- **Global Time Off section** (new nav area) with two tabs: "Holidays" and "Vacation" (vacation tab = placeholder for Feature G).
+- HR sees all holiday requests across all campaigns — can approve or deny any request regardless of cap.
+- HR override is a deliberate action (after speaking with agent and TL) — not automatic.
+- **Custom holidays**: HR can add company holidays beyond the 7 statutory ones (e.g. company-wide day off). These appear in the same holiday list and follow the same cap/request system.
+- **Coverage gap dashboard**: per-campaign view of upcoming holidays showing approved-off count vs. total headcount. Flags campaigns with unusually high absence.
+- **Manual email trigger**: HR can manually fire the 14d or 7d client email for any campaign in case cron misses or recipient list was wrong at send time.
+
+### Client experience
+- Receives 14d + 7d holiday notification emails (campaigns with coverage toggle ON only).
+- Reply-to on all holiday emails: `humanresources@justoutsource.it`.
+- No opt-out — clients must be aware of Mexican holidays.
+- **Client portal view** (on `/client/campaign/:id`):
+  - Campaign **works holidays** → sees agent in/out count for that upcoming holiday.
+  - Campaign **does not work holidays** → sees "Mexican Federal Holiday — [holiday name]" card.
+- No fun fact copy for now.
+
+### Payroll integration
+- Feature D surfaces a **Holiday Pay Flag** on the payroll run.
+- Shows which agents worked a statutory holiday in that period + calculated triple-pay amount (200% premium on top of base daily rate, per MX law).
+- HR reviews and confirms before it applies — never auto-locks.
+- Holiday not worked = no payroll action (agent is paid their normal day, no deduction).
+- 25% holiday premium for not-worked days is a read-only display note on the payroll run, not a separate line item (agents are salaried — the day is already covered in their base).
+
+### Vacation / PTO
+- Out of scope for Feature D. Will be Feature G.
+- "Vacation" tab in the Time Off section ships as a placeholder from Day 1 so navigation is already correct when Feature G is built.
+
+### Phased build plan
+
+**Phase D1 — Data model** (one PR, no UI)
+- `holiday_requests` table: id, employee_id, campaign_id, holiday_date, holiday_name, status (enum: approved / pending_tl / denied / cancelled), requested_at, reviewed_by, reviewed_at.
+- `company_holidays` table: id, date, name, is_statutory bool, created_by, created_at. Seed the 7 statutory holidays for current + next year.
+- Add `requires_holiday_coverage` boolean (default false) to `campaigns` table.
+- RLS: agents read/write own requests; TL reads + approves team requests; HR/leadership ALL.
+- TS types regen.
+
+**Phase D2 — Agent UI** (one PR)
+- "Holiday Requests" sidebar tab + page.
+- Holiday list with capacity meter per holiday.
+- Request / cancel flow with auto-approve logic.
+- Cap-hit message + rotation message.
+- Rides `useHolidayRequests` hook.
+
+**Phase D3 — TL home card + approval** (one PR)
+- Upcoming holiday card on TeamLeadHome.
+- Approved-off list + pending-review list.
+- Approve / dismiss actions.
+- Card auto-hides after holiday date passes.
+
+**Phase D4 — HR Time Off section + overrides + custom holidays** (one PR)
+- New nav section "Time Off" with Holidays + Vacation (placeholder) tabs.
+- Global request queue across all campaigns.
+- Custom holiday add/edit UI.
+- Coverage gap dashboard (per-campaign headcount in/out summary).
+- Manual email trigger button per campaign.
+- Campaign settings toggle: "Requires holiday coverage."
+
+**Phase D5 — Client emails + portal view** (one PR)
+- Scheduled edge function (or extend existing cron): fires 14d + 7d emails per holiday per qualifying campaign.
+- Reply-to: `humanresources@justoutsource.it`.
+- Client portal `/client/campaign/:id` holiday card (in/out count or "Federal Holiday" message depending on campaign toggle).
+
+**Phase D6 — Payroll Holiday Pay Flag** (one PR)
+- Holiday pay flag surface on payroll run page.
+- Detects agents who clocked in on a statutory holiday.
+- Displays calculated triple-pay amount for HR confirmation.
+- HR confirms before it applies to the period.
+
+**Phase D7 — No-show detection** (one PR)
+- Cron or post-holiday job: for each statutory holiday, check agents on coverage-required campaigns who did not have an approved request and did not clock in.
+- Auto-create `attendance_incidents` row type `no_call_no_show` for each.
+- Rides existing attendance incident infrastructure.
 
 - **"Outdated ack" status not distinguished from "never ack'd" on /policies.** When an agent ack'd v1 of a policy and HR publishes v2, the agent's /policies page shows "Not acknowledged" — same label as a first-time view. Functionally re-ack works fine (creates a new row for v2), but the UX should show "A new version was published, please re-acknowledge" when the agent has prior acks on older versions of this policy. Fix: extend `PolicyDocument` with `all_version_ids: string[]` populated in `usePolicies()`, then in `getStatus()` check if any ack matches any older version ID when current isn't ack'd. Added during C2 (2026-04-20).
