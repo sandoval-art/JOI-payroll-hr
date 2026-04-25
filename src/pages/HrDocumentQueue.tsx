@@ -45,32 +45,32 @@ const STATUS_LABELS: Record<
   string,
   { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
 > = {
-  pending: { label: "Pendiente", variant: "secondary" },
-  in_progress: { label: "En proceso", variant: "default" },
-  fulfilled: { label: "Completada", variant: "outline" },
-  canceled: { label: "Cancelada", variant: "destructive" },
-  downgraded: { label: "Degradada", variant: "outline" },
+  pending: { label: "Pending", variant: "secondary" },
+  in_progress: { label: "In Progress", variant: "default" },
+  fulfilled: { label: "Fulfilled", variant: "outline" },
+  canceled: { label: "Canceled", variant: "destructive" },
+  downgraded: { label: "Downgraded", variant: "outline" },
 };
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "justo ahora";
-  if (mins < 60) return `hace ${mins} min`;
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `hace ${hours}h`;
+  if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return `hace ${days}d`;
+  if (days < 30) return `${days}d ago`;
   return formatDateMX(dateStr);
 }
 
 type TabValue = "pending" | "in_progress" | "fulfilled" | "all";
 
 const TAB_CONFIG: { value: TabValue; label: string }[] = [
-  { value: "pending", label: "Pendientes" },
-  { value: "in_progress", label: "En proceso" },
-  { value: "fulfilled", label: "Completadas" },
-  { value: "all", label: "Todas" },
+  { value: "pending", label: "Pending" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "fulfilled", label: "Fulfilled" },
+  { value: "all", label: "All" },
 ];
 
 export default function HrDocumentQueue() {
@@ -84,7 +84,7 @@ export default function HrDocumentQueue() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Cola de documentos HR</h1>
+      <h1 className="text-2xl font-bold">HR Document Queue</h1>
 
       <Tabs
         value={tab}
@@ -108,23 +108,23 @@ export default function HrDocumentQueue() {
               <LogoLoadingIndicator size="sm" />
             ) : requests.length === 0 ? (
               <p className="text-sm text-muted-foreground p-4">
-                {t.value === "pending" && "No hay solicitudes pendientes."}
-                {t.value === "in_progress" && "No hay solicitudes en proceso."}
-                {t.value === "fulfilled" && "No hay solicitudes completadas."}
-                {t.value === "all" && "No hay solicitudes."}
+                {t.value === "pending" && "No pending requests."}
+                {t.value === "in_progress" && "No requests in progress."}
+                {t.value === "fulfilled" && "No fulfilled requests."}
+                {t.value === "all" && "No requests."}
               </p>
             ) : (
               <div className="border rounded-lg overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Agente</TableHead>
-                      <TableHead>Campaña</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Fecha incidente</TableHead>
-                      <TableHead>Solicitante</TableHead>
-                      <TableHead>Enviada</TableHead>
+                      <TableHead>Agent</TableHead>
+                      <TableHead>Campaign</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Incident Date</TableHead>
+                      <TableHead>Filed By</TableHead>
+                      <TableHead>Submitted</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -154,7 +154,7 @@ export default function HrDocumentQueue() {
                               }
                               className="text-xs"
                             >
-                              {req.requestType === "acta" ? "Acta" : req.requestType === "renuncia" ? "Renuncia" : "Carta"}
+                              {req.requestType === "acta" ? "Disciplinary Act" : req.requestType === "renuncia" ? "Resignation" : "Commitment Letter"}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -239,7 +239,7 @@ function RequestDetail({
       { id, employeeId: req!.employeeId, status: "in_progress" },
       {
         onSuccess: () => {
-          toast.success("Solicitud marcada como en proceso");
+          toast.success("Request marked as in progress");
           navigate(`/hr/document-queue/${id}/edit`);
         },
         onError: (err) => toast.error((err as Error).message),
@@ -260,8 +260,8 @@ function RequestDetail({
         onSuccess: () => {
           toast.success(
             actionDialog === "canceled"
-              ? "Solicitud cancelada"
-              : "Solicitud degradada a verbal",
+              ? "Request canceled"
+              : "Request downgraded to verbal",
           );
           setActionDialog(null);
           setActionReason("");
@@ -278,10 +278,10 @@ function RequestDetail({
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Detalle de solicitud
+              Request Detail
             </CardTitle>
             <Button variant="ghost" size="sm" onClick={onClose}>
-              <ArrowLeft className="mr-1 h-4 w-4" /> Volver a lista
+              <ArrowLeft className="mr-1 h-4 w-4" /> Back to list
             </Button>
           </div>
         </CardHeader>
@@ -292,36 +292,36 @@ function RequestDetail({
               variant={req.requestType === "acta" ? "destructive" : req.requestType === "renuncia" ? "secondary" : "outline"}
             >
               {req.requestType === "acta"
-                ? "Acta administrativa"
+                ? "Disciplinary Act"
                 : req.requestType === "renuncia"
-                  ? "Renuncia voluntaria"
-                  : "Carta de compromiso"}
+                  ? "Voluntary Resignation"
+                  : "Commitment Letter"}
             </Badge>
             <Badge variant={si.variant}>{si.label}</Badge>
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-muted-foreground">Agente:</span>{" "}
+              <span className="text-muted-foreground">Agent:</span>{" "}
               <span className="font-medium">{req.employeeName ?? "—"}</span>
             </div>
             <div>
-              <span className="text-muted-foreground">Campaña:</span>{" "}
+              <span className="text-muted-foreground">Campaign:</span>{" "}
               {req.campaignName ?? "—"}
             </div>
             <div>
-              <span className="text-muted-foreground">Fecha del incidente:</span>{" "}
+              <span className="text-muted-foreground">Incident Date:</span>{" "}
               {formatDateMX(req.incidentDate)}
             </div>
             <div>
-              <span className="text-muted-foreground">Solicitante:</span>{" "}
+              <span className="text-muted-foreground">Filed By:</span>{" "}
               {req.filerName ?? "—"} · {timeAgo(req.filedAt)}
             </div>
           </div>
 
           {req.reason && (
             <div className="text-sm">
-              <span className="text-muted-foreground">Motivo:</span>{" "}
+              <span className="text-muted-foreground">Reason:</span>{" "}
               <span className="italic">{req.reason}</span>
             </div>
           )}
@@ -329,7 +329,7 @@ function RequestDetail({
           {/* Full TL narrative */}
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">
-              Narrativa del TL
+              TL Narrative
             </p>
             <div className="rounded-lg border p-3 text-sm whitespace-pre-wrap bg-muted/30">
               {req.tlNarrative}
@@ -340,7 +340,7 @@ function RequestDetail({
           {isTerminal && req.canceledReason && (
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">
-                Razón de {req.status === "canceled" ? "cancelación" : "degradación"}
+                {req.status === "canceled" ? "Cancellation reason" : "Downgrade reason"}
               </p>
               <div className="rounded-lg border border-destructive/30 p-3 text-sm bg-destructive/5">
                 {req.canceledReason}
@@ -368,8 +368,8 @@ function RequestDetail({
                 >
                   <Play className="mr-1 h-4 w-4" />
                   {updateStatus.isPending
-                    ? "Actualizando..."
-                    : "Empezar a redactar"}
+                    ? "Updating..."
+                    : "Start drafting"}
                 </Button>
               )}
               {req.status === "in_progress" && (
@@ -378,7 +378,7 @@ function RequestDetail({
                   onClick={() => navigate(`/hr/document-queue/${id}/edit`)}
                 >
                   <Play className="mr-1 h-4 w-4" />
-                  Abrir borrador
+                  Open draft
                 </Button>
               )}
               <Button
@@ -389,7 +389,7 @@ function RequestDetail({
                   setActionDialog("canceled");
                 }}
               >
-                <XCircle className="mr-1 h-4 w-4" /> Cancelar
+                <XCircle className="mr-1 h-4 w-4" /> Cancel
               </Button>
               <Button
                 variant="outline"
@@ -399,7 +399,7 @@ function RequestDetail({
                   setActionDialog("downgraded");
                 }}
               >
-                <ArrowDownCircle className="mr-1 h-4 w-4" /> Degradar a verbal
+                <ArrowDownCircle className="mr-1 h-4 w-4" /> Downgrade to verbal
               </Button>
             </div>
           )}
@@ -411,14 +411,14 @@ function RequestDetail({
             className="px-0"
             onClick={() => navigate(`/empleados/${req.employeeId}`)}
           >
-            <ExternalLink className="mr-1 h-3 w-3" /> Ver perfil del empleado
+            <ExternalLink className="mr-1 h-3 w-3" /> View employee profile
           </Button>
 
           {/* Prior requests for this employee */}
           {otherRequests.length > 0 && (
             <div className="space-y-2 pt-2 border-t">
               <p className="text-sm font-medium text-muted-foreground">
-                Otras solicitudes para este empleado
+                Other requests for this employee
               </p>
               <ul className="space-y-1">
                 {otherRequests.map((r) => {
@@ -437,7 +437,7 @@ function RequestDetail({
                         }
                         className="text-[10px]"
                       >
-                        {r.requestType === "acta" ? "Acta" : "Carta"}
+                        {r.requestType === "acta" ? "Disciplinary Act" : "Commitment Letter"}
                       </Badge>
                       <Badge variant={s.variant} className="text-[10px]">
                         {s.label}
@@ -464,28 +464,28 @@ function RequestDetail({
           <DialogHeader>
             <DialogTitle>
               {actionDialog === "canceled"
-                ? "Cancelar solicitud"
-                : "Degradar a verbal"}
+                ? "Cancel request"
+                : "Downgrade to verbal"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="action-reason">
               {actionDialog === "canceled"
-                ? "Razón de cancelación"
-                : "Razón de degradación"}
+                ? "Cancellation reason"
+                : "Downgrade reason"}
             </Label>
             <Textarea
               id="action-reason"
               autoFocus
               value={actionReason}
               onChange={(e) => setActionReason(e.target.value)}
-              placeholder="Escribe el motivo..."
+              placeholder="Enter the reason..."
               rows={3}
             />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setActionDialog(null)}>
-              Volver
+              Back
             </Button>
             <Button
               variant="destructive"
@@ -494,7 +494,7 @@ function RequestDetail({
                 actionReason.trim().length < 5 || updateStatus.isPending
               }
             >
-              {updateStatus.isPending ? "Procesando..." : "Confirmar"}
+              {updateStatus.isPending ? "Processing..." : "Confirm"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -533,7 +533,7 @@ function QueueFulfilledLinks({
         onClick={() => handleView("pdf")}
       >
         <ExternalLink className="mr-1 h-3 w-3" />
-        {loading === "pdf" ? "Abriendo..." : "Ver PDF"}
+        {loading === "pdf" ? "Opening..." : "View PDF"}
       </Button>
       <Button
         variant="outline"
@@ -542,7 +542,7 @@ function QueueFulfilledLinks({
         onClick={() => handleView("signed_scan")}
       >
         <ExternalLink className="mr-1 h-3 w-3" />
-        {loading === "signed_scan" ? "Abriendo..." : "Ver escaneo firmado"}
+        {loading === "signed_scan" ? "Opening..." : "View Signed Scan"}
       </Button>
     </div>
   );

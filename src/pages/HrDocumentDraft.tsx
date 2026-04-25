@@ -390,7 +390,7 @@ export default function HrDocumentDraft() {
         });
       }
       formDirty.current = false;
-      toast.success("Borrador guardado");
+      toast.success("Draft saved");
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -450,7 +450,7 @@ export default function HrDocumentDraft() {
 
   async function handlePreviewPdf() {
     if (!draft || !request) {
-      toast.error("Guarda el borrador primero");
+      toast.error("Save the draft first");
       return;
     }
     // Auto-save before preview so DB matches what HR sees
@@ -480,7 +480,7 @@ export default function HrDocumentDraft() {
         pdfBlob: blob,
         requestId: request.id,
       });
-      toast.success("PDF guardado");
+      toast.success("PDF saved");
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -509,11 +509,11 @@ export default function HrDocumentDraft() {
     if (!file) return;
 
     if (file.type !== "application/pdf") {
-      toast.error("Archivo debe ser PDF");
+      toast.error("File must be PDF");
       return;
     }
     if (file.size > MAX_SCAN_SIZE) {
-      toast.error("Archivo debe ser menor a 10MB");
+      toast.error("File must be under 10MB");
       return;
     }
     if (!draft || !request) return;
@@ -531,8 +531,8 @@ export default function HrDocumentDraft() {
         onSuccess: () => {
           toast.success(
             draft.signedAt
-              ? "Escaneo reemplazado"
-              : "Escaneo guardado. Solicitud marcada como completada.",
+              ? "Scan replaced"
+              : "Scan saved. Request marked as fulfilled.",
           );
         },
         onError: (err) => toast.error((err as Error).message),
@@ -565,9 +565,9 @@ export default function HrDocumentDraft() {
   if (!request) {
     return (
       <div className="space-y-4 p-6">
-        <p className="text-muted-foreground">Solicitud no encontrada.</p>
+        <p className="text-muted-foreground">Request not found.</p>
         <Button variant="outline" onClick={() => navigate("/hr/document-queue")}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> Volver a la cola
+          <ArrowLeft className="mr-1 h-4 w-4" /> Back to queue
         </Button>
       </div>
     );
@@ -588,31 +588,31 @@ export default function HrDocumentDraft() {
             size="sm"
             onClick={() => navigate("/hr/document-queue")}
           >
-            <ArrowLeft className="mr-1 h-4 w-4" /> Cola
+            <ArrowLeft className="mr-1 h-4 w-4" /> Queue
           </Button>
           <h1 className="text-xl font-bold flex items-center gap-2">
             <FileText className="h-5 w-5" />
             {request.requestType === "acta"
-              ? "Acta administrativa"
+              ? "Disciplinary Act"
               : request.requestType === "renuncia"
-                ? "Paquete de renuncia"
-                : "Carta de compromiso"}
+                ? "Resignation Packet"
+                : "Commitment Letter"}
           </h1>
           <Badge variant="outline" className="text-xs">
-            {draft?.docRef ?? "— (se generará al guardar)"}
+            {draft?.docRef ?? "— (generated on save)"}
           </Badge>
         </div>
         <div className="flex items-center gap-2">
           {draft && (
             <span className="text-xs text-muted-foreground">
-              Último guardado: {formatDateMX(draft.updatedAt)}
+              Last saved: {formatDateMX(draft.updatedAt)}
             </span>
           )}
           {!isTerminal && (
             <>
               <Button onClick={handleSave} disabled={saving} size="sm">
                 <Save className="mr-1 h-4 w-4" />
-                {saving ? "Guardando..." : "Guardar borrador"}
+                {saving ? "Saving..." : "Save Draft"}
               </Button>
               <Button
                 variant="outline"
@@ -620,7 +620,7 @@ export default function HrDocumentDraft() {
                 onClick={handlePreviewPdf}
                 disabled={!draft || !form.narrative.trim()}
               >
-                <Eye className="mr-1 h-4 w-4" /> Vista previa PDF
+                <Eye className="mr-1 h-4 w-4" /> Preview PDF
               </Button>
               <Button
                 variant="secondary"
@@ -629,13 +629,13 @@ export default function HrDocumentDraft() {
                 disabled={!draft || uploadPdf.isPending}
               >
                 <Upload className="mr-1 h-4 w-4" />
-                {uploadPdf.isPending ? "Subiendo..." : "Finalizar y guardar PDF"}
+                {uploadPdf.isPending ? "Uploading..." : "Finalize & Save PDF"}
               </Button>
             </>
           )}
           {draft?.pdfPath && (
             <Button variant="link" size="sm" onClick={handleViewSavedPdf}>
-              <ExternalLink className="mr-1 h-3 w-3" /> Ver PDF guardado
+              <ExternalLink className="mr-1 h-3 w-3" /> View Saved PDF
             </Button>
           )}
         </div>
@@ -646,17 +646,17 @@ export default function HrDocumentDraft() {
         <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
           <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
           <p className="text-sm text-amber-800">
-            Tienes cambios sin guardar. El PDF guardado refleja la versión anterior — regenera después de guardar para actualizarlo.
+            You have unsaved changes. The saved PDF reflects the previous version — regenerate after saving to update it.
           </p>
         </div>
       )}
 
       {isTerminal && (
         <div className="rounded-lg border border-destructive/30 p-3 text-sm bg-destructive/5">
-          Esta solicitud fue{" "}
-          {request.status === "canceled" ? "cancelada" : "degradada"}.
+          This request was{" "}
+          {request.status === "canceled" ? "canceled" : "downgraded"}.
           {request.canceledReason && (
-            <> Razón: {request.canceledReason}</>
+            <> Reason: {request.canceledReason}</>
           )}
         </div>
       )}
@@ -666,7 +666,7 @@ export default function HrDocumentDraft() {
         <div className="rounded-lg border p-4 space-y-3">
           <h3 className="text-sm font-semibold flex items-center gap-2">
             <Upload className="h-4 w-4" />
-            Escaneo firmado
+            Signed Scan
           </h3>
 
           {/* Hidden file input */}
@@ -675,13 +675,13 @@ export default function HrDocumentDraft() {
             type="file"
             accept="application/pdf"
             className="hidden"
-            aria-label="Subir escaneo firmado"
+            aria-label="Upload signed scan"
             onChange={handleScanFileSelect}
           />
 
           {!draft.pdfPath && (
             <p className="text-xs text-muted-foreground">
-              Genera y guarda el PDF primero antes de subir el escaneo firmado.
+              Generate and save the PDF first before uploading the signed scan.
             </p>
           )}
 
@@ -694,11 +694,11 @@ export default function HrDocumentDraft() {
               >
                 <Upload className="mr-1 h-4 w-4" />
                 {uploadScan.isPending
-                  ? "Subiendo..."
-                  : "Subir escaneo firmado"}
+                  ? "Uploading..."
+                  : "Upload Signed Scan"}
               </Button>
               <span className="text-xs text-muted-foreground">
-                PDF, máx 10MB
+                PDF, max 10MB
               </span>
             </div>
           )}
@@ -708,7 +708,7 @@ export default function HrDocumentDraft() {
               <div className="flex items-center gap-2 p-2 rounded-md bg-emerald-50 border border-emerald-200">
                 <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
                 <span className="text-sm text-emerald-800">
-                  Firmado el {formatDateMX(draft.signedAt)}
+                  Signed on {formatDateMX(draft.signedAt)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -717,8 +717,8 @@ export default function HrDocumentDraft() {
                   size="sm"
                   onClick={handleViewSignedScan}
                 >
-                  <ExternalLink className="mr-1 h-3 w-3" /> Ver escaneo
-                  firmado
+                  <ExternalLink className="mr-1 h-3 w-3" /> View Signed
+                  Scan
                 </Button>
                 <Button
                   variant="ghost"
@@ -728,8 +728,8 @@ export default function HrDocumentDraft() {
                 >
                   <RefreshCw className="mr-1 h-3 w-3" />
                   {uploadScan.isPending
-                    ? "Subiendo..."
-                    : "Reemplazar escaneo"}
+                    ? "Uploading..."
+                    : "Replace scan"}
                 </Button>
               </div>
             </div>
@@ -772,31 +772,31 @@ export default function HrDocumentDraft() {
                   }
                 >
                   {request.requestType === "acta"
-                    ? "Acta administrativa"
+                    ? "Disciplinary Act"
                     : request.requestType === "renuncia"
-                      ? "Renuncia voluntaria"
-                      : "Carta de compromiso"}
+                      ? "Voluntary Resignation"
+                      : "Commitment Letter"}
                 </Badge>
                 <Badge variant="secondary" className="text-xs">
                   {request.status === "pending"
-                    ? "Pendiente"
+                    ? "Pending"
                     : request.status === "in_progress"
-                      ? "En proceso"
+                      ? "In Progress"
                       : request.status === "fulfilled"
-                        ? "Completada"
+                        ? "Fulfilled"
                         : request.status}
                 </Badge>
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
-                  <span className="text-xs text-muted-foreground block">Fecha del incidente</span>
+                  <span className="text-xs text-muted-foreground block">Incident Date</span>
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3 text-muted-foreground" />
                     {formatDateMX(request.incidentDate)}
                   </span>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground block">Solicitante</span>
+                  <span className="text-xs text-muted-foreground block">Filed By</span>
                   <span>{request.filerName ?? "—"}</span>
                 </div>
               </div>
@@ -804,7 +804,7 @@ export default function HrDocumentDraft() {
                 <>
                   <Separator />
                   <div className="text-sm">
-                    <span className="text-xs text-muted-foreground block mb-1">Motivo</span>
+                    <span className="text-xs text-muted-foreground block mb-1">Reason</span>
                     <span className="italic">{request.reason}</span>
                   </div>
                 </>
@@ -816,7 +816,7 @@ export default function HrDocumentDraft() {
               <div className="flex items-center gap-2">
                 <Quote className="h-4 w-4 text-muted-foreground" />
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Narrativa del TL
+                  TL Narrative
                 </span>
               </div>
               <div className="rounded-md border-l-4 border-primary/30 bg-muted/20 p-4 text-sm leading-relaxed whitespace-pre-wrap italic">
@@ -828,19 +828,19 @@ export default function HrDocumentDraft() {
         {/* Right: HR draft form */}
         <section className="space-y-5">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Redacción formal (HR)
+              Formal Draft (HR)
             </h2>
 
             {/* ── Section: Datos del trabajador ─────────────── */}
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <User className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Datos del trabajador</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Employee Info</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="snap-name" className="text-xs text-muted-foreground">
-                    Trabajador (nombre legal)
+                    Employee (legal name)
                   </Label>
                   <Input
                     id="snap-name"
@@ -855,7 +855,7 @@ export default function HrDocumentDraft() {
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="snap-puesto" className="text-xs text-muted-foreground">
-                    Puesto
+                    Position
                   </Label>
                   <Input
                     id="snap-puesto"
@@ -885,7 +885,7 @@ export default function HrDocumentDraft() {
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="snap-date" className="text-xs text-muted-foreground">
-                    Fecha del incidente (forma larga)
+                    Incident date (long form)
                   </Label>
                   <Input
                     id="snap-date"
@@ -901,7 +901,7 @@ export default function HrDocumentDraft() {
               </div>
               <div className="space-y-1">
                 <Label htmlFor="snap-horario" className="text-xs text-muted-foreground">
-                  Horario
+                  Schedule
                 </Label>
                 <Textarea
                   id="snap-horario"
@@ -924,12 +924,12 @@ export default function HrDocumentDraft() {
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Empresa</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="snap-company" className="text-xs text-muted-foreground">
-                    Razón social
+                    Legal name
                   </Label>
                   <Input
                     id="snap-company"
@@ -944,7 +944,7 @@ export default function HrDocumentDraft() {
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="snap-address" className="text-xs text-muted-foreground">
-                    Domicilio fiscal
+                    Fiscal address
                   </Label>
                   <Textarea
                     id="snap-address"
@@ -967,7 +967,7 @@ export default function HrDocumentDraft() {
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Narrativa formal</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Formal Narrative</span>
               </div>
               <Textarea
                 id="narrative"
@@ -980,7 +980,7 @@ export default function HrDocumentDraft() {
                     narrative: e.target.value,
                   }))
                 }
-                placeholder="Redacta la versión formal basándote en la narrativa del TL a la izquierda."
+                placeholder="Draft the formal version based on the TL narrative on the left."
               />
             </section>
 
@@ -989,7 +989,7 @@ export default function HrDocumentDraft() {
               <div className="space-y-3 pt-2 border-t">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-medium uppercase tracking-wider">
-                    Áreas a mejorar (KPI)
+                    Areas for Improvement (KPI)
                   </Label>
                   <Button
                     type="button"
@@ -1005,12 +1005,12 @@ export default function HrDocumentDraft() {
                       }))
                     }
                   >
-                    <Plus className="mr-1 h-3 w-3" /> Agregar fila
+                    <Plus className="mr-1 h-3 w-3" /> Add row
                   </Button>
                 </div>
                 {form.kpiTable.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Sin filas de KPI. Agrega una con el botón de arriba.
+                    No KPI rows. Add one using the button above.
                   </p>
                 )}
                 {form.kpiTable.map((row, idx) => (
@@ -1021,12 +1021,12 @@ export default function HrDocumentDraft() {
                     <div className="space-y-1">
                       {idx === 0 && (
                         <Label className="text-[10px] text-muted-foreground">
-                          Área
+                          Area
                         </Label>
                       )}
                       <Input
                         value={row.area}
-                        placeholder="Ej: Asistencia"
+                        placeholder="e.g. Attendance"
                         onChange={(e) =>
                           setFormDirty((f) => {
                             const t = [...f.kpiTable];
@@ -1044,7 +1044,7 @@ export default function HrDocumentDraft() {
                       )}
                       <Input
                         value={row.indicador}
-                        placeholder="Ej: Puntualidad"
+                        placeholder="e.g. Punctuality"
                         onChange={(e) =>
                           setFormDirty((f) => {
                             const t = [...f.kpiTable];
@@ -1065,7 +1065,7 @@ export default function HrDocumentDraft() {
                       )}
                       <Input
                         value={row.meta}
-                        placeholder="Ej: 0 retardos"
+                        placeholder="e.g. 0 tardies"
                         onChange={(e) =>
                           setFormDirty((f) => {
                             const t = [...f.kpiTable];
@@ -1101,10 +1101,10 @@ export default function HrDocumentDraft() {
                   <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
                     <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
                     <p className="text-sm text-amber-800 flex-1">
-                      <span className="font-medium">Reincidencia:</span> esta
-                      acta cita la carta previa{" "}
+                      <span className="font-medium">Repeat offense:</span> this
+                      act cites the prior commitment letter{" "}
                       <span className="font-mono text-xs">
-                        {priorCarta.doc_ref ?? "sin ref"}
+                        {priorCarta.doc_ref ?? "no ref"}
                       </span>{" "}
                       de {formatDateMX(priorCarta.created_at)}.
                     </p>
@@ -1120,14 +1120,14 @@ export default function HrDocumentDraft() {
                         }))
                       }
                     >
-                      <Unlink className="mr-1 h-3 w-3" /> Desvincular
+                      <Unlink className="mr-1 h-3 w-3" /> Unlink
                     </Button>
                   </div>
                 )}
                 {!form.reincidenciaPriorCartaId &&
                   priorCarta === null && (
                     <p className="text-xs text-muted-foreground italic">
-                      No se encontró carta previa firmada para este empleado.
+                      No prior signed commitment letter found for this employee.
                     </p>
                   )}
 
@@ -1135,7 +1135,7 @@ export default function HrDocumentDraft() {
                 <div className="space-y-3 pt-2 border-t">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-medium uppercase tracking-wider">
-                      Testigos
+                      Witnesses
                     </Label>
                     <Button
                       type="button"
@@ -1151,12 +1151,12 @@ export default function HrDocumentDraft() {
                         }))
                       }
                     >
-                      <Plus className="mr-1 h-3 w-3" /> Agregar testigo
+                      <Plus className="mr-1 h-3 w-3" /> Add witness
                     </Button>
                   </div>
                   {form.witnesses.length === 0 && (
                     <p className="text-xs text-muted-foreground">
-                      Sin testigos. Agrega uno con el botón de arriba.
+                      No witnesses. Add one using the button above.
                     </p>
                   )}
                   {form.witnesses.map((w, idx) => (
@@ -1167,12 +1167,12 @@ export default function HrDocumentDraft() {
                       <div className="space-y-1">
                         {idx === 0 && (
                           <Label className="text-[10px] text-muted-foreground">
-                            Nombre del testigo
+                            Witness name
                           </Label>
                         )}
                         <Input
                           value={w.name}
-                          placeholder="Nombre completo"
+                          placeholder="Full name"
                           onChange={(e) =>
                             setFormDirty((f) => {
                               const ws = [...f.witnesses];
@@ -1185,12 +1185,12 @@ export default function HrDocumentDraft() {
                       <div className="space-y-1">
                         {idx === 0 && (
                           <Label className="text-[10px] text-muted-foreground">
-                            Cargo / Relación
+                            Role / Relation
                           </Label>
                         )}
                         <Input
                           value={w.role}
-                          placeholder="Ej: Compañero de trabajo"
+                          placeholder="e.g. Coworker"
                           onChange={(e) =>
                             setFormDirty((f) => {
                               const ws = [...f.witnesses];
@@ -1228,7 +1228,7 @@ export default function HrDocumentDraft() {
                 {/* Effective date */}
                 <div className="space-y-1">
                   <Label htmlFor="effective-date" className="text-xs font-medium">
-                    Fecha efectiva de renuncia
+                    Effective resignation date
                   </Label>
                   <Input
                     id="effective-date"
@@ -1247,7 +1247,7 @@ export default function HrDocumentDraft() {
                 <div className="space-y-3 rounded-lg border p-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-medium uppercase tracking-wider">
-                      Finiquito — cálculo LFT
+                      Severance — LFT Calculation
                     </Label>
                     <Button
                       type="button"
@@ -1258,7 +1258,7 @@ export default function HrDocumentDraft() {
                         const hd = form.hireDateSnapshot;
                         const rd = form.effectiveDate;
                         if (!sd || !hd || !rd) {
-                          toast.error("Ingresa fecha de ingreso, salario diario y fecha efectiva primero");
+                          toast.error("Enter hire date, daily wage, and effective date first");
                           return;
                         }
                         const aguinaldo = calcAguinaldoProporcional({ salarioDiario: sd, hireDate: hd, resignationDate: rd });
@@ -1275,14 +1275,14 @@ export default function HrDocumentDraft() {
                         }));
                       }}
                     >
-                      Calcular automáticamente
+                      Auto-calculate
                     </Button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">
-                        Fecha de ingreso
+                        Hire date
                       </Label>
                       <Input
                         type="date"
@@ -1297,7 +1297,7 @@ export default function HrDocumentDraft() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">
-                        Salario diario ($ MXN)
+                        Daily wage ($ MXN)
                       </Label>
                       <Input
                         type="number"
@@ -1316,7 +1316,7 @@ export default function HrDocumentDraft() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">
-                        Aguinaldo proporcional
+                        Prorated Christmas bonus
                       </Label>
                       <Input
                         type="number"
@@ -1332,7 +1332,7 @@ export default function HrDocumentDraft() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">
-                        Vacaciones correspondientes
+                        Accrued vacation
                       </Label>
                       <Input
                         type="number"
@@ -1348,7 +1348,7 @@ export default function HrDocumentDraft() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">
-                        Prima vacacional (25%)
+                        Vacation premium (25%)
                       </Label>
                       <Input
                         type="number"
@@ -1382,7 +1382,7 @@ export default function HrDocumentDraft() {
 
                   <div className="space-y-1">
                     <Label className="text-[10px] text-muted-foreground">
-                      Total en letras
+                      Total in words
                     </Label>
                     <Textarea
                       rows={2}
@@ -1400,7 +1400,7 @@ export default function HrDocumentDraft() {
                 {/* Identity snapshots */}
                 <div className="space-y-3 rounded-lg border p-3">
                   <Label className="text-xs font-medium uppercase tracking-wider">
-                    Datos de identidad
+                    Identity Data
                   </Label>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="space-y-1">
@@ -1414,7 +1414,7 @@ export default function HrDocumentDraft() {
                       />
                       {!form.curpSnapshot && (
                         <p className="text-[10px] text-amber-600">
-                          — (faltante)
+                          — (missing)
                         </p>
                       )}
                     </div>
@@ -1429,13 +1429,13 @@ export default function HrDocumentDraft() {
                       />
                       {!form.rfcSnapshot && (
                         <p className="text-[10px] text-amber-600">
-                          — (faltante)
+                          — (missing)
                         </p>
                       )}
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">
-                        Clave de Elector
+                        Voter ID Key
                       </Label>
                       <Input
                         value={form.claveElector}
@@ -1445,7 +1445,7 @@ export default function HrDocumentDraft() {
                             claveElector: e.target.value,
                           }))
                         }
-                        placeholder="Ingresa clave de elector"
+                        placeholder="Enter voter ID key"
                       />
                     </div>
                   </div>

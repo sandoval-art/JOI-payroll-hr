@@ -42,7 +42,7 @@ export default function SignedHrDocumentsCard({
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <FileText className="h-5 w-5" />
-          Mis documentos firmados
+          My Signed Documents
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -52,7 +52,7 @@ export default function SignedHrDocumentsCard({
 
         {!isLoading && docs.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No tienes documentos firmados.
+            No signed documents.
           </p>
         )}
 
@@ -67,10 +67,10 @@ export default function SignedHrDocumentsCard({
                 className="text-xs"
               >
                 {doc.type === "acta"
-                  ? "Acta administrativa"
+                  ? "Disciplinary Act"
                   : doc.type === "renuncia"
-                    ? "Renuncia"
-                    : "Carta de compromiso"}
+                    ? "Resignation"
+                    : "Commitment Letter"}
               </Badge>
               {doc.docRef && (
                 <span className="text-xs font-mono text-muted-foreground">
@@ -78,7 +78,7 @@ export default function SignedHrDocumentsCard({
                 </span>
               )}
               <span className="text-xs text-muted-foreground">
-                Firmado el {formatDateMX(doc.signedAt)}
+                Signed {formatDateMX(doc.signedAt)}
               </span>
             </div>
 
@@ -93,8 +93,8 @@ export default function SignedHrDocumentsCard({
                 >
                   <ExternalLink className="mr-1 h-3 w-3" />
                   {loadingId === `${doc.id}-signed_scan`
-                    ? "Abriendo..."
-                    : "Ver documento"}
+                    ? "Opening..."
+                    : "View Document"}
                 </Button>
               )}
             </div>
