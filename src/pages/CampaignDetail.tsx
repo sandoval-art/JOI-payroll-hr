@@ -175,6 +175,25 @@ export default function CampaignDetail() {
   const [sendingTestDigest, setSendingTestDigest] = useState(false);
   const [sendingManualDigest, setSendingManualDigest] = useState(false);
 
+  // Holiday Coverage toggle mutation
+  const holidayCoverageMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const { error } = await supabase
+        .from('campaigns')
+        .update({ requires_holiday_coverage: enabled })
+        .eq('id', id!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaign', id] });
+      queryClient.invalidateQueries({ queryKey: ['campaignsWithHeadcount'] });
+      toast.success('Saved');
+    },
+    onError: (err: unknown) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to save');
+    },
+  });
+
   const invalidateCampaign = () => {
     queryClient.invalidateQueries({ queryKey: ['campaign', id] });
     queryClient.invalidateQueries({ queryKey: ['campaigns-list'] });
@@ -187,11 +206,11 @@ export default function CampaignDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('campaigns')
-        .select('id, name, client_id, team_lead_id, eod_digest_cutoff_time, eod_morning_bundle_time, eod_digest_timezone, eod_reply_to_email, clients(id, name, prefix)')
+        .select('id, name, client_id, team_lead_id, eod_digest_cutoff_time, eod_morning_bundle_time, eod_digest_timezone, eod_reply_to_email, requires_holiday_coverage, clients(id, name, prefix)')
         .eq('id', id!)
         .single();
       if (error) throw error;
-      return data as { id: string; name: string; client_id: string; team_lead_id: string | null; eod_digest_cutoff_time: string | null; eod_morning_bundle_time: string | null; eod_digest_timezone: string; eod_reply_to_email: string | null; clients: { id: string; name: string; prefix: string } | null };
+      return data as { id: string; name: string; client_id: string; team_lead_id: string | null; eod_digest_cutoff_time: string | null; eod_morning_bundle_time: string | null; eod_digest_timezone: string; eod_reply_to_email: string | null; requires_holiday_coverage: boolean; clients: { id: string; name: string; prefix: string } | null };
     },
     enabled: !!id,
   });
@@ -1214,6 +1233,29 @@ export default function CampaignDetail() {
               </p>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Holiday Coverage */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Holiday Coverage</CardTitle>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Enables the cap/request system and client notification emails for this campaign.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="holiday-coverage-switch" className="cursor-pointer">
+              Requires Holiday Coverage
+            </Label>
+            <Switch
+              id="holiday-coverage-switch"
+              checked={campaign?.requires_holiday_coverage ?? false}
+              onCheckedChange={(val) => holidayCoverageMutation.mutate(val)}
+              disabled={holidayCoverageMutation.isPending}
+            />
+          </div>
         </CardContent>
       </Card>
 
