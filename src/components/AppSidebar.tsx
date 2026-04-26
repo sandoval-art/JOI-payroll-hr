@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
-import { usePendingTimeOffCount } from "@/hooks/useTimeOffCount";
 import {
   Sidebar,
   SidebarContent,
@@ -75,7 +74,7 @@ const agentItems = [
   { title: "My Timeclock", url: "/reloj", icon: Timer },
   { title: "My EOD History", url: "/eod", icon: ClipboardCheck },
   { title: "My Policies", url: "/policies", icon: ScrollText },
-  { title: "My Requests", url: "/solicitudes", icon: CalendarDays },
+  { title: "Vacation", url: "/vacation", icon: CalendarDays },
   { title: "Holiday Requests", url: "/holidays", icon: CalendarCheck },
 ];
 
@@ -83,13 +82,6 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const { signOut, user, isLeadership, isTeamLead, isAgent } = useAuth();
   const collapsed = state === "collapsed";
-
-  // Sidebar badge counts (RLS scopes: leadership=all, TL=team, agent=0)
-  const { data: pendingTimeOffCount = 0 } = usePendingTimeOffCount();
-
-  const badgeCounts: Record<string, number> = {
-    "/solicitudes": pendingTimeOffCount,
-  };
 
   // Determine which items to show based on title
   let mainItems: { title: string; url: string; icon: typeof LayoutDashboard }[] = [];
@@ -141,25 +133,11 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
-                      className="hover:bg-sidebar-accent relative"
+                      className="hover:bg-sidebar-accent"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
                     >
                       <item.icon className="mr-2 h-4 w-4" />
-                      {!collapsed && (
-                        <span className="flex-1 flex items-center justify-between">
-                          {item.title}
-                          {(badgeCounts[item.url] ?? 0) > 0 && (
-                            <span className="ml-auto inline-flex items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-semibold leading-none text-destructive-foreground">
-                              {badgeCounts[item.url]}
-                            </span>
-                          )}
-                        </span>
-                      )}
-                      {collapsed && (badgeCounts[item.url] ?? 0) > 0 && (
-                        <span className="absolute -top-1 -right-1 inline-flex items-center justify-center rounded-full bg-destructive w-4 h-4 text-[9px] font-bold text-destructive-foreground">
-                          {badgeCounts[item.url]}
-                        </span>
-                      )}
+                      {!collapsed && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
