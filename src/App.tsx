@@ -35,6 +35,7 @@ import Policies from "@/pages/Policies";
 import MyPolicies from "@/pages/MyPolicies";
 import HrDocumentQueue from "@/pages/HrDocumentQueue";
 import HrDocumentDraft from "@/pages/HrDocumentDraft";
+import HolidayRequests from "@/pages/HolidayRequests";
 import ClientDashboard from "@/pages/ClientDashboard";
 import ClientCampaignDetail from "@/pages/ClientCampaignDetail";
 import { RequireLeadership, RequireTeamLeadOrAbove, RequireClient } from "@/components/RequireRole";
@@ -145,6 +146,7 @@ const App = () => (
                     <Route path="/settings/policies" element={<RequireLeadership><Policies /></RequireLeadership>} />
                     <Route path="/hr/document-queue" element={<RequireLeadership><HrDocumentQueue /></RequireLeadership>} />
                     <Route path="/hr/document-queue/:id/edit" element={<RequireLeadership><HrDocumentDraft /></RequireLeadership>} />
+                    <Route path="/holidays" element={<HolidayRequests />} />
                     <Route path="/policies" element={<MyPolicies />} />
                     <Route path="/account" element={<Account />} />
                     <Route path="*" element={<NotFound />} />

@@ -16,6 +16,7 @@ import {
   UserCog,
   FileCheck,
   ScrollText,
+  CalendarCheck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -74,6 +75,7 @@ const agentItems = [
   { title: "My EOD History", url: "/eod", icon: ClipboardCheck },
   { title: "My Policies", url: "/policies", icon: ScrollText },
   { title: "My Requests", url: "/solicitudes", icon: CalendarDays },
+  { title: "Holiday Requests", url: "/holidays", icon: CalendarCheck },
 ];
 
 export function AppSidebar() {
