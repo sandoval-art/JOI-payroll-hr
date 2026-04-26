@@ -1,7 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { todayLocal } from "@/lib/localDate";
 
 // ── Types ────────────────────────────────────────────────────────────────────
+
+export interface ClientHolidaySummary {
+  holiday_date: string;
+  holiday_name: string;
+  requires_coverage: boolean;
+  approved_off: number;
+  total_headcount: number;
+}
 
 export interface ClientCampaign {
   id: string;
@@ -77,6 +86,28 @@ export function useClientEmployees() {
         .order("display_name");
       if (error) throw error;
       return (data ?? []) as ClientEmployee[];
+    },
+  });
+}
+
+/**
+ * Fetches the next upcoming holiday summary for a campaign via the
+ * get_client_holiday_summary RPC. Returns null if no upcoming holiday exists
+ * or the campaign isn't visible to the current client user.
+ */
+export function useClientHolidaySummary(campaignId: string | undefined) {
+  return useQuery({
+    queryKey: ["clientHolidaySummary", campaignId],
+    enabled: !!campaignId,
+    queryFn: async (): Promise<ClientHolidaySummary | null> => {
+      if (!campaignId) return null;
+      const { data, error } = await supabase
+        .rpc("get_client_holiday_summary", { p_campaign_id: campaignId });
+      if (error) throw error;
+      const row = (data as ClientHolidaySummary[] | null)?.[0] ?? null;
+      // Only show holidays that haven't passed yet
+      if (!row || row.holiday_date <= todayLocal()) return null;
+      return row;
     },
   });
 }
