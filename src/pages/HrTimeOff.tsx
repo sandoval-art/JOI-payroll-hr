@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -181,6 +182,24 @@ function EditHolidayDialog({
 export default function HrTimeOff() {
   const [addOpen, setAddOpen] = useState(false);
   const [editHoliday, setEditHoliday] = useState<{ id: string; name: string } | null>(null);
+  // Track in-flight manual email sends: key = `${campaignId}|${daysBefore}`
+  const [sendingMap, setSendingMap] = useState<Record<string, boolean>>({});
+
+  const sendNotification = useCallback(async (campaignId: string, daysBefore: 14 | 7) => {
+    const key = `${campaignId}|${daysBefore}`;
+    setSendingMap((m) => ({ ...m, [key]: true }));
+    try {
+      const { error } = await supabase.functions.invoke("holiday-notifications", {
+        body: { mode: "manual", campaignId, daysBefore },
+      });
+      if (error) throw error;
+      toast.success("Email sent");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send email");
+    } finally {
+      setSendingMap((m) => ({ ...m, [key]: false }));
+    }
+  }, []);
 
   const { data: pending = [], isLoading: loadingPending } = useAllPendingHolidayRequests();
   const { data: approved = [], isLoading: loadingApproved } = useAllApprovedHolidayRequests();
@@ -440,7 +459,7 @@ export default function HrTimeOff() {
             </CardContent>
           </Card>
 
-          {/* Section D: Manual Email Trigger stub */}
+          {/* Section D: Manual Email Trigger */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Client Holiday Notifications</CardTitle>
@@ -448,7 +467,7 @@ export default function HrTimeOff() {
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 Send 14-day or 7-day advance notice emails to clients for campaigns requiring
-                holiday coverage.
+                holiday coverage. Sends for the next upcoming holiday on the campaign.
               </p>
               {coverageCampaigns.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
@@ -460,20 +479,27 @@ export default function HrTimeOff() {
                     <div key={c.id} className="flex items-center justify-between gap-4 flex-wrap">
                       <span className="text-sm font-medium">{c.name}</span>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" disabled title="Email sending will be wired in D5">
-                          Send 14-day notice
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!!sendingMap[`${c.id}|14`]}
+                          onClick={() => sendNotification(c.id, 14)}
+                        >
+                          {sendingMap[`${c.id}|14`] ? "Sending…" : "Send 14-day notice"}
                         </Button>
-                        <Button size="sm" variant="outline" disabled title="Email sending will be wired in D5">
-                          Send 7-day notice
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!!sendingMap[`${c.id}|7`]}
+                          onClick={() => sendNotification(c.id, 7)}
+                        >
+                          {sendingMap[`${c.id}|7`] ? "Sending…" : "Send 7-day notice"}
                         </Button>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-              <p className="text-xs text-muted-foreground italic">
-                Email sending will be wired in D5.
-              </p>
             </CardContent>
           </Card>
         </TabsContent>

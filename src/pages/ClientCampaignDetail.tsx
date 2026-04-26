@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Users, BarChart3 } from "lucide-react";
+import { ArrowLeft, Users, BarChart3, CalendarCheck } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -16,11 +16,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
-import { formatDateMX } from "@/lib/localDate";
+import { formatDateMX, formatDateMXLong } from "@/lib/localDate";
 import {
   useClientCampaigns,
   useClientEmployees,
   useClientEodLogsThisWeek,
+  useClientHolidaySummary,
   type ClientEodLog,
 } from "@/hooks/useClientPortal";
 
@@ -30,6 +31,7 @@ export default function ClientCampaignDetail() {
   const { data: campaigns = [], isLoading: campaignsLoading } = useClientCampaigns();
   const { data: employees = [], isLoading: employeesLoading } = useClientEmployees();
   const { data: eodLogs = [], isLoading: eodLoading } = useClientEodLogsThisWeek(campaignId);
+  const { data: holidaySummary } = useClientHolidaySummary(campaignId);
 
   const isLoading = campaignsLoading || employeesLoading || eodLoading;
 
@@ -216,6 +218,48 @@ export default function ClientCampaignDetail() {
         </CardContent>
       </Card>
 
+      {/* Section 3 — Upcoming holiday */}
+      {holidaySummary && (
+        holidaySummary.requires_coverage ? (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CalendarCheck className="h-4 w-4 text-muted-foreground" />
+                  {holidaySummary.holiday_name}
+                </CardTitle>
+                <Badge variant="secondary" className="shrink-0 text-xs">
+                  {formatDateMX(holidaySummary.holiday_date)}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <p className="text-sm text-muted-foreground">
+                {holidaySummary.approved_off} of {holidaySummary.total_headcount} agents have
+                requested this day off.
+              </p>
+              <p className="text-xs text-muted-foreground italic">
+                Coverage details will be confirmed closer to the date.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-dashed">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2 text-muted-foreground">
+                <CalendarCheck className="h-4 w-4" />
+                Mexican Federal Holiday — {holidaySummary.holiday_name}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Your campaign will be offline on{" "}
+                {formatDateMXLong(holidaySummary.holiday_date)}.
+              </p>
+            </CardContent>
+          </Card>
+        )
+      )}
     </div>
   );
 }
