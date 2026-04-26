@@ -278,3 +278,212 @@ export function useTLDismissHolidayRequest() {
     },
   });
 }
+
+// ── HR hooks ──────────────────────────────────────────────────────────────────
+
+export interface HRHolidayRequest {
+  id: string;
+  employee_id: string;
+  campaign_id: string;
+  holiday_date: string;
+  holiday_name: string;
+  status: "pending_tl" | "approved" | "denied" | "cancelled";
+  requested_at: string;
+  displayName: string;
+  campaignName: string;
+}
+
+// useAllPendingHolidayRequests — global queue across all campaigns, status=pending_tl
+export function useAllPendingHolidayRequests() {
+  return useQuery({
+    queryKey: ["allPendingHolidayRequests"],
+    queryFn: async (): Promise<HRHolidayRequest[]> => {
+      const { data: requests, error } = await supabase
+        .from("holiday_requests")
+        .select("id, employee_id, campaign_id, holiday_date, holiday_name, status, requested_at")
+        .eq("status", "pending_tl")
+        .order("holiday_date", { ascending: true })
+        .order("requested_at", { ascending: true });
+      if (error) throw error;
+      if (!requests || requests.length === 0) return [];
+      return enrichHolidayRequests(requests);
+    },
+  });
+}
+
+// useAllApprovedHolidayRequests — global list of approved requests (for coverage gap view)
+export function useAllApprovedHolidayRequests() {
+  return useQuery({
+    queryKey: ["allApprovedHolidayRequests"],
+    queryFn: async (): Promise<HRHolidayRequest[]> => {
+      const { data: requests, error } = await supabase
+        .from("holiday_requests")
+        .select("id, employee_id, campaign_id, holiday_date, holiday_name, status, requested_at")
+        .eq("status", "approved")
+        .order("holiday_date", { ascending: true });
+      if (error) throw error;
+      if (!requests || requests.length === 0) return [];
+      return enrichHolidayRequests(requests);
+    },
+  });
+}
+
+// Shared helper: fetch employee names + campaign names and merge in memory.
+// employees_no_pay has no FK so we can't use PostgREST embeds — same pattern as useTeamLead.ts.
+async function enrichHolidayRequests(
+  requests: { id: string; employee_id: string; campaign_id: string; holiday_date: string; holiday_name: string; status: string; requested_at: string }[]
+): Promise<HRHolidayRequest[]> {
+  const employeeIds = [...new Set(requests.map((r) => r.employee_id))];
+  const campaignIds = [...new Set(requests.map((r) => r.campaign_id))];
+
+  const [empResult, campResult] = await Promise.all([
+    supabase.from("employees_no_pay").select("id, full_name, work_name").in("id", employeeIds),
+    supabase.from("campaigns").select("id, name").in("id", campaignIds),
+  ]);
+
+  const nameMap = Object.fromEntries(
+    (empResult.data || []).map((e) => [
+      e.id,
+      getDisplayName({ fullName: e.full_name, workName: e.work_name ?? null }),
+    ])
+  );
+  const campMap = Object.fromEntries(
+    (campResult.data || []).map((c) => [c.id, c.name as string])
+  );
+
+  return requests.map((r) => ({
+    id: r.id,
+    employee_id: r.employee_id,
+    campaign_id: r.campaign_id,
+    holiday_date: r.holiday_date,
+    holiday_name: r.holiday_name,
+    status: r.status as HRHolidayRequest["status"],
+    requested_at: r.requested_at,
+    displayName: nameMap[r.employee_id] ?? r.employee_id,
+    campaignName: campMap[r.campaign_id] ?? r.campaign_id,
+  }));
+}
+
+// useHROverrideHolidayRequest — HR can approve or deny any request regardless of cap
+export function useHROverrideHolidayRequest() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      status,
+    }: {
+      id: string;
+      status: "approved" | "denied";
+    }) => {
+      const { error } = await supabase
+        .from("holiday_requests")
+        .update({
+          status,
+          reviewed_by: user?.id ?? null,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["allPendingHolidayRequests"] });
+      qc.invalidateQueries({ queryKey: ["allApprovedHolidayRequests"] });
+    },
+  });
+}
+
+// useCompanyHolidays — full list (past + future), HR-facing
+export function useCompanyHolidays() {
+  return useQuery({
+    queryKey: ["companyHolidays"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_holidays")
+        .select("id, date, name, is_statutory, created_at")
+        .order("date", { ascending: true });
+      if (error) throw error;
+      return (data || []) as (CompanyHoliday & { created_at: string })[];
+    },
+  });
+}
+
+// useAddCompanyHoliday — insert a custom holiday (is_statutory always false for custom)
+export function useAddCompanyHoliday() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async ({ date, name }: { date: string; name: string }) => {
+      const { error } = await supabase.from("company_holidays").insert({
+        date,
+        name,
+        is_statutory: false,
+        created_by: user?.id ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["companyHolidays"] });
+      qc.invalidateQueries({ queryKey: ["nextUpcomingHoliday"] });
+    },
+  });
+}
+
+// useUpdateCompanyHoliday — update name only (date + is_statutory are immutable)
+export function useUpdateCompanyHoliday() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase
+        .from("company_holidays")
+        .update({ name })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["companyHolidays"] });
+      qc.invalidateQueries({ queryKey: ["nextUpcomingHoliday"] });
+    },
+  });
+}
+
+export interface CampaignWithHeadcount {
+  id: string;
+  name: string;
+  requires_holiday_coverage: boolean;
+  headcount: number;
+}
+
+// useActiveCampaignsWithHeadcount — campaigns + active employee count
+// Count is computed client-side to avoid PostgREST count embed complexity.
+export function useActiveCampaignsWithHeadcount() {
+  return useQuery({
+    queryKey: ["campaignsWithHeadcount"],
+    queryFn: async (): Promise<CampaignWithHeadcount[]> => {
+      const [campResult, empResult] = await Promise.all([
+        supabase
+          .from("campaigns")
+          .select("id, name, requires_holiday_coverage")
+          .order("name"),
+        supabase
+          .from("employees")
+          .select("campaign_id")
+          .eq("is_active", true),
+      ]);
+      if (campResult.error) throw campResult.error;
+      if (empResult.error) throw empResult.error;
+
+      const counts: Record<string, number> = {};
+      for (const emp of empResult.data || []) {
+        if (emp.campaign_id) counts[emp.campaign_id] = (counts[emp.campaign_id] || 0) + 1;
+      }
+
+      return (campResult.data || []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        requires_holiday_coverage: c.requires_holiday_coverage ?? false,
+        headcount: counts[c.id] ?? 0,
+      }));
+    },
+  });
+}
