@@ -20,11 +20,17 @@ import {
   useTLApproveHolidayRequest,
   useTLDismissHolidayRequest,
 } from "@/hooks/useHolidayRequests";
+import {
+  useTLPendingVacationRequests,
+  useTLApproveVacationRequest,
+  useTLDenyVacationRequest,
+} from "@/hooks/useVacationRequests";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -332,6 +338,137 @@ function HolidayCard({ campaign }: { campaign: TLCampaign }) {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Vacation Card (one per campaign)                                   */
+/* ------------------------------------------------------------------ */
+
+function VacationCard({ campaign }: { campaign: TLCampaign }) {
+  const { data: requests = [], isLoading } = useTLPendingVacationRequests(campaign.id);
+  const approveMutation = useTLApproveVacationRequest();
+  const denyMutation = useTLDenyVacationRequest();
+  const [denyingId, setDenyingId] = useState<string | null>(null);
+  const [denyReason, setDenyReason] = useState("");
+
+  if (!isLoading && requests.length === 0) return null;
+
+  function handleApprove(id: string) {
+    approveMutation.mutate(
+      { id, campaignId: campaign.id },
+      {
+        onSuccess: () => toast.success("Forwarded to HR"),
+        onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+      }
+    );
+  }
+
+  function handleDenyConfirm(id: string) {
+    if (!denyReason.trim()) return;
+    denyMutation.mutate(
+      { id, campaignId: campaign.id, reason: denyReason.trim() },
+      {
+        onSuccess: () => {
+          toast.success("Request denied");
+          setDenyingId(null);
+          setDenyReason("");
+        },
+        onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+      }
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center gap-2 pb-2">
+        <CalendarDays className="h-5 w-5 text-muted-foreground" />
+        <CardTitle className="text-lg">
+          Vacation Requests — {campaign.name}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : (
+          <ul className="space-y-3">
+            {requests.map((req) => {
+              const isDenying = denyingId === req.id;
+              const isActing =
+                (approveMutation.isPending && approveMutation.variables?.id === req.id) ||
+                (denyMutation.isPending && denyMutation.variables?.id === req.id);
+              return (
+                <li key={req.id} className="rounded-md border px-3 py-2 space-y-2">
+                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                    <div>
+                      <p className="text-sm font-medium">{req.displayName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDateMX(req.start_date)} – {formatDateMX(req.end_date)}
+                        <span className="ml-1 text-xs">
+                          ({req.days_requested} {req.days_requested === 1 ? "day" : "days"})
+                        </span>
+                      </p>
+                      {req.notes && (
+                        <p className="text-xs text-muted-foreground italic mt-0.5">{req.notes}</p>
+                      )}
+                    </div>
+                    {!isDenying && (
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isActing}
+                          onClick={() => handleApprove(req.id)}
+                        >
+                          Forward to HR
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          disabled={isActing}
+                          onClick={() => {
+                            setDenyingId(req.id);
+                            setDenyReason("");
+                          }}
+                        >
+                          Deny
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  {isDenying && (
+                    <div className="flex gap-2 items-center flex-wrap">
+                      <Input
+                        placeholder="Reason for denial (required)"
+                        value={denyReason}
+                        onChange={(e) => setDenyReason(e.target.value)}
+                        className="flex-1 h-8 text-sm min-w-48"
+                      />
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={!denyReason.trim() || denyMutation.isPending}
+                        onClick={() => handleDenyConfirm(req.id)}
+                      >
+                        Confirm Deny
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => { setDenyingId(null); setDenyReason(""); }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function formatTrendDate(dateStr: string): string {
   return formatDateMX(dateStr);
 }
@@ -576,6 +713,15 @@ export default function TeamLeadHome() {
         <div className="space-y-4">
           {tlCampaigns.data.map((c) => (
             <HolidayCard key={c.id} campaign={c} />
+          ))}
+        </div>
+      )}
+
+      {/* Vacation approval cards — one per campaign, auto-hidden when no pending requests */}
+      {tlCampaigns.data && tlCampaigns.data.length > 0 && (
+        <div className="space-y-4">
+          {tlCampaigns.data.map((c) => (
+            <VacationCard key={c.id} campaign={c} />
           ))}
         </div>
       )}
