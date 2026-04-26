@@ -194,3 +194,105 @@ export function useTLDenyVacationRequest() {
     },
   });
 }
+
+// ── HR hooks ─────────────────────────────────────────────────────────────────
+
+export interface HRVacationRequest extends VacationRequest {
+  displayName: string;
+  campaignName: string;
+}
+
+function mapHRRow(row: Record<string, unknown>): HRVacationRequest {
+  const e = row.employees as { work_name: string | null; full_name: string | null } | null;
+  const c = row.campaigns as { name: string | null } | null;
+  const { employees: _e, campaigns: _c, ...rest } = row;
+  void _e; void _c;
+  return {
+    ...(rest as VacationRequest),
+    displayName: getDisplayName({ work_name: e?.work_name ?? null, full_name: e?.full_name ?? "" }),
+    campaignName: c?.name ?? "",
+  };
+}
+
+export function useHRPendingVacationRequests() {
+  return useQuery({
+    queryKey: ["hrPendingVacationRequests"],
+    queryFn: async (): Promise<HRVacationRequest[]> => {
+      const { data, error } = await supabase
+        .from("vacation_requests")
+        .select("*, employees!vacation_requests_employee_id_fkey(work_name, full_name), campaigns(name)")
+        .eq("status", "pending_hr")
+        .order("start_date", { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((row) => mapHRRow(row as unknown as Record<string, unknown>));
+    },
+  });
+}
+
+export function useHRAllVacationRequests() {
+  return useQuery({
+    queryKey: ["hrAllVacationRequests"],
+    queryFn: async (): Promise<HRVacationRequest[]> => {
+      const { data, error } = await supabase
+        .from("vacation_requests")
+        .select("*, employees!vacation_requests_employee_id_fkey(work_name, full_name), campaigns(name)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((row) => mapHRRow(row as unknown as Record<string, unknown>));
+    },
+  });
+}
+
+interface HRApproveVars {
+  id: string;
+}
+
+export function useHRApproveVacationRequest() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (vars: HRApproveVars) => {
+      const { error } = await supabase
+        .from("vacation_requests")
+        .update({
+          status: "approved",
+          hr_reviewed_by: user?.id ?? null,
+          hr_reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", vars.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hrPendingVacationRequests"] });
+      queryClient.invalidateQueries({ queryKey: ["hrAllVacationRequests"] });
+    },
+  });
+}
+
+interface HRDenyVars {
+  id: string;
+  reason: string;
+}
+
+export function useHRDenyVacationRequest() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (vars: HRDenyVars) => {
+      const { error } = await supabase
+        .from("vacation_requests")
+        .update({
+          status: "denied",
+          hr_reviewed_by: user?.id ?? null,
+          hr_reviewed_at: new Date().toISOString(),
+          denial_reason: vars.reason,
+        })
+        .eq("id", vars.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hrPendingVacationRequests"] });
+      queryClient.invalidateQueries({ queryKey: ["hrAllVacationRequests"] });
+    },
+  });
+}
