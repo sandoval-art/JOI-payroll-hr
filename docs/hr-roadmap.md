@@ -1,6 +1,6 @@
 # HR Feature Roadmap
 
-Last updated: 2026-04-25
+Last updated: 2026-04-26
 
 Brainstormed after the EOD digest system finished shipping. This doc captures what's next on the HR side, consolidates overlapping ideas, and records the pushbacks that shaped the plan.
 
@@ -303,3 +303,85 @@ All migrations applied via MCP + tracker aligned. Edge function auto-deployed vi
 - Rides existing attendance incident infrastructure.
 
 - **"Outdated ack" status not distinguished from "never ack'd" on /policies.** When an agent ack'd v1 of a policy and HR publishes v2, the agent's /policies page shows "Not acknowledged" — same label as a first-time view. Functionally re-ack works fine (creates a new row for v2), but the UX should show "A new version was published, please re-acknowledge" when the agent has prior acks on older versions of this policy. Fix: extend `PolicyDocument` with `all_version_ids: string[]` populated in `usePolicies()`, then in `getStatus()` check if any ack matches any older version ID when current isn't ack'd. Added during C2 (2026-04-20).
+
+---
+
+## Feature G — Vacation / PTO (spec locked 2026-04-26)
+
+### Design decisions
+
+- **Entitlement source:** LFT 2023 formula calculated from `employees.hire_date`. Completed years of service measured as of Jan 1 of the current calendar year.
+  - Year 1: 12 days | Year 2: 14 | Year 3: 16 | Year 4: 18 | Years 5–9: 20 | Years 10–14: 22 | Years 15–19: 24 (adds 2 every 5 years after year 4)
+  - Employees in their first partial year (< 1 completed year as of Jan 1) get 0 days with a "You'll earn 12 days on [anniversary date]" message in the UI.
+- **Expiry:** unused days expire Dec 31 of the calendar year they were granted.
+- **Advance notice:** minimum 21 calendar days. Enforced at the RPC layer (same pattern as `request_holiday_off`).
+- **Approval flow:** Agent requests → TL approves (→ `pending_hr`) → HR confirms (→ `approved`). Either step can deny with a reason.
+- **Payroll tie-in:** approved vacation in a payroll period triggers a prima vacacional flag (25% of daily rate × vacation days) on the PayrollRun page, same amber-card pattern as holiday pay flags. HR confirms before it applies.
+- **Old `/solicitudes` route** (Lovable scaffold `TimeOff.tsx` using `time_off_requests` table): retire this in G2 — replace with the new `/vacation` route. The old table can stay or be dropped in cleanup; it's not referenced anywhere important.
+
+### Agent experience
+
+- Sidebar tab "Vacation" (already wired as placeholder at `/holidays` sibling nav item — needs own route `/vacation`).
+- Balance card at top: entitlement days, used days, available days, period (Jan 1 – Dec 31 current year).
+- First-year employees: balance card replaced with "You'll earn 12 days on [date]" callout. No request form shown.
+- Date-range picker request form: start date, end date, optional note. Live preview of days count. Start date must be ≥ today + 21 days (enforced client-side + RPC).
+- Request list: all their requests with status badges (Pending TL / Pending HR / Approved / Denied / Cancelled).
+- Can cancel own pending or approved requests (status → `cancelled`).
+
+### Team Lead experience
+
+- Pending vacation card on TeamLeadHome (below or alongside the holiday card pattern).
+- Shows pending requests from their team: employee name, dates, days count.
+- Approve (→ `pending_hr`) or Deny (with required reason text).
+- Approved vacation also visible in a "Upcoming time off" list on the card.
+
+### HR / Leadership experience
+
+- Vacation sub-tab in HR Time Off section (the "Coming in Feature G" placeholder at `HrTimeOff.tsx`).
+- Global queue of `pending_hr` requests across all campaigns.
+- Approve or deny each request (denial requires reason).
+- Full history view: all vacation requests across all employees, filterable by status/year.
+- Can see each employee's balance (used vs. entitlement) in the history view.
+
+### Payroll integration (G5)
+
+- Same amber-card pattern as holiday pay flags on `PayrollRun`.
+- Detects approved vacation requests with `start_date` or `end_date` falling within the payroll period.
+- Displays: employee name, vacation dates, days count, calculated prima vacacional amount (days × daily_rate × 0.25).
+- HR confirms before it applies. Never auto-locks.
+
+### Phased build plan
+
+**Phase G1 — Data model** (one PR, schema-only)
+- `vacation_requests` table: id, employee_id, campaign_id, start_date, end_date, days_requested, status (text CHECK IN pending_tl/pending_hr/approved/denied/cancelled), notes, tl_reviewed_by, tl_reviewed_at, hr_reviewed_by, hr_reviewed_at, denial_reason, created_at.
+- `get_vacation_balance(p_employee_id uuid, p_year integer)` SECURITY DEFINER function: returns entitlement_days, used_days, available_days, years_of_service, next_entitlement_date (non-null only for first-year employees).
+- RLS: agents read/write own (via my_employee_id()); TL read+update team (via tl_employee_on_my_team()); HR/leadership ALL.
+- TS types regen.
+
+**Phase G2 — Agent UI** (one PR)
+- New page `src/pages/VacationRequests.tsx` at route `/vacation`.
+- Balance card + first-year callout.
+- Date-picker request form with live day count and 21-day min enforcement.
+- Request list with status badges + cancel action.
+- New `useVacationRequests` hook + `useVacationBalance` hook.
+- `request_vacation_off` RPC (SECURITY DEFINER, atomic): validates 21-day notice, checks for overlapping requests, inserts row.
+- Wire sidebar nav "Vacation" to `/vacation` (agent-only, same pattern as HolidayRequests).
+- Retire old `/solicitudes` TimeOff.tsx route (redirect or remove from App.tsx + sidebar).
+
+**Phase G3 — TL approval** (one PR)
+- Pending vacation card on TeamLeadHome.
+- Approve (→ `pending_hr`) / Deny (with reason) actions.
+- Upcoming approved time-off list on the card.
+- No new migration — D1 RLS is sufficient.
+
+**Phase G4 — HR queue** (one PR)
+- Fill in Vacation tab in `HrTimeOff.tsx` (replace placeholder).
+- Global pending_hr queue, approve/deny with reason.
+- Full history view with balance column.
+- No new migration.
+
+**Phase G5 — Payroll prima vacacional flag** (one PR)
+- `useVacationPayFlags` hook: cross-ref approved vacation_requests in payroll period → compute prima vacacional.
+- Prima Vacacional card on `PayrollRun.tsx` above main table (amber, same pattern as holiday pay flags).
+- HR confirm/dismiss per flag.
+- No new migration.
