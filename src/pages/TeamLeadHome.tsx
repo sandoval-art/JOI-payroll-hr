@@ -14,6 +14,12 @@ import {
   useAgentBreakdown,
   type TLCampaign,
 } from "@/hooks/useTeamLead";
+import {
+  useNextUpcomingHoliday,
+  useTeamHolidayRequests,
+  useTLApproveHolidayRequest,
+  useTLDismissHolidayRequest,
+} from "@/hooks/useHolidayRequests";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,9 +29,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Clock, CalendarDays, TrendingUp, AlertTriangle, CheckCircle2, XCircle, FileText, Flag, ChevronDown, ChevronUp } from "lucide-react";
+import { Clock, CalendarDays, TrendingUp, AlertTriangle, CheckCircle2, XCircle, FileText, Flag, ChevronDown, ChevronUp, CalendarCheck } from "lucide-react";
 import { toast } from "sonner";
-import { todayLocal, formatDateMX } from "@/lib/localDate";
+import { todayLocal, formatDateMX, formatDateMXLong } from "@/lib/localDate";
 import { getDisplayName } from "@/lib/displayName";
 import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 
@@ -193,6 +199,134 @@ function EODNoteCard({
             </p>
           )}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Holiday Card (one per campaign)                                    */
+/* ------------------------------------------------------------------ */
+
+function HolidayCard({ campaign }: { campaign: TLCampaign }) {
+  const { data: nextHoliday } = useNextUpcomingHoliday();
+  const { data: requests = [], isLoading } = useTeamHolidayRequests(
+    campaign.id,
+    nextHoliday?.date ?? null
+  );
+  const approveMutation = useTLApproveHolidayRequest();
+  const dismissMutation = useTLDismissHolidayRequest();
+
+  // Hide card if no upcoming holiday or it's already today/past
+  if (!nextHoliday || nextHoliday.date <= todayLocal()) return null;
+
+  const approved = requests.filter((r) => r.status === "approved");
+  const pending = requests.filter((r) => r.status === "pending_tl");
+
+  function handleApprove(id: string) {
+    approveMutation.mutate(
+      { id, campaignId: campaign.id, holidayDate: nextHoliday!.date },
+      {
+        onSuccess: () => toast.success("Approved"),
+        onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+      }
+    );
+  }
+
+  function handleDismiss(id: string) {
+    dismissMutation.mutate(
+      { id, campaignId: campaign.id, holidayDate: nextHoliday!.date },
+      {
+        onSuccess: () => toast.success("Request dismissed"),
+        onError: (err) => toast.error(err instanceof Error ? err.message : String(err)),
+      }
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center gap-2 pb-2">
+        <CalendarCheck className="h-5 w-5 text-muted-foreground" />
+        <CardTitle className="text-lg">
+          Upcoming Holiday — {campaign.name}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Holiday name + date */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-semibold text-base">{nextHoliday.name}</span>
+          <span className="text-sm text-muted-foreground">
+            {formatDateMXLong(nextHoliday.date)}
+          </span>
+          {nextHoliday.is_statutory && (
+            <Badge variant="secondary" className="text-xs">Statutory</Badge>
+          )}
+        </div>
+
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : (
+          <>
+            {/* Approved-off list */}
+            <div className="space-y-1">
+              <p className="text-sm font-medium">
+                Approved off ({approved.length})
+              </p>
+              {approved.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No agents approved off yet.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {approved.map((r) => (
+                    <li key={r.id} className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                      {r.displayName}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Pending review queue */}
+            {pending.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-amber-600">
+                  Pending your review ({pending.length})
+                </p>
+                <ul className="space-y-2">
+                  {pending.map((r) => {
+                    const isActing =
+                      (approveMutation.isPending && approveMutation.variables?.id === r.id) ||
+                      (dismissMutation.isPending && dismissMutation.variables?.id === r.id);
+                    return (
+                      <li key={r.id} className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-sm">{r.displayName}</span>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isActing}
+                            onClick={() => handleApprove(r.id)}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-muted-foreground"
+                            disabled={isActing}
+                            onClick={() => handleDismiss(r.id)}
+                          >
+                            Dismiss
+                          </Button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   );
@@ -433,6 +567,15 @@ export default function TeamLeadHome() {
         <div className="space-y-4">
           {tlCampaigns.data.map((c) => (
             <EODNoteCard key={c.id} campaign={c} employeeId={employeeId} />
+          ))}
+        </div>
+      )}
+
+      {/* Holiday cards — one per campaign, auto-hidden when no upcoming holiday */}
+      {tlCampaigns.data && tlCampaigns.data.length > 0 && (
+        <div className="space-y-4">
+          {tlCampaigns.data.map((c) => (
+            <HolidayCard key={c.id} campaign={c} />
           ))}
         </div>
       )}
