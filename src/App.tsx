@@ -19,7 +19,7 @@ import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/NotFound";
 import Timeclock from "@/pages/Timeclock";
 import EODForm from "@/pages/EODForm";
-import TimeOff from "@/pages/TimeOff";
+import VacationRequests from "@/pages/VacationRequests";
 import Attendance from "@/pages/Attendance";
 import Performance from "@/pages/Performance";
 import ShiftSettings from "@/pages/ShiftSettings";
@@ -134,7 +134,7 @@ const App = () => (
                     <Route path="/facturas/:id" element={<RequireLeadership><FacturaDetalle /></RequireLeadership>} />
                     <Route path="/reloj" element={<Timeclock />} />
                     <Route path="/eod" element={<EODForm />} />
-                    <Route path="/solicitudes" element={<TimeOff />} />
+                    <Route path="/vacation" element={<VacationRequests />} />
                     <Route path="/asistencia" element={<RequireTeamLeadOrAbove><Attendance /></RequireTeamLeadOrAbove>} />
                     <Route path="/desempeno" element={<RequireTeamLeadOrAbove><Performance /></RequireTeamLeadOrAbove>} />
                     <Route path="/team-lead/dashboard" element={<RequireTeamLeadOrAbove><TLDashboard /></RequireTeamLeadOrAbove>} />
