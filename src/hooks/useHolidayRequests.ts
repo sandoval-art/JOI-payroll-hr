@@ -1,5 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { todayLocal } from "@/lib/localDate";
+import { getDisplayName } from "@/lib/displayName";
 
 export interface HolidayRequest {
   id: string;
@@ -127,6 +130,151 @@ export function useCancelHolidayRequest() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: [REQUESTS_KEY, vars.employeeId] });
       qc.invalidateQueries({ queryKey: [CAPACITIES_KEY, vars.campaignId] });
+    },
+  });
+}
+
+// ── TL hooks ──────────────────────────────────────────────────────────────────
+
+export interface CompanyHoliday {
+  id: string;
+  date: string;
+  name: string;
+  is_statutory: boolean;
+}
+
+export interface TeamHolidayRequest {
+  id: string;
+  employee_id: string;
+  status: "approved" | "pending_tl";
+  holiday_date: string;
+  holiday_name: string;
+  displayName: string;
+}
+
+// useNextUpcomingHoliday — single next upcoming company_holiday (date > today)
+export function useNextUpcomingHoliday() {
+  return useQuery({
+    queryKey: ["nextUpcomingHoliday"],
+    queryFn: async () => {
+      const today = todayLocal();
+      const { data, error } = await supabase
+        .from("company_holidays")
+        .select("id, date, name, is_statutory")
+        .gt("date", today)
+        .order("date", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as CompanyHoliday | null;
+    },
+  });
+}
+
+// useTeamHolidayRequests — all approved/pending_tl requests for a campaign+holiday
+// employees_no_pay has no FK so we can't use PostgREST embed — fetch employee
+// names separately and merge in memory, mirroring the pattern in useTeamLead.ts.
+export function useTeamHolidayRequests(
+  campaignId: string | null | undefined,
+  holidayDate: string | null | undefined
+) {
+  return useQuery({
+    queryKey: ["teamHolidayRequests", campaignId, holidayDate],
+    queryFn: async (): Promise<TeamHolidayRequest[]> => {
+      if (!campaignId || !holidayDate) return [];
+
+      const { data: requests, error } = await supabase
+        .from("holiday_requests")
+        .select("id, employee_id, status, holiday_date, holiday_name")
+        .eq("campaign_id", campaignId)
+        .eq("holiday_date", holidayDate)
+        .in("status", ["approved", "pending_tl"]);
+      if (error) throw error;
+      if (!requests || requests.length === 0) return [];
+
+      const employeeIds = requests.map((r) => r.employee_id);
+      const { data: empRows, error: empErr } = await supabase
+        .from("employees_no_pay")
+        .select("id, full_name, work_name")
+        .in("id", employeeIds);
+      if (empErr) throw empErr;
+
+      const nameMap = Object.fromEntries(
+        (empRows || []).map((e) => [
+          e.id,
+          getDisplayName({ fullName: e.full_name, workName: e.work_name ?? null }),
+        ])
+      );
+
+      return requests.map((r) => ({
+        id: r.id,
+        employee_id: r.employee_id,
+        status: r.status as "approved" | "pending_tl",
+        holiday_date: r.holiday_date,
+        holiday_name: r.holiday_name,
+        displayName: nameMap[r.employee_id] ?? r.employee_id,
+      }));
+    },
+    enabled: !!campaignId && !!holidayDate,
+  });
+}
+
+// useTLApproveHolidayRequest — sets status='approved', stamps reviewed_by + reviewed_at
+export function useTLApproveHolidayRequest() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async ({
+      id,
+    }: {
+      id: string;
+      campaignId: string;
+      holidayDate: string;
+    }) => {
+      const { error } = await supabase
+        .from("holiday_requests")
+        .update({
+          status: "approved",
+          reviewed_by: user?.id ?? null,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({
+        queryKey: ["teamHolidayRequests", vars.campaignId, vars.holidayDate],
+      });
+    },
+  });
+}
+
+// useTLDismissHolidayRequest — sets status='denied', stamps reviewed_by + reviewed_at
+export function useTLDismissHolidayRequest() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async ({
+      id,
+    }: {
+      id: string;
+      campaignId: string;
+      holidayDate: string;
+    }) => {
+      const { error } = await supabase
+        .from("holiday_requests")
+        .update({
+          status: "denied",
+          reviewed_by: user?.id ?? null,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({
+        queryKey: ["teamHolidayRequests", vars.campaignId, vars.holidayDate],
+      });
     },
   });
 }
