@@ -29,7 +29,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calculator, Pencil, X, Save } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { useHolidayPayFlags, type HolidayPayFlag } from "@/hooks/useHolidayPayFlags";
 
 const fmt = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "MXN" });
@@ -86,6 +88,18 @@ export default function PayrollRun() {
     activePeriod?.id,
     activePeriod?.start_date,
     activePeriod?.end_date
+  );
+
+  const { data: holidayFlags = [] } = useHolidayPayFlags(
+    activePeriod?.start_date,
+    activePeriod?.end_date
+  );
+
+  // Track dismissed flags (employeeId|holidayDate key)
+  const [dismissedFlags, setDismissedFlags] = useState<Set<string>>(new Set());
+
+  const visibleFlags = holidayFlags.filter(
+    (f) => !dismissedFlags.has(`${f.employeeId}|${f.holidayDate}`)
   );
 
   // Per-row local state, keyed by employee UUID
@@ -177,6 +191,22 @@ export default function PayrollRun() {
     );
   }
 
+  function holidayPremium(flag: HolidayPayFlag): number {
+    const emp = computed.find((e) => e.employeeId === flag.employeeId);
+    if (!emp) return 0;
+    // MX law: triple pay = regular day + 200% premium = 2 × daily rate
+    return 2 * (emp.monthlyBaseSalary / 30);
+  }
+
+  function applyHolidayFlag(flag: HolidayPayFlag) {
+    updateRow(flag.employeeId, { holidayWorkedOverride: 1 });
+    setDismissedFlags((prev) => new Set(prev).add(`${flag.employeeId}|${flag.holidayDate}`));
+  }
+
+  function dismissFlag(flag: HolidayPayFlag) {
+    setDismissedFlags((prev) => new Set(prev).add(`${flag.employeeId}|${flag.holidayDate}`));
+  }
+
   // Totals
   const totalPayroll = useMemo(() => {
     return computed.reduce((sum, emp) => {
@@ -220,6 +250,70 @@ export default function PayrollRun() {
           Close Period (coming soon)
         </Button>
       </div>
+
+      {visibleFlags.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-base">
+              <AlertTriangle className="h-4 w-4" />
+              Holiday Pay Flags ({visibleFlags.length})
+            </CardTitle>
+            <p className="text-sm text-amber-600 dark:text-amber-500">
+              These agents clocked in on a statutory holiday this period. Mexican
+              labor law requires 200% premium pay on top of their regular day rate.
+              Confirm each one to apply triple pay.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Agent</TableHead>
+                  <TableHead>Holiday</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Premium (+)</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleFlags.map((flag) => {
+                  const emp = computed.find((e) => e.employeeId === flag.employeeId);
+                  const premium = holidayPremium(flag);
+                  return (
+                    <TableRow key={`${flag.employeeId}|${flag.holidayDate}`}>
+                      <TableCell className="font-medium">
+                        {emp?.fullName ?? flag.employeeId}
+                      </TableCell>
+                      <TableCell>{flag.holidayName}</TableCell>
+                      <TableCell>{flag.holidayDate}</TableCell>
+                      <TableCell className="text-right font-mono text-emerald-700 dark:text-emerald-400">
+                        {fmt(premium)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => applyHolidayFlag(flag)}
+                          >
+                            Apply Holiday Pay
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => dismissFlag(flag)}
+                          >
+                            Dismiss
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Table */}
       <Card>
