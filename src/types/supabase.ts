@@ -480,6 +480,7 @@ export type Database = {
           eod_reply_to_email: string | null
           id: string
           name: string
+          requires_holiday_coverage: boolean
           team_lead_id: string | null
         }
         Insert: {
@@ -491,6 +492,7 @@ export type Database = {
           eod_reply_to_email?: string | null
           id?: string
           name: string
+          requires_holiday_coverage?: boolean
           team_lead_id?: string | null
         }
         Update: {
@@ -502,6 +504,7 @@ export type Database = {
           eod_reply_to_email?: string | null
           id?: string
           name?: string
+          requires_holiday_coverage?: boolean
           team_lead_id?: string | null
         }
         Relationships: [
@@ -681,6 +684,33 @@ export type Database = {
           name?: string
           prefix?: string
           subtitle?: string | null
+        }
+        Relationships: []
+      }
+      company_holidays: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          date: string
+          id: string
+          is_statutory: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          date: string
+          id?: string
+          is_statutory?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          id?: string
+          is_statutory?: boolean
+          name?: string
         }
         Relationships: []
       }
@@ -1087,6 +1117,71 @@ export type Database = {
           },
           {
             foreignKeyName: "eod_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_no_pay"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      holiday_requests: {
+        Row: {
+          campaign_id: string
+          employee_id: string
+          holiday_date: string
+          holiday_name: string
+          id: string
+          requested_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["holiday_request_status"]
+        }
+        Insert: {
+          campaign_id: string
+          employee_id: string
+          holiday_date: string
+          holiday_name: string
+          id?: string
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["holiday_request_status"]
+        }
+        Update: {
+          campaign_id?: string
+          employee_id?: string
+          holiday_date?: string
+          holiday_name?: string
+          id?: string
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["holiday_request_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holiday_requests_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holiday_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holiday_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_client_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holiday_requests_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees_no_pay"
@@ -2211,6 +2306,14 @@ export type Database = {
         Args: { p_campaign_id: string; p_date: string }
         Returns: boolean
       }
+      get_campaign_holiday_capacities: {
+        Args: { p_campaign_id: string }
+        Returns: {
+          approved_count: number
+          cap: number
+          holiday_date: string
+        }[]
+      }
       hr_create_finalization_draft: {
         Args: { p_created_by: string; p_request_id: string }
         Returns: Json
@@ -2261,13 +2364,21 @@ export type Database = {
       my_employee_id: { Args: never; Returns: string }
       my_team_member_ids: { Args: never; Returns: string[] }
       my_tl_campaign_ids: { Args: never; Returns: string[] }
+      request_holiday_off: {
+        Args: {
+          p_campaign_id: string
+          p_holiday_date: string
+          p_holiday_name: string
+        }
+        Returns: Database["public"]["Enums"]["holiday_request_status"]
+      }
       tl_employee_on_my_team: {
         Args: { p_employee_id: string }
         Returns: boolean
       }
     }
     Enums: {
-      [_ in never]: never
+      holiday_request_status: "approved" | "pending_tl" | "denied" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2300,13 +2411,13 @@ export type Tables<
     : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
         DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-      DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R
-    }
-    ? R
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
     : never
-  : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
@@ -2326,12 +2437,12 @@ export type TablesInsert<
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-      Insert: infer I
-    }
-    ? I
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
     : never
-  : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
@@ -2351,12 +2462,12 @@ export type TablesUpdate<
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-      Update: infer U
-    }
-    ? U
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
     : never
-  : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
@@ -2372,8 +2483,8 @@ export type Enums<
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-  : never
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
@@ -2389,11 +2500,13 @@ export type CompositeTypes<
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      holiday_request_status: ["approved", "pending_tl", "denied", "cancelled"],
+    },
   },
 } as const
