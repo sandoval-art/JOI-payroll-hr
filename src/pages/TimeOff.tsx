@@ -102,7 +102,7 @@ export default function TimeOff() {
       if (error) throw error;
       return (data || []) as TimeOffRequest[];
     },
-    enabled: role === "manager" || role === "admin",
+    enabled: isManagerOrAdmin,
   });
 
   // Fetch all reviewed requests (for managers/admins)
@@ -118,7 +118,7 @@ export default function TimeOff() {
       if (error) throw error;
       return (data || []) as TimeOffRequest[];
     },
-    enabled: role === "manager" || role === "admin",
+    enabled: isManagerOrAdmin,
   });
 
   // Submit time off request
