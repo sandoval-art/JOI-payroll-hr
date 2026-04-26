@@ -28,8 +28,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calculator, Pencil, X, Save } from "lucide-react";
+import { Calculator, Pencil, X, Save, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { useHolidayPayFlags } from "@/hooks/useHolidayPayFlags";
+import { formatDateMX } from "@/lib/localDate";
 
 const fmt = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "MXN" });
@@ -84,6 +86,11 @@ export default function PayrollRun() {
 
   const { data: computed = [], isLoading } = usePayrollComputed(
     activePeriod?.id,
+    activePeriod?.start_date,
+    activePeriod?.end_date
+  );
+
+  const { data: holidayFlags = [] } = useHolidayPayFlags(
     activePeriod?.start_date,
     activePeriod?.end_date
   );
@@ -220,6 +227,72 @@ export default function PayrollRun() {
           Close Period (coming soon)
         </Button>
       </div>
+
+      {/* Holiday Pay Flag */}
+      {holidayFlags.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4" />
+              Holiday Pay Flag — {holidayFlags.length} employee{holidayFlags.length !== 1 ? "s" : ""} worked a statutory holiday this period
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Employee</TableHead>
+                  <TableHead>Holiday</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Daily Rate</TableHead>
+                  <TableHead className="text-right">Triple-Pay Premium (200%)</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {holidayFlags.map((flag) => {
+                  const emp = computed.find((e) => e.employeeId === flag.employeeId);
+                  const dailyRate = emp ? emp.monthlyBaseSalary / 30 : 0;
+                  const premium = dailyRate * 2; // 200% of daily rate per MX law
+                  const alreadyApplied =
+                    (getRow(flag.employeeId).holidayWorkedOverride ?? 0) > 0 ||
+                    (emp?.holidayDaysWorked ?? 0) > 0;
+                  return (
+                    <TableRow key={`${flag.employeeId}|${flag.holidayDate}`}>
+                      <TableCell className="font-medium">
+                        {emp?.fullName ?? flag.employeeId}
+                      </TableCell>
+                      <TableCell>{flag.holidayName}</TableCell>
+                      <TableCell>{formatDateMX(flag.holidayDate)}</TableCell>
+                      <TableCell className="text-right">{fmt(dailyRate)}</TableCell>
+                      <TableCell className="text-right font-semibold">{fmt(premium)}</TableCell>
+                      <TableCell className="text-right">
+                        {alreadyApplied ? (
+                          <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">Applied</Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-amber-400 text-amber-800 hover:bg-amber-100"
+                            onClick={() =>
+                              updateRow(flag.employeeId, { holidayWorkedOverride: 1 })
+                            }
+                          >
+                            Apply to payroll
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+            <p className="text-xs text-muted-foreground mt-3 italic">
+              Per MX law (LFT Art. 75), employees who work a statutory holiday receive 200% of their daily wage on top of their regular pay. Click "Apply to payroll" to flag the Holiday Days column for each employee. HR review required before period close.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Table */}
       <Card>
