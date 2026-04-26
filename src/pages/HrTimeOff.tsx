@@ -34,6 +34,12 @@ import {
   useUpdateCompanyHoliday,
   useActiveCampaignsWithHeadcount,
 } from "@/hooks/useHolidayRequests";
+import {
+  useHRPendingVacationRequests,
+  useHRAllVacationRequests,
+  useHRApproveVacationRequest,
+  useHRDenyVacationRequest,
+} from "@/hooks/useVacationRequests";
 
 // ── Coverage helpers ──────────────────────────────────────────────────────────
 
@@ -184,6 +190,9 @@ export default function HrTimeOff() {
   const [editHoliday, setEditHoliday] = useState<{ id: string; name: string } | null>(null);
   // Track in-flight manual email sends: key = `${campaignId}|${daysBefore}`
   const [sendingMap, setSendingMap] = useState<Record<string, boolean>>({});
+  // Vacation deny inline state
+  const [vacDenyingId, setVacDenyingId] = useState<string | null>(null);
+  const [vacDenyReason, setVacDenyReason] = useState("");
 
   const sendNotification = useCallback(async (campaignId: string, daysBefore: 14 | 7) => {
     const key = `${campaignId}|${daysBefore}`;
@@ -206,6 +215,11 @@ export default function HrTimeOff() {
   const { data: holidays = [], isLoading: loadingHolidays } = useCompanyHolidays();
   const { data: campaigns = [], isLoading: loadingCampaigns } = useActiveCampaignsWithHeadcount();
   const overrideMutation = useHROverrideHolidayRequest();
+
+  const { data: vacPending = [], isLoading: loadingVacPending } = useHRPendingVacationRequests();
+  const { data: vacAll = [], isLoading: loadingVacAll } = useHRAllVacationRequests();
+  const vacApproveMutation = useHRApproveVacationRequest();
+  const vacDenyMutation = useHRDenyVacationRequest();
 
   const today = todayLocal();
 
@@ -504,12 +518,180 @@ export default function HrTimeOff() {
           </Card>
         </TabsContent>
 
-        {/* ── Vacation tab (placeholder) ── */}
-        <TabsContent value="vacation">
-          <div className="py-12 text-center text-muted-foreground">
-            <p className="text-lg font-medium">Vacation & PTO</p>
-            <p className="text-sm mt-1">Coming in Feature G</p>
-          </div>
+        {/* ── Vacation tab ── */}
+        <TabsContent value="vacation" className="space-y-8 pt-4">
+
+          {/* Section 1 — Pending HR Approval */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">
+                Pending HR Approval
+                {vacPending.length > 0 && (
+                  <Badge className="ml-2 bg-amber-500 text-white">{vacPending.length}</Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingVacPending ? (
+                <div className="flex justify-center py-6"><LogoLoadingIndicator /></div>
+              ) : vacPending.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No vacation requests pending HR review.
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {vacPending.map((req) => {
+                    const isDenying = vacDenyingId === req.id;
+                    const isActing =
+                      (vacApproveMutation.isPending && vacApproveMutation.variables?.id === req.id) ||
+                      (vacDenyMutation.isPending && vacDenyMutation.variables?.id === req.id);
+                    return (
+                      <li key={req.id} className="rounded-md border px-4 py-3 space-y-2">
+                        <div className="flex items-start justify-between gap-2 flex-wrap">
+                          <div>
+                            <p className="text-sm font-medium">{req.displayName}</p>
+                            <p className="text-xs text-muted-foreground">{req.campaignName}</p>
+                            <p className="text-sm text-muted-foreground mt-0.5">
+                              {formatDateMX(req.start_date)} – {formatDateMX(req.end_date)}
+                              <span className="ml-1">· {req.days_requested} {req.days_requested === 1 ? "day" : "days"}</span>
+                            </p>
+                            {req.notes && (
+                              <p className="text-xs text-muted-foreground italic mt-0.5">{req.notes}</p>
+                            )}
+                          </div>
+                          {!isDenying && (
+                            <div className="flex gap-2 shrink-0">
+                              <Button
+                                size="sm"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                disabled={isActing}
+                                onClick={() =>
+                                  vacApproveMutation.mutate(
+                                    { id: req.id },
+                                    {
+                                      onSuccess: () => toast.success("Vacation request approved"),
+                                      onError: (err) => toast.error(err instanceof Error ? err.message : "Failed"),
+                                    }
+                                  )
+                                }
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                disabled={isActing}
+                                onClick={() => { setVacDenyingId(req.id); setVacDenyReason(""); }}
+                              >
+                                Deny
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        {isDenying && (
+                          <div className="flex gap-2 items-center flex-wrap">
+                            <Input
+                              placeholder="Reason for denial (required)"
+                              value={vacDenyReason}
+                              onChange={(e) => setVacDenyReason(e.target.value)}
+                              className="flex-1 h-8 text-sm min-w-48"
+                            />
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={!vacDenyReason.trim() || vacDenyMutation.isPending}
+                              onClick={() =>
+                                vacDenyMutation.mutate(
+                                  { id: req.id, reason: vacDenyReason.trim() },
+                                  {
+                                    onSuccess: () => {
+                                      toast.success("Request denied");
+                                      setVacDenyingId(null);
+                                      setVacDenyReason("");
+                                    },
+                                    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed"),
+                                  }
+                                )
+                              }
+                            >
+                              Confirm Deny
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => { setVacDenyingId(null); setVacDenyReason(""); }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Section 2 — All Requests history */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">All Vacation Requests</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingVacAll ? (
+                <div className="flex justify-center py-6"><LogoLoadingIndicator /></div>
+              ) : vacAll.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No vacation requests yet.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Campaign</TableHead>
+                      <TableHead>Dates</TableHead>
+                      <TableHead className="text-right">Days</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Requested</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {vacAll.map((req) => (
+                      <TableRow key={req.id}>
+                        <TableCell className="font-medium">{req.displayName}</TableCell>
+                        <TableCell className="text-muted-foreground">{req.campaignName}</TableCell>
+                        <TableCell>
+                          {formatDateMX(req.start_date)} – {formatDateMX(req.end_date)}
+                        </TableCell>
+                        <TableCell className="text-right">{req.days_requested}</TableCell>
+                        <TableCell>
+                          {req.status === "approved" && (
+                            <Badge className="bg-emerald-600 text-white">Approved</Badge>
+                          )}
+                          {req.status === "pending_hr" && (
+                            <Badge className="bg-amber-500 text-white">Pending HR</Badge>
+                          )}
+                          {req.status === "pending_tl" && (
+                            <Badge className="bg-gray-100 text-gray-700">Pending TL</Badge>
+                          )}
+                          {req.status === "denied" && (
+                            <Badge className="bg-destructive text-destructive-foreground">Denied</Badge>
+                          )}
+                          {req.status === "cancelled" && (
+                            <Badge className="bg-gray-100 text-gray-500">Cancelled</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDateMX(req.created_at)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
         </TabsContent>
       </Tabs>
 
