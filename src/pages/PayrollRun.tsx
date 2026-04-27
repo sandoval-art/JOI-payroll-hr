@@ -32,6 +32,7 @@ import { Calculator, Pencil, X, Save } from "lucide-react";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useHolidayPayFlags, type HolidayPayFlag } from "@/hooks/useHolidayPayFlags";
+import { useVacationPayFlags, type VacationPayFlag } from "@/hooks/useVacationPayFlags";
 
 const fmt = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "MXN" });
@@ -95,11 +96,22 @@ export default function PayrollRun() {
     activePeriod?.end_date
   );
 
+  const { data: vacationFlags = [] } = useVacationPayFlags(
+    activePeriod?.start_date,
+    activePeriod?.end_date
+  );
+
   // Track dismissed flags (employeeId|holidayDate key)
   const [dismissedFlags, setDismissedFlags] = useState<Set<string>>(new Set());
 
   const visibleFlags = holidayFlags.filter(
     (f) => !dismissedFlags.has(`${f.employeeId}|${f.holidayDate}`)
+  );
+
+  const [dismissedVacationFlags, setDismissedVacationFlags] = useState<Set<string>>(new Set());
+
+  const visibleVacationFlags = vacationFlags.filter(
+    (f) => !dismissedVacationFlags.has(`${f.employeeId}|${f.startDate}`)
   );
 
   // Per-row local state, keyed by employee UUID
@@ -207,6 +219,19 @@ export default function PayrollRun() {
     setDismissedFlags((prev) => new Set(prev).add(`${flag.employeeId}|${flag.holidayDate}`));
   }
 
+  function primaVacacional(flag: VacationPayFlag): number {
+    const emp = computed.find((e) => e.employeeId === flag.employeeId);
+    if (!emp) return 0;
+    const dailyRate = emp.monthlyBaseSalary / 30;
+    return dailyRate * flag.daysInPeriod * 0.25;
+  }
+
+  function dismissVacationFlag(flag: VacationPayFlag) {
+    setDismissedVacationFlags((prev) =>
+      new Set(prev).add(`${flag.employeeId}|${flag.startDate}`)
+    );
+  }
+
   // Totals
   const totalPayroll = useMemo(() => {
     return computed.reduce((sum, emp) => {
@@ -301,6 +326,68 @@ export default function PayrollRun() {
                             size="sm"
                             variant="ghost"
                             onClick={() => dismissFlag(flag)}
+                          >
+                            Dismiss
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {visibleVacationFlags.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-base">
+              <AlertTriangle className="h-4 w-4" />
+              Prima Vacacional ({visibleVacationFlags.length})
+            </CardTitle>
+            <p className="text-sm text-amber-600 dark:text-amber-500">
+              These agents have approved vacation overlapping this period. Mexican labor law
+              requires a 25% vacation premium on top of regular pay for those days. Confirm
+              each one to mark as noted.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Agent</TableHead>
+                  <TableHead>Vacation Dates</TableHead>
+                  <TableHead className="text-right">Days This Period</TableHead>
+                  <TableHead className="text-right">Prima Vacacional (+)</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleVacationFlags.map((flag) => {
+                  const emp = computed.find((e) => e.employeeId === flag.employeeId);
+                  return (
+                    <TableRow key={`${flag.employeeId}|${flag.startDate}`}>
+                      <TableCell className="font-medium">
+                        {emp?.fullName ?? flag.employeeId}
+                      </TableCell>
+                      <TableCell>
+                        {flag.startDate} – {flag.endDate}
+                      </TableCell>
+                      <TableCell className="text-right">{flag.daysInPeriod}</TableCell>
+                      <TableCell className="text-right font-mono text-emerald-700 dark:text-emerald-400">
+                        {fmt(primaVacacional(flag))}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button size="sm" onClick={() => dismissVacationFlag(flag)}>
+                            Mark as Noted
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => dismissVacationFlag(flag)}
                           >
                             Dismiss
                           </Button>
