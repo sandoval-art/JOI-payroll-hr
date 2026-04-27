@@ -17,6 +17,7 @@ import {
   FileCheck,
   ScrollText,
   CalendarCheck,
+  PlusSquare,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -80,7 +81,7 @@ const agentItems = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
-  const { signOut, user, isLeadership, isTeamLead, isAgent } = useAuth();
+  const { signOut, user, isLeadership, isTeamLead, isAgent, isOwner } = useAuth();
   const collapsed = state === "collapsed";
 
   // Determine which items to show based on title
@@ -165,6 +166,27 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+        {isOwner && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-[11px] uppercase tracking-widest text-sidebar-foreground/30 font-medium">Settings</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/admin/provision-org"
+                      className="hover:bg-sidebar-accent"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
+                    >
+                      <PlusSquare className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>New Organization</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
