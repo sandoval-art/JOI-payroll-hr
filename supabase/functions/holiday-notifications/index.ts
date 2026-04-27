@@ -40,6 +40,8 @@ const DRY_RUN = Deno.env.get("DRY_RUN_HOLIDAY") !== "false"; // safe default: tr
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const APP_DOMAIN = Deno.env.get("APP_DOMAIN") ?? (() => { throw new Error("APP_DOMAIN not set"); })();
+const REPLY_TO_EMAIL = Deno.env.get("REPLY_TO_EMAIL") ?? (() => { throw new Error("REPLY_TO_EMAIL not set"); })();
 
 // ---------------------------------------------------------------------------
 // CORS
@@ -59,7 +61,7 @@ const NAVY = "#1B2A4A";
 const ORANGE = "#FFA700";
 const LIGHT = "#F8F9FA";
 const BORDER = "#E5E7EB";
-const REPLY_TO = "humanresources@justoutsource.it";
+const REPLY_TO = REPLY_TO_EMAIL;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -162,7 +164,7 @@ async function sendViaGmail(opts: {
   if (!GMAIL_USER || !GMAIL_APP_PASSWORD)
     throw new Error("GMAIL_USER or GMAIL_APP_PASSWORD not set");
   const messageId = `<${crypto.randomUUID()}@${
-    GMAIL_USER.split("@")[1] || "justoutsource.it"
+    GMAIL_USER.split("@")[1] || APP_DOMAIN
   }>`;
   const client = new SMTPClient({
     connection: {

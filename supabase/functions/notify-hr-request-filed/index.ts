@@ -21,7 +21,7 @@ const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD") ?? "";
 const DRY_RUN = Deno.env.get("DRY_RUN_HR_NOTIFICATIONS") !== "false";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const APP_URL = Deno.env.get("APP_URL") ?? "https://joi-payroll-hr.vercel.app";
+const APP_URL = Deno.env.get("APP_URL") ?? (() => { throw new Error("APP_URL not set"); })();
 
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
 const CORS_HEADERS = {
