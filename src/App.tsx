@@ -39,7 +39,8 @@ import HolidayRequests from "@/pages/HolidayRequests";
 import HrTimeOff from "@/pages/HrTimeOff";
 import ClientDashboard from "@/pages/ClientDashboard";
 import ClientCampaignDetail from "@/pages/ClientCampaignDetail";
-import { RequireLeadership, RequireTeamLeadOrAbove, RequireClient } from "@/components/RequireRole";
+import ProvisionOrg from "@/pages/ProvisionOrg";
+import { RequireLeadership, RequireTeamLeadOrAbove, RequireClient, RequireOwner } from "@/components/RequireRole";
 import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
 
 const queryClient = new QueryClient();
@@ -151,6 +152,7 @@ const App = () => (
                     <Route path="/holidays" element={<HolidayRequests />} />
                     <Route path="/policies" element={<MyPolicies />} />
                     <Route path="/account" element={<Account />} />
+                    <Route path="/admin/provision-org" element={<RequireOwner><ProvisionOrg /></RequireOwner>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </AppLayout>
