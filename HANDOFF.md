@@ -1,6 +1,6 @@
 # JOI Payroll & HR App — Handoff
 
-Last updated: 2026-04-27 (multi-tenancy Phase 1–3b)
+Last updated: 2026-04-27 (multi-tenancy Phase 4 — helper function hardening)
 
 Quick reference for picking the project back up on a new machine.
 
@@ -161,6 +161,8 @@ Run these in order via the Supabase SQL editor if setting up a fresh database. A
 59. `20260427400001_mt_phase1_organizations.sql` — **Multi-tenancy Phase 1** (PR #80, 2026-04-27). Creates `organizations` table + RLS (`organizations_read_own`). Adds `organization_id` FK to `user_profiles`. Creates `my_org_id()` SECURITY DEFINER helper. Seeds JOI org + backfills all existing `user_profiles` rows. Tightens to NOT NULL. Applied manually in corrected order (function before policy to avoid forward-reference error).
 60. `20260427500001_mt_phase2_root_tables.sql` — **Multi-tenancy Phase 2** (PR #81, 2026-04-27). Adds `organization_id` NOT NULL FK to `clients`, `campaigns`, `employees`; backfills all rows to JOI org. Replaces RLS policies on all three tables with org-filtered equivalents. Rebuilds `employees_no_pay` view with `AND e.organization_id = public.my_org_id()` guard.
 61. `20260427600001_mt_phase3a_employee_fk_rls.sql` — **Multi-tenancy Phase 3a** (PR #82, 2026-04-27). RLS-only updates on 15 leaf tables that have an `employee_id` FK: `time_clock`, `time_off_requests`, `payroll_records`, `agent_coaching_notes`, `attendance_incidents`, `employee_documents`, `compliance_notifications_sent`, `hr_document_requests`, `cartas_compromiso`, `actas_administrativas`, `resignation_packets`, `eod_logs`, `policy_acknowledgments`, `vacation_requests`, `holiday_requests`. Pattern: add `AND employee_id IN (SELECT id FROM public.employees WHERE organization_id = public.my_org_id())` to leadership and TL policies. Agent-self policies are already implicitly org-scoped via `my_employee_id()`.
+63. `20260427800001_mt_phase4_harden_helper_functions.sql` — **Multi-tenancy Phase 4** (2026-04-27). Adds `AND organization_id = public.my_org_id()` guards to all 6 SECURITY DEFINER helpers that read from `employees` or `campaigns`: `is_leadership()`, `is_team_lead()`, `my_tl_campaign_ids()`, `my_team_member_ids()`, `tl_employee_on_my_team()`, `my_client_campaign_ids()`. The four identity helpers (`my_org_id`, `my_employee_id`, `my_client_id`, `is_client`) only read `user_profiles` by `auth.uid()` and remain unchanged. All applied via `CREATE OR REPLACE` — no DROP needed.
+
 62. `20260427700001_mt_phase3b_campaign_fk_and_org_roots.sql` — **Multi-tenancy Phase 3b** (PR #83, 2026-04-27). Two-part migration. Part 1 (RLS-only, 7 tables): `eod_digest_log`, `shift_settings`, `campaign_kpi_config`, `campaign_eod_recipients`, `campaign_eod_tl_notes`, `invoices`, `invoice_lines` — all scoped via `campaign_id IN (SELECT id FROM public.campaigns WHERE organization_id = public.my_org_id())`. Part 2 (schema + RLS, 4 tables): `payroll_periods`, `departments`, `policy_documents`, `company_holidays` — each gets `organization_id uuid NOT NULL REFERENCES organizations(id)`, backfilled to JOI, and two org-scoped RLS policies. `policy_documents` preserves the full complex multi-EXISTS USING clause. `company_holidays` preserves `auth.role() = 'authenticated'` check. Schema cache reloaded via NOTIFY pgrst.
 
 One-off fix files (run once, not migrations):
@@ -217,8 +219,8 @@ Files in `supabase/dev-seed/` that contain D's real employee and salary data. Th
 
 - ~~**Feature B2/B3 — Carta de compromiso + acta administrativa.**~~ ✅ COMPLETE 2026-04-22 (PRs #42–#49). All 5 phases shipped.
 - **A3b real email delivery.** Edge function is deployed and running in DRY_RUN. `APP_URL` is now set (PR #79). Remaining step: flip `DRY_RUN=false` on `compliance-notifications` and `send-eod-digest` in Supabase dashboard when ready to go live. No code changes needed.
-- **Multi-tenancy Phase 4 — SECURITY DEFINER helper hardening.** Phases 1–3b have org isolation on every table and RLS policy. Phase 4 tightens the helper functions themselves so they're also org-aware: `is_leadership()`, `is_team_lead()`, `my_tl_campaign_ids()`, `my_team_member_ids()`, `tl_employee_on_my_team()`. Each currently reads from `user_profiles` or `employees` without an org guard — low risk today (single-org), but required before onboarding a second org.
-- **Multi-tenancy Phase 5 — Org provisioning UI.** Admin screen (owner-only) to create a new org, invite the first owner user, and run the bootstrap seed. Without this, adding a second customer requires manual SQL.
+- ~~**Multi-tenancy Phase 4 — SECURITY DEFINER helper hardening.**~~ ✅ COMPLETE 2026-04-27. All 6 helpers (`is_leadership`, `is_team_lead`, `my_tl_campaign_ids`, `my_team_member_ids`, `tl_employee_on_my_team`, `my_client_campaign_ids`) now carry an explicit org guard.
+- **Multi-tenancy Phase 5 — Org provisioning UI.** Owner-only screen to create a new org, invite the first user, and run a bootstrap seed. Without this, adding a second customer requires manual SQL.
 
 **Audit followups — ALL SHIPPED 2026-04-21 (PRs #32, #37–#41). See `docs/hr-roadmap.md` § Followups for details.**
 
