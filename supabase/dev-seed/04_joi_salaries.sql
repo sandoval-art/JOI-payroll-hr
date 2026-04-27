@@ -1,4 +1,9 @@
--- Update employee salaries and KPI bonuses
+-- JOI-specific seed data — do NOT run on white-label deployments
+-- Sets salary, KPI bonus, and daily discount rates for D's 53 employees.
+-- This file was moved out of supabase/migrations/ to prevent it from running on
+-- every fresh deployment. The data is already present in the live JOI database.
+-- Run manually via the Supabase SQL editor after 03_joi_employees.sql when
+-- bootstrapping a JOI-specific instance.
 -- Monthly base = weekly base * 4
 -- Daily discount = weekly base / days per week (5 for weekday, 3 for weekend)
 
@@ -85,9 +90,6 @@ WHERE employee_id = 'EMP-034';
 -- Paty Rodriguez - Admin (weekly $8,750, KPI $0)
 UPDATE public.employees SET monthly_base_salary = 35000, kpi_bonus_amount = 0, daily_discount_rate = 1750
 WHERE employee_id = 'EMP-042';
-
--- Alex Navarro - TORRO SLOC Weekday (weekly $3,000, KPI $1,500)
--- Already covered above in EMP-037
 
 -- Luis Ventura - Inactive TORRO SLOC Weekday (weekly $3,000, KPI $1,500)
 UPDATE public.employees SET monthly_base_salary = 12000, kpi_bonus_amount = 1500, daily_discount_rate = 600

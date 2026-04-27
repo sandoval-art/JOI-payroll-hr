@@ -1,4 +1,8 @@
--- Seed 53 employees across Torro, Big Think Capital, HFB, and Scoop clients
+-- JOI-specific seed data — do NOT run on white-label deployments
+-- Seeds 53 real employees for D's org (Torro, Big Think Capital, HFB, Scoop).
+-- This file was moved out of supabase/migrations/ to prevent it from running on
+-- every fresh deployment. The data is already present in the live JOI database.
+-- Run manually via the Supabase SQL editor when bootstrapping a JOI-specific instance.
 -- Created: 2026-04-13
 
 -- CTE to map client prefixes to their IDs
