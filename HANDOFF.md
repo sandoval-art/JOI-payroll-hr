@@ -1,6 +1,6 @@
 # JOI Payroll & HR App — Handoff
 
-Last updated: 2026-04-27 (agent smoke-test fixes + cron unblocked)
+Last updated: 2026-04-27 (DRY_RUN flipped — emails live)
 
 Quick reference for picking the project back up on a new machine.
 
@@ -14,7 +14,7 @@ Quick reference for picking the project back up on a new machine.
 2. ~~Mystery Supabase project in history (`hipxsmawxvlxjzotsgfj`).~~ ✅ Confirmed dead 2026-04-20 — the project doesn't exist on Supabase, so the key is inert. Cleared out of git history during the same scrub.
 3. **Put the Supabase + Gmail keys in Vercel's Environment Variables panel** (Project Settings → Environment Variables). Never commit them again.
 4. **Agent browser smoke-test.** SQL-level RLS simulation passed 6/6, but a real agent walk-through in the browser is pending. Do this once a dedicated agent test account is ready.
-5. **Flip DRY_RUN=false on both email edge functions.** `send-eod-digest` and `compliance-notifications` both default to DRY_RUN=true. To go live: Supabase dashboard → function → env vars → set `APP_URL=https://joi-payroll-hr.vercel.app` on `compliance-notifications`, flip `DRY_RUN=false` on both. No code changes needed.
+5. ~~**Flip DRY_RUN=false on both email edge functions.**~~ ✅ Done 2026-04-27. `DRY_RUN_EOD=false` set on `send-eod-digest` and `DRY_RUN_COMPLIANCE=false` set on `compliance-notifications` via Supabase dashboard secrets. Both functions are now sending real emails.
 6. **Run `supabase/dev-seed/02_teardown_mock_dashboard.sql`** to clean the 7 mock Torro agents (DEV_MOCK_TORRO_SLOC campaign) before public launch.
 7. **Re-run RLS audit after any new migration that touches tables, policies, or views.** Migration file + audit doc pattern: `supabase/migrations/<stamp>_<name>.sql` + `docs/security/rls-audit-<date>.md`.
 
@@ -220,7 +220,7 @@ Files in `supabase/dev-seed/` that contain D's real employee and salary data. Th
 **Known blockers:**
 
 - ~~**Feature B2/B3 — Carta de compromiso + acta administrativa.**~~ ✅ COMPLETE 2026-04-22 (PRs #42–#49). All 5 phases shipped.
-- **A3b real email delivery.** Cron is healthy (200s confirmed). Remaining step: add `DRY_RUN_EOD=false` to `send-eod-digest` secrets and `DRY_RUN_COMPLIANCE=false` to `compliance-notifications` secrets in the Supabase dashboard when ready to go live. No code changes needed.
+- ~~**A3b real email delivery.**~~ ✅ Done 2026-04-27. `DRY_RUN_EOD=false` and `DRY_RUN_COMPLIANCE=false` both set in Supabase dashboard secrets. Cron is healthy (200s confirmed). Emails are live.
 - ~~**Multi-tenancy Phase 4 — SECURITY DEFINER helper hardening.**~~ ✅ COMPLETE 2026-04-27. All 6 helpers (`is_leadership`, `is_team_lead`, `my_tl_campaign_ids`, `my_team_member_ids`, `tl_employee_on_my_team`, `my_client_campaign_ids`) now carry an explicit org guard.
 - ~~**Multi-tenancy Phase 5 — Org provisioning UI.**~~ ✅ COMPLETE 2026-04-27 (PR #85). `provision-org` edge function + `/admin/provision-org` owner-only page. Per-org employee ID prefix stored on `organizations.employee_id_prefix`; `assign_employee_id()` trigger reads it at insert time so new orgs get their own prefix (e.g. `ACME-0001`) instead of `JOI-XXXX`.
 - ~~**Agent smoke-test nav fixes.**~~ ✅ COMPLETE 2026-04-27 (PR #86). Dashboard link added as first item in agent + TL sidebar. `/solicitudes` route restored in App.tsx. "Time Off Requests" nav item re-added to agent sidebar.
@@ -353,7 +353,7 @@ Files in `supabase/dev-seed/` that contain D's real employee and salary data. Th
 
 ## EOD Digest System — SHIPPED (2026-04-19)
 
-**Status:** Edge function `send-eod-digest` is deployed via CI (`.github/workflows/supabase-deploy.yml`). All four paths live: cron daily (shift-end triggered), morning amend bundle, manual test-send, manual fire-now. TL dashboard with 5 widgets + coaching log is live. Remaining is operational — flip `DRY_RUN` on the edge function to false + add real recipients per campaign when ready to go live to clients.
+**Status:** FULLY LIVE as of 2026-04-27. Edge function `send-eod-digest` is deployed via CI. All four paths live: cron daily (shift-end triggered), morning amend bundle, manual test-send, manual fire-now. TL dashboard with 5 widgets + coaching log is live. `DRY_RUN_EOD=false` — real emails sending. Add real recipients per campaign when ready to go live to clients.
 
 ---
 
