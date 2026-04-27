@@ -1,6 +1,6 @@
 # JOI Payroll & HR App — Handoff
 
-Last updated: 2026-04-27 (multi-tenancy Phase 5 — org provisioning UI)
+Last updated: 2026-04-27 (agent smoke-test fixes + cron unblocked)
 
 Quick reference for picking the project back up on a new machine.
 
@@ -220,9 +220,12 @@ Files in `supabase/dev-seed/` that contain D's real employee and salary data. Th
 **Known blockers:**
 
 - ~~**Feature B2/B3 — Carta de compromiso + acta administrativa.**~~ ✅ COMPLETE 2026-04-22 (PRs #42–#49). All 5 phases shipped.
-- **A3b real email delivery.** Edge function is deployed and running in DRY_RUN. `APP_URL` is now set (PR #79). Remaining step: flip `DRY_RUN=false` on `compliance-notifications` and `send-eod-digest` in Supabase dashboard when ready to go live. No code changes needed.
+- **A3b real email delivery.** Cron is healthy (200s confirmed). Remaining step: add `DRY_RUN_EOD=false` to `send-eod-digest` secrets and `DRY_RUN_COMPLIANCE=false` to `compliance-notifications` secrets in the Supabase dashboard when ready to go live. No code changes needed.
 - ~~**Multi-tenancy Phase 4 — SECURITY DEFINER helper hardening.**~~ ✅ COMPLETE 2026-04-27. All 6 helpers (`is_leadership`, `is_team_lead`, `my_tl_campaign_ids`, `my_team_member_ids`, `tl_employee_on_my_team`, `my_client_campaign_ids`) now carry an explicit org guard.
 - ~~**Multi-tenancy Phase 5 — Org provisioning UI.**~~ ✅ COMPLETE 2026-04-27 (PR #85). `provision-org` edge function + `/admin/provision-org` owner-only page. Per-org employee ID prefix stored on `organizations.employee_id_prefix`; `assign_employee_id()` trigger reads it at insert time so new orgs get their own prefix (e.g. `ACME-0001`) instead of `JOI-XXXX`.
+- ~~**Agent smoke-test nav fixes.**~~ ✅ COMPLETE 2026-04-27 (PR #86). Dashboard link added as first item in agent + TL sidebar. `/solicitudes` route restored in App.tsx. "Time Off Requests" nav item re-added to agent sidebar.
+- ~~**Holiday request rules.**~~ ✅ COMPLETE 2026-04-27 (PRs #87 + migration). `company_holidays.requires_request` column added — Christmas and New Year's set to `false` (mandatory days off, no request button shown). Next-year holidays show a disabled button with "Requests open Dec 2" until within 30 days of Jan 1 of that year.
+- ~~**Cron 401 fix.**~~ ✅ COMPLETE 2026-04-27. `send-eod-digest`, `compliance-notifications`, and `holiday-notifications` all had `verify_jwt = false` already set in the dashboard but `CRON_SECRET` env var was mismatched. Set correct value (`joi-eod-cron-2026-04-19-xK9mP2vL`) on all three. Crons now return 200. Added `verify_jwt = false` to `supabase/config.toml` so the setting survives future deploys.
 
 **Audit followups — ALL SHIPPED 2026-04-21 (PRs #32, #37–#41). See `docs/hr-roadmap.md` § Followups for details.**
 
