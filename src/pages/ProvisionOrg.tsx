@@ -14,9 +14,17 @@ function toSlug(value: string): string {
     .replace(/-{2,}/g, "-");
 }
 
+function toPrefix(value: string): string {
+  return value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 4);
+}
+
 type FormState = {
   orgName: string;
   orgSlug: string;
+  employeeIdPrefix: string;
   ownerEmail: string;
   ownerFullName: string;
 };
@@ -27,10 +35,12 @@ export default function ProvisionOrg() {
   const [form, setForm] = useState<FormState>({
     orgName: "",
     orgSlug: "",
+    employeeIdPrefix: "",
     ownerEmail: "",
     ownerFullName: "",
   });
   const [slugTouched, setSlugTouched] = useState(false);
+  const [prefixTouched, setPrefixTouched] = useState(false);
   const [errors, setErrors] = useState<FieldError>({});
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<{ orgName: string; email: string } | null>(null);
@@ -39,8 +49,8 @@ export default function ProvisionOrg() {
     setForm((f) => ({
       ...f,
       orgName: value,
-      // Auto-derive slug only while the user hasn't manually edited it
       orgSlug: slugTouched ? f.orgSlug : toSlug(value),
+      employeeIdPrefix: prefixTouched ? f.employeeIdPrefix : toPrefix(value),
     }));
     setErrors((e) => ({ ...e, orgName: undefined }));
   };
@@ -58,6 +68,11 @@ export default function ProvisionOrg() {
       next.orgSlug = "Slug is required";
     } else if (!/^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$|^[a-z0-9]{3,50}$/.test(form.orgSlug)) {
       next.orgSlug = "Slug must be 3–50 chars: lowercase letters, numbers, and hyphens only";
+    }
+    if (!form.employeeIdPrefix.trim()) {
+      next.employeeIdPrefix = "Employee ID prefix is required";
+    } else if (!/^[A-Z0-9]{2,10}$/.test(form.employeeIdPrefix)) {
+      next.employeeIdPrefix = "Must be 2–10 uppercase letters and numbers only";
     }
     if (!form.ownerEmail.trim()) {
       next.ownerEmail = "Owner email is required";
@@ -81,6 +96,7 @@ export default function ProvisionOrg() {
         body: {
           orgName: form.orgName.trim(),
           orgSlug: form.orgSlug.trim(),
+          employeeIdPrefix: form.employeeIdPrefix.trim(),
           ownerEmail: form.ownerEmail.trim(),
           ownerFullName: form.ownerFullName.trim(),
         },
@@ -133,8 +149,9 @@ export default function ProvisionOrg() {
               className="mt-2"
               onClick={() => {
                 setSuccess(null);
-                setForm({ orgName: "", orgSlug: "", ownerEmail: "", ownerFullName: "" });
+                setForm({ orgName: "", orgSlug: "", employeeIdPrefix: "", ownerEmail: "", ownerFullName: "" });
                 setSlugTouched(false);
+                setPrefixTouched(false);
               }}
             >
               Provision another org
@@ -195,6 +212,32 @@ export default function ProvisionOrg() {
               ) : (
                 <p className="text-xs text-muted-foreground">
                   Used in URLs and internal IDs. Cannot be changed later.
+                </p>
+              )}
+            </div>
+
+            {/* Employee ID Prefix */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="employeeIdPrefix">Employee ID Prefix</Label>
+              <Input
+                id="employeeIdPrefix"
+                value={form.employeeIdPrefix}
+                onChange={(e) => {
+                  setPrefixTouched(true);
+                  const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
+                  setForm((f) => ({ ...f, employeeIdPrefix: val }));
+                  setErrors((er) => ({ ...er, employeeIdPrefix: undefined }));
+                }}
+                placeholder="ACME"
+                maxLength={10}
+                aria-invalid={!!errors.employeeIdPrefix}
+              />
+              {errors.employeeIdPrefix ? (
+                <p className="text-xs text-destructive">{errors.employeeIdPrefix}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  2–10 uppercase letters/numbers. New employees in this org will get IDs like{" "}
+                  <span className="font-medium">{form.employeeIdPrefix || "ACME"}-0001</span>.
                 </p>
               )}
             </div>

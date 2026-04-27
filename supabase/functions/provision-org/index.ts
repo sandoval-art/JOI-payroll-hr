@@ -10,7 +10,8 @@
  *   6. Inserts into user_profiles for the invited user.
  *
  * POST body:
- *   { "orgName": "Acme Corp", "orgSlug": "acme", "ownerEmail": "admin@acme.com", "ownerFullName": "John Smith" }
+ *   { "orgName": "Acme Corp", "orgSlug": "acme", "ownerEmail": "admin@acme.com", "ownerFullName": "John Smith", "employeeIdPrefix": "ACME" }
+ *   employeeIdPrefix is optional — defaults to first 3 uppercase alphanumeric chars of orgName.
  *
  * Returns 200: { orgId, orgSlug, inviteEmail }
  *
@@ -34,6 +35,15 @@ const CORS_HEADERS = {
 
 /** Slug must be 3–50 chars, lowercase alphanumeric + hyphens only. */
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$|^[a-z0-9]{3,50}$/;
+
+/** Employee ID prefix: 2–10 uppercase alphanumeric chars. */
+const PREFIX_RE = /^[A-Z0-9]{2,10}$/;
+
+/** Derive a default prefix from an org name: uppercase, strip non-alphanum, take first 3 chars. */
+function derivePrefix(orgName: string): string {
+  const stripped = orgName.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3);
+  return stripped.length >= 2 ? stripped : "ORG";
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -81,7 +91,7 @@ Deno.serve(async (req) => {
     // -----------------------------------------------------------------------
     // 2. Parse + validate body
     // -----------------------------------------------------------------------
-    const { orgName, orgSlug, ownerEmail, ownerFullName } = await req.json();
+    const { orgName, orgSlug, ownerEmail, ownerFullName, employeeIdPrefix: rawPrefix } = await req.json();
 
     if (!orgName || !orgSlug || !ownerEmail || !ownerFullName) {
       return json({ error: "Missing required fields: orgName, orgSlug, ownerEmail, ownerFullName" }, 400);
@@ -90,6 +100,14 @@ Deno.serve(async (req) => {
     if (!SLUG_RE.test(orgSlug)) {
       return json({
         error: "Invalid slug — must be 3–50 chars, lowercase letters, numbers, and hyphens only",
+      }, 400);
+    }
+
+    // Derive prefix if not provided; validate if provided
+    const employeeIdPrefix: string = rawPrefix ? String(rawPrefix).trim().toUpperCase() : derivePrefix(orgName);
+    if (!PREFIX_RE.test(employeeIdPrefix)) {
+      return json({
+        error: "Invalid employeeIdPrefix — must be 2–10 uppercase letters and numbers only",
       }, 400);
     }
 
@@ -111,7 +129,7 @@ Deno.serve(async (req) => {
     // -----------------------------------------------------------------------
     const { data: org, error: orgErr } = await supabaseAdmin
       .from("organizations")
-      .insert({ name: orgName, slug: orgSlug })
+      .insert({ name: orgName, slug: orgSlug, employee_id_prefix: employeeIdPrefix })
       .select("id")
       .single();
 
