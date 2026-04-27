@@ -197,13 +197,14 @@ One-off fix files (run once, not migrations):
 - **Feature E client portal Phase E1** — **COMPLETE** (PR #64). Schema-only: `'client'` role, `user_profiles.client_id` FK, CHECK invariant, updated role-guard trigger, three SECURITY DEFINER helpers (`is_client`, `my_client_id`, `my_client_campaign_ids`), `employees_client_view` + `eod_logs_client_view`, scoped RLS on clients/campaigns/campaign_kpi_config. Phase E2 (dashboard UI) is next. Test client seed + types regen happen post-merge.
 - **Feature F resignation packet** — **COMPLETE** (PRs #51–#52). Full renuncia + finiquito + encuesta de salida flow. 4-page PDF via jspdf: resignation letter, itemized finiquito with LFT calculations (aguinaldo/vacaciones/prima), blank exit survey with Likert table + open questions + causa checkboxes. TL files `request_type='renuncia'`, HR drafts in split-view editor with auto-compute finiquito calculator, prints/signs/scans. All existing B2/B3 infrastructure (queue, editor, PDF gen, signed-scan upload, signed-URL edge function) extended for the third doc type.
 - **CI workflow** — `.github/workflows/supabase-deploy.yml` auto-deploys edge functions on push to main. Migration auto-apply is intentionally skipped (blocked on migration history cleanup); migrations currently applied manually via MCP.
+- **Edge function config hardening** — **COMPLETE** (PR #79, 2026-04-27). Removed all hardcoded JOI-specific values from edge functions. `APP_DOMAIN`, `APP_URL`, and `REPLY_TO_EMAIL` are now read from project-level Supabase secrets. `APP_URL` throws on startup if unset (fail-loud). `.env.example` updated with all required vars. Secrets set in Supabase dashboard: `APP_DOMAIN=joi-payroll-hr.vercel.app`, `APP_URL=https://joi-payroll-hr.vercel.app`, `REPLY_TO_EMAIL=humanresources@justoutsource.it`.
 
 ## What's left
 
 **Known blockers:**
 
 - ~~**Feature B2/B3 — Carta de compromiso + acta administrativa.**~~ ✅ COMPLETE 2026-04-22 (PRs #42–#49). All 5 phases shipped.
-- **A3b real email delivery.** Edge function is deployed and running in DRY_RUN. Remaining manual steps in Supabase dashboard: set `APP_URL` env var on `compliance-notifications`, then flip `DRY_RUN=false`. No code changes needed.
+- **A3b real email delivery.** Edge function is deployed and running in DRY_RUN. `APP_URL` is now set (PR #79). Remaining step: flip `DRY_RUN=false` on `compliance-notifications` and `send-eod-digest` in Supabase dashboard when ready to go live. No code changes needed.
 
 **Audit followups — ALL SHIPPED 2026-04-21 (PRs #32, #37–#41). See `docs/hr-roadmap.md` § Followups for details.**
 
