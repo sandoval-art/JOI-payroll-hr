@@ -38,7 +38,8 @@ const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD") ?? "";
 const DRY_RUN = Deno.env.get("DRY_RUN_COMPLIANCE") !== "false"; // safe default: true
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const APP_URL = Deno.env.get("APP_URL") ?? "https://joi-payroll-hr.vercel.app";
+const APP_URL = Deno.env.get("APP_URL") ?? (() => { throw new Error("APP_URL not set"); })();
+const APP_DOMAIN = Deno.env.get("APP_DOMAIN") ?? (() => { throw new Error("APP_DOMAIN not set"); })();
 
 // ---------------------------------------------------------------------------
 // CORS (for browser-originated calls from the reject button)
@@ -91,7 +92,7 @@ async function sendViaGmail(opts: {
   if (!GMAIL_USER || !GMAIL_APP_PASSWORD)
     throw new Error("GMAIL_USER or GMAIL_APP_PASSWORD not set");
   const messageId = `<${crypto.randomUUID()}@${
-    GMAIL_USER.split("@")[1] || "justoutsource.it"
+    GMAIL_USER.split("@")[1] || APP_DOMAIN
   }>`;
   const client = new SMTPClient({
     connection: {
