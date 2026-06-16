@@ -47,12 +47,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { formatDateMX } from "@/lib/localDate";
 import { getDisplayName } from "@/lib/displayName";
 import HrDocumentRequestsCard from "@/components/employee-profile/HrDocumentRequestsCard";
+import UptrainingCard from "@/components/employee-profile/UptrainingCard";
 import { EmploymentHistoryCard } from "@/components/employee-profile/EmploymentHistoryCard";
 import { ThirtyDayReviewCard } from "@/components/employee-profile/ThirtyDayReviewCard";
 import { PersonalInfoCard } from "@/components/employee-profile/PersonalInfoCard";
 import { ClockInHistoryCard } from "@/components/employee-profile/ClockInHistoryCard";
 import { CampaignHistoryCard } from "@/components/employee-profile/CampaignHistoryCard";
 import { ChangeCampaignDialog } from "@/components/ChangeCampaignDialog";
+import { RecruitingAttachmentsCard } from "@/components/employee-profile/RecruitingAttachmentsCard";
 
 // ── A1: Personal & Tax Info validation ──────────────────────────────
 const CURP_RE = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
@@ -955,6 +957,8 @@ export default function EmpleadoPerfil() {
           hireDate={emp._hireDate ?? null}
           lastWorkedDay={emp._lastWorkedDay ?? null}
           clientId={currentCampaign?.client_id ?? null}
+          campaignId={currentCampaign?.id ?? null}
+          canManageDayOff={isLeadership}
           shift={campaignShifts[0] ? {
             start_time: campaignShifts[0].start_time,
             end_time: campaignShifts[0].end_time,
@@ -997,8 +1001,17 @@ export default function EmpleadoPerfil() {
         <HrDocumentRequestsCard employeeId={emp._uuid!} authEmployeeId={authEmployeeId!} />
       )}
 
+      {/* Uptraining — generate + upload signed constancia; leadership + TL on own campaign */}
+      {(isLeadership || (isTeamLead && campaignId)) && (
+        <UptrainingCard employeeId={emp._uuid!} authEmployeeId={authEmployeeId!} mode="manage" />
+      )}
+
       {/* C1: Policy Acknowledgments — leadership only */}
       {isLeadership && <PolicyAckCard agentId={emp._uuid!} agentCampaignId={campaignId} agentRole={emp.title} />}
+
+      {/* From Application — CV + intro recording captured at hire time.
+          Self-hides if the employee has no recruiting attachments. */}
+      {isLeadership && <RecruitingAttachmentsCard emp={emp} />}
 
       {/* H2: Employment History — leadership only */}
       {isLeadership && emp._uuid && <EmploymentHistoryCard employeeUuid={emp._uuid} />}
@@ -1489,7 +1502,7 @@ function AgentLogCard({
         note: noteText.trim(),
         campaignId,
         authorId: authorEmployeeId,
-        visibleToAgent: isLeadership ? shareWithAgent : false,
+        visibleToAgent: shareWithAgent,
       },
       {
         onSuccess: () => {
@@ -1584,7 +1597,7 @@ function AgentLogCard({
                         )}
                       </div>
                       <p className="text-sm">{entry.note}</p>
-                      {isLeadership && (
+                      {(isLeadership || entry.author_id === authorEmployeeId) && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1657,7 +1670,7 @@ function AgentLogCard({
                 rows={4}
               />
             </div>
-            {isLeadership && (
+            {authorEmployeeId && (
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"

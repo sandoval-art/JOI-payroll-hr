@@ -156,6 +156,206 @@ export const ENCUESTA_CAUSA_OPTIONS: string[] = [
   "Otro: ______________",
 ];
 
+// ── Rescisión Periodo de Prueba ─────────────────────────────────────
+
+export const RESCISION_TITLE = "AVISO DE RESCISIÓN DE CONTRATO INDIVIDUAL DE TRABAJO";
+
+export const RESCISION_SUBTITLE =
+  "Contrato de Periodo de Prueba — Incumplimiento de Indicadores de Desempeño";
+
+export const RESCISION_ANTECEDENTES_TEMPLATE =
+  "Con fecha {contract_signing_date_long}, se celebró entre las partes un Contrato Individual de Trabajo por Tiempo Determinado — Periodo de Prueba con vigencia de treinta (30) días naturales, en términos del artículo 39-A de la Ley Federal del Trabajo, con la finalidad de verificar si el trabajador cumple con los requisitos y conocimientos necesarios para el puesto de {puesto}.";
+
+export const RESCISION_ANTECEDENTES_2 =
+  "Dicho contrato estableció, en su Cláusula Sexta, los indicadores clave de desempeño (KPIs) que el trabajador debía cumplir como condición para la continuación de la relación laboral, los cuales se detallan en el apartado siguiente.";
+
+export const RESCISION_KPI_INTRO =
+  "A continuación se presenta el comparativo entre las métricas contractualmente requeridas y el desempeño registrado durante el periodo de prueba:";
+
+export const RESCISION_KPI_FOOTNOTE =
+  "* Los valores de la columna «Registrado» corresponden al promedio semanal documentado en BLB CRM, RingCentral y Origination Tracker durante el periodo comprendido entre el primer y trigésimo día natural de prueba.";
+
+export const RESCISION_FUNDAMENTO_INTRO =
+  "La presente rescisión se fundamenta en los siguientes preceptos de la Ley Federal del Trabajo:";
+
+export const RESCISION_FUNDAMENTO_ROWS: { article: string; text: string }[] = [
+  {
+    article: "Art. 39-A LFT",
+    text: "El contrato de prueba podrá celebrarse por un período no mayor de 30 días. Si el trabajador no satisface los requisitos y conocimientos necesarios para desarrollar el trabajo, el patrón podrá rescindir la relación laboral sin responsabilidad.",
+  },
+  {
+    article: "Art. 39-B LFT",
+    text: "Los trabajos de capacitación inicial y prueba se regirán por las normas de la Ley Federal del Trabajo. El trabajador gozará de todos los derechos establecidos, incluyendo la seguridad social.",
+  },
+  {
+    article: "Art. 47 LFT Frac. XIV",
+    text: "Son causas de rescisión de la relación de trabajo, sin responsabilidad para el patrón, el incumplimiento de las obligaciones a que se refiere el artículo 134 de esta Ley, en especial las fracciones I, X y XI.",
+  },
+];
+
+export const RESCISION_DECLARACION_TEMPLATE =
+  "En virtud de los hechos y fundamentos señalados, OUTSOURCE CONSULTING GROUP S.A.S., por conducto de su representante legal, notifica formalmente al(a la) trabajador(a) la RESCISIÓN DEL CONTRATO INDIVIDUAL DE TRABAJO DE PERIODO DE PRUEBA a partir del día {termination_date_long}, sin responsabilidad para la empresa, de conformidad con los artículos 39-A y 47 de la Ley Federal del Trabajo.";
+
+export const RESCISION_DECLARACION_2 =
+  "La presente rescisión obedece exclusivamente al incumplimiento de los indicadores de desempeño pactados contractualmente, sin que medie causal alguna de discriminación, represalia o violación a derechos laborales.";
+
+export const RESCISION_LIQUIDACION_INTRO =
+  "La empresa se compromete a cubrir al trabajador(a), dentro del plazo legal, los conceptos que correspondan conforme a ley:";
+
+export const RESCISION_LIQUIDACION_BULLETS: string[] = [
+  "Salario devengado hasta la fecha efectiva de rescisión (proporcional).",
+  "Parte proporcional de días de descanso obligatorio (art. 74 LFT).",
+  "Parte proporcional de vacaciones y prima vacacional (arts. 76–80 LFT).",
+  "Parte proporcional de aguinaldo (art. 87 LFT).",
+  "Devolución de documentos originales y constancia de trabajo (art. 132, frac. XIII LFT).",
+  "Entrega de comprobantes de afiliación al IMSS y baja correspondiente.",
+];
+
+export const RESCISION_NO_INDEMNIZACION =
+  "El trabajador no generará derecho a indemnización constitucional (art. 50 LFT) ni a prima de antigüedad (art. 162 LFT) en virtud de la naturaleza del contrato rescindido (período de prueba — art. 39-A LFT).";
+
+export const RESCISION_CONSTANCIA_INTRO =
+  "El(La) trabajador(a) abajo firmante declara haber recibido copia de la presente notificación y estar en conocimiento de su contenido:";
+
+export const RESCISION_LEGAL_REP_NAME = "DIOMEDES SANDOVAL ROJAS";
+export const RESCISION_LEGAL_REP_TITLE = "Representante Legal · Outsource Consulting Group";
+
+// ── Rescisión por Bajo Desempeño (Art. 47 Frac. XI) ─────────────────
+// Post-probation termination: employee passed the 30-day prueba, continued on
+// a fixed-term contract (por tiempo determinado / campaign duration), and is
+// terminated for sustained KPI failure. Different legal grounds from the
+// probation rescisión above (Art. 39-A).
+
+export const RESCISION_DESEMPENO_TITLE = "AVISO DE RESCISIÓN DE CONTRATO DE TRABAJO";
+
+export const RESCISION_DESEMPENO_SUBTITLE =
+  "Rescisión sin responsabilidad para el patrón — Incumplimiento de Indicadores de Desempeño";
+
+export const RESCISION_DESEMPENO_ANTECEDENTES_1_TEMPLATE =
+  "Con fecha {hire_date_long}, el(la) trabajador(a) ingresó a {company_name} bajo un Contrato Individual de Trabajo por Tiempo Determinado — Capacitación Inicial, conforme al artículo 39-B de la Ley Federal del Trabajo.";
+
+export const RESCISION_DESEMPENO_ANTECEDENTES_2_TEMPLATE =
+  "Habiendo superado el periodo de capacitación inicial, a partir del día {contract_signing_date_long} la relación laboral continuó bajo un Contrato Individual de Trabajo por Tiempo Determinado (dada la duración de la campaña), asignándole las mismas funciones y los mismos indicadores de desempeño (KPIs) establecidos en la Cláusula Sexta del contrato original.";
+
+export const RESCISION_DESEMPENO_ANTECEDENTES_3_TEMPLATE =
+  "Durante el seguimiento posterior al periodo de capacitación inicial y en base a las evaluaciones realizadas, la empresa verificó que el(la) trabajador(a) mantuvo un desempeño por debajo de los indicadores mínimos requeridos, conforme consta en los registros de la campaña {campaign}, constituyendo incumplimiento a las obligaciones pactadas en el contrato de trabajo.";
+
+export const RESCISION_DESEMPENO_KPI_INTRO =
+  "Los registros obtenidos reflejan el siguiente comparativo entre los indicadores mínimos requeridos y el desempeño promedio del trabajador durante el periodo evaluado:";
+
+export const RESCISION_DESEMPENO_KPI_FOOTNOTE =
+  "* Registros obtenidos de BLB CRM, RingCentral y Origination Tracker. El trabajador tuvo acceso a dichos registros y fue informado de su desempeño durante el periodo evaluado.";
+
+export const RESCISION_DESEMPENO_FUNDAMENTO_INTRO =
+  "La presente rescisión se funda en los siguientes preceptos de la Ley Federal del Trabajo:";
+
+export const RESCISION_DESEMPENO_FUNDAMENTO_ROWS: { article: string; text: string }[] = [
+  {
+    article: "Art. 47 LFT Frac. XI",
+    text: "Son causas de rescisión de la relación de trabajo, sin responsabilidad para el patrón, el incumplimiento de las obligaciones que imponga el contrato individual, siempre que sean de importancia y que el patrón no las haya renunciado previamente.",
+  },
+  {
+    article: "Art. 134 LFT Frac. I y X",
+    text: "Son obligaciones de los trabajadores: desempeñar el servicio bajo la dirección del patrón con la intensidad, cuidado y esmero apropiados, y observar las disposiciones contractuales relativas a la disciplina y el rendimiento.",
+  },
+  {
+    article: "Art. 47 LFT Último párrafo",
+    text: "El patrón deberá dar al trabajador aviso escrito de la fecha y causa o causas de la rescisión. El aviso deberá entregarse personalmente al trabajador.",
+  },
+];
+
+export const RESCISION_DESEMPENO_DECLARACION_TEMPLATE =
+  "Por medio del presente documento, {company_name}, por conducto de su representante legal, notifica formalmente al(a la) Sr.(a) {trabajador_name} la RESCISIÓN DE SU CONTRATO INDIVIDUAL DE TRABAJO SIN RESPONSABILIDAD PARA LA EMPRESA, con efectos a partir del día {termination_date_long}, con fundamento en el artículo 47, fracción XI de la Ley Federal del Trabajo, en razón del incumplimiento reiterado y documentado de los indicadores de desempeño establecidos en su contrato de trabajo.";
+
+export const RESCISION_DESEMPENO_DECLARACION_2 =
+  "La rescisión obedece exclusivamente al incumplimiento de las métricas de desempeño contractualmente pactadas, sin que medie discriminación, represalia ni violación a derecho laboral alguno.";
+
+export const RESCISION_DESEMPENO_LIQUIDACION_INTRO =
+  "La empresa cubrirá al trabajador(a), en un plazo no mayor a cinco (5) días hábiles a partir de la fecha efectiva de baja, los conceptos que correspondan conforme a ley:";
+
+export const RESCISION_DESEMPENO_LIQUIDACION_BULLETS: string[] = [
+  "Salario devengado hasta la fecha efectiva de rescisión.",
+  "Parte proporcional de días de descanso obligatorio (art. 74 LFT).",
+  "Parte proporcional de vacaciones y prima vacacional (arts. 76–80 LFT).",
+  "Parte proporcional de aguinaldo (art. 87 LFT).",
+  "Devolución de documentos originales y constancia de trabajo (art. 132, frac. XIII LFT).",
+];
+
+export const RESCISION_DESEMPENO_NO_INDEMNIZACION =
+  "Al tratarse de una rescisión por causa justificada imputable al trabajador (art. 47 LFT), no procede el pago de indemnización constitucional (tres meses de salario, art. 50 LFT) ni de prima de antigüedad (art. 162 LFT).";
+
+export const RESCISION_DESEMPENO_ENTREGA_INTRO =
+  "El trabajador se obliga a entregar en su último día laborado lo siguiente:";
+
+export const RESCISION_DESEMPENO_ENTREGA_BULLETS: string[] = [
+  "Equipo de cómputo y accesorios asignados, en las mismas condiciones de entrega.",
+  "Credencial y cualquier identificación interna de la empresa.",
+  "Cualquier otro material, documento o herramienta propiedad de la empresa.",
+];
+
+export const RESCISION_DESEMPENO_ACUSE =
+  "El(La) trabajador(a) abajo firmante declara haber recibido personalmente el presente aviso de rescisión, estar en conocimiento de su contenido, causas y fundamento legal, y no tener reclamación laboral pendiente al momento de la firma, sin perjuicio del pago de los conceptos de liquidación señalados en el apartado VI.";
+
+// ── Constancia de Uptraining / Capacitación Continua ────────────────
+// Light-fill printable form. The app auto-populates the agent header and the
+// KPI-minimums table (from campaign_kpi_config); the coach/TL fills sessions,
+// topics, commitments and signatures by hand, then scans the signed copy.
+
+export const UPTRAINING_TITLE = "CONSTANCIA DE UPTRAINING / CAPACITACIÓN CONTINUA";
+
+export const UPTRAINING_SUBTITLE =
+  "Registro individual de sesión(es) de reforzamiento y seguimiento de desempeño";
+
+// Section III.A — predefined topics. Rendered as blank checkboxes to mark by hand.
+export const UPTRAINING_TOPICS: string[] = [
+  "Presentación y pitch de apertura",
+  "Manejo de objeciones",
+  "Calificación del prospecto",
+  "Proceso de aprobación del producto",
+  "Uso de CRM",
+  "Registro en Origination Tracker",
+  "Agendado de citas en Google Calendar",
+  "Seguimiento de cita (call cadence)",
+  "Talk time y llamadas por hora",
+  "Package Back / Credit Pull / Sets / Activations",
+  "Calidad de llamada (QA)",
+  "Escalación a Team Lead / Manager",
+  "Manejo de disposiciones en CRM",
+  "Conocimiento del producto",
+  "Revisión de grabaciones propias",
+  "Role play con supervisor",
+  "Manejo del tiempo en piso",
+  "Políticas de asistencia y puntualidad",
+  "Reporteo diario de métricas",
+];
+
+export const UPTRAINING_SESSION_HEADERS: string[] = [
+  "#",
+  "Fecha",
+  "Horario",
+  "Instructor / Coach",
+  "Duración (hrs)",
+  "Modalidad",
+];
+
+export const UPTRAINING_KPI_HEADERS: string[] = [
+  "Indicador / KPI",
+  "Mínimo requerido",
+  "Promedio del agente",
+  "Meta post-uptraining",
+  "Cumple",
+];
+
+export const UPTRAINING_FIRMAS_INTRO =
+  "Las partes abajo firmantes declaran que el uptraining descrito fue impartido y recibido en los términos indicados en el presente documento.";
+
+export const UPTRAINING_FOOTER =
+  "Documento interno  ·  Recursos Humanos  ·  Outsource Consulting Group S.A.S.  ·  Guadalajara, Jalisco";
+
+export const UPTRAINING_LEGAL_REP_NAME = "DIOMEDES SANDOVAL ROJAS";
+export const UPTRAINING_LEGAL_REP_TITLE =
+  "Representante legal  ·  Outsource Consulting Group";
+
 // ── Template rendering helper ───────────────────────────────────────
 
 export function renderTemplate(

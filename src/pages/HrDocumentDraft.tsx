@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { LogoLoadingIndicator } from "@/components/ui/LogoLoadingIndicator";
+import { SensitiveDataAckGate, FINIQUITO_ACK_TEXT } from "@/components/SensitiveDataAckGate";
 import { ArrowLeft, Save, FileText, Plus, Trash2, AlertTriangle, Unlink, Eye, Upload, ExternalLink, AlertCircle, CheckCircle, RefreshCw, User, Briefcase, Calendar, Quote } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,10 +29,12 @@ import {
   useUploadSignedScan,
   type FinalizationDraft,
 } from "@/hooks/useHrDocumentRequests";
-import type { CartaKpiRow, ActaWitness } from "@/types/hr-docs";
+import type { CartaKpiRow, ActaWitness, RescisionKpiRow } from "@/types/hr-docs";
 import { generateCartaPdf } from "@/lib/pdf/generateCartaPdf";
 import { generateActaPdf } from "@/lib/pdf/generateActaPdf";
 import { generateRenunciaPacketPdf } from "@/lib/pdf/generateRenunciaPacketPdf";
+import { generateRescisionPdf } from "@/lib/pdf/generateRescisionPdf";
+import { generateRescisionDesempenoPdf } from "@/lib/pdf/generateRescisionDesempenoPdf";
 import {
   calcAguinaldoProporcional,
   calcVacaciones,
@@ -100,11 +103,16 @@ interface DraftFormState {
   aguinaldoMonto: string;
   vacacionesMonto: string;
   primaVacacionalMonto: string;
+  salariosDevengadosMonto: string;
   totalMonto: string;
   totalEnLetras: string;
   curpSnapshot: string;
   rfcSnapshot: string;
   claveElector: string;
+  // Rescision_prueba-specific
+  rescisionKpiTable: RescisionKpiRow[];
+  contractSigningDate: string;
+  terminationEffectiveDate: string;
 }
 
 function draftToFormState(draft: FinalizationDraft): DraftFormState {
@@ -127,11 +135,15 @@ function draftToFormState(draft: FinalizationDraft): DraftFormState {
     aguinaldoMonto: draft.aguinaldoMonto != null ? String(draft.aguinaldoMonto) : "",
     vacacionesMonto: draft.vacacionesMonto != null ? String(draft.vacacionesMonto) : "",
     primaVacacionalMonto: draft.primaVacacionalMonto != null ? String(draft.primaVacacionalMonto) : "",
+    salariosDevengadosMonto: draft.salariosDevengadosMonto != null ? String(draft.salariosDevengadosMonto) : "",
     totalMonto: draft.totalMonto != null ? String(draft.totalMonto) : "",
     totalEnLetras: draft.totalEnLetras ?? "",
     curpSnapshot: draft.curpSnapshot ?? "",
     rfcSnapshot: draft.rfcSnapshot ?? "",
     claveElector: draft.claveElector ?? "",
+    rescisionKpiTable: draft.rescisionKpiTable ?? [],
+    contractSigningDate: draft.contractSigningDate ?? "",
+    terminationEffectiveDate: draft.terminationEffectiveDate ?? "",
   };
 }
 
@@ -148,11 +160,15 @@ function seedToFormState(seed: SnapshotSeed): DraftFormState {
     aguinaldoMonto: "",
     vacacionesMonto: "",
     primaVacacionalMonto: "",
+    salariosDevengadosMonto: "",
     totalMonto: "",
     totalEnLetras: "",
     curpSnapshot: "",
     rfcSnapshot: "",
     claveElector: "",
+    rescisionKpiTable: [],
+    contractSigningDate: "",
+    terminationEffectiveDate: "",
     ...seed,
   };
 }
@@ -162,7 +178,22 @@ function seedToFormState(seed: SnapshotSeed): DraftFormState {
 export default function HrDocumentDraft() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { employeeId: authEmployeeId } = useAuth();
+  const { employeeId: authEmployeeId, canViewSalary, isManager, isLeadership, isOwner } = useAuth();
+  // Confidentiality gate: shown to managers + admins (leadership), but the
+  // owner is exempt. Note this exempts the owner ROLE, not a specific person.
+  const ackGateActive = isLeadership && !isOwner;
+  const MASKED = "* * * * *";
+  // Managers-and-up can VIEW the finiquito math — but only after acknowledging
+  // the confidentiality box. The owner is exempt from the box (ackGateActive is
+  // false for them). Finalizing/uploading the signed PDF is allowed for Owner/HR
+  // always, and for managers once they've acked the confidentiality box (see
+  // canFinalize). finiquitoAcked mirrors the gate so the PDF honors the same
+  // rule the on-screen calculator does — no amounts leak without an ack.
+  const canViewFiniquito = canViewSalary || isManager;
+  const [finiquitoAcked, setFiniquitoAcked] = useState(false);
+  // True only when the viewer may see real amounts AND (owner, or has acked).
+  const finiquitoUnmasked =
+    canViewFiniquito && (!ackGateActive || finiquitoAcked);
 
   // Request + existing draft
   const { data: request, isLoading: reqLoading } = useHrDocumentRequest(id);
@@ -207,18 +238,18 @@ export default function HrDocumentDraft() {
         }
       }
 
-      // Fetch TL display name
+      // Fetch TL legal name (PDFs need the full legal name, not work_name)
       let supervisorName = "";
       const tlId = (emp?.campaigns as { team_lead_id?: string } | null)
         ?.team_lead_id;
       if (tlId) {
         const { data: tl } = await supabase
           .from("employees")
-          .select("full_name, work_name")
+          .select("full_name")
           .eq("id", tlId)
           .single();
         if (tl) {
-          supervisorName = tl.work_name?.trim() || tl.full_name;
+          supervisorName = tl.full_name;
         }
       }
 
@@ -268,11 +299,15 @@ export default function HrDocumentDraft() {
     aguinaldoMonto: "",
     vacacionesMonto: "",
     primaVacacionalMonto: "",
+    salariosDevengadosMonto: "",
     totalMonto: "",
     totalEnLetras: "",
     curpSnapshot: "",
     rfcSnapshot: "",
     claveElector: "",
+    rescisionKpiTable: [],
+    contractSigningDate: "",
+    terminationEffectiveDate: "",
   });
   const formDirty = useRef(false);
 
@@ -311,6 +346,27 @@ export default function HrDocumentDraft() {
           if (!state.hireDateSnapshot) state.hireDateSnapshot = snapshotSeed.hireDateSnapshot ?? "";
           if (!state.salarioDiarioSnapshot) state.salarioDiarioSnapshot = snapshotSeed.salarioDiarioSnapshot ?? "";
           if (!state.effectiveDate) state.effectiveDate = snapshotSeed.effectiveDate ?? "";
+        }
+        if (draft.type === "rescision_prueba" || draft.type === "rescision_desempeno") {
+          if (!state.curpSnapshot) state.curpSnapshot = snapshotSeed.curpSnapshot ?? "";
+          if (!state.rfcSnapshot) state.rfcSnapshot = snapshotSeed.rfcSnapshot ?? "";
+          if (!state.hireDateSnapshot) state.hireDateSnapshot = snapshotSeed.hireDateSnapshot ?? "";
+          if (!state.salarioDiarioSnapshot) state.salarioDiarioSnapshot = snapshotSeed.salarioDiarioSnapshot ?? "";
+          if (!state.terminationEffectiveDate) state.terminationEffectiveDate = snapshotSeed.effectiveDate ?? "";
+          // Contract/continuation date default:
+          //   rescision_prueba    → hire date (probation contract signed at hire)
+          //   rescision_desempeno → hire + 30 days (end of the prueba period;
+          //     when the fixed-term contract continued). HR can still adjust.
+          if (!state.contractSigningDate) {
+            const hire = snapshotSeed.hireDateSnapshot ?? "";
+            if (draft.type === "rescision_desempeno" && hire) {
+              const d = new Date(`${hire}T00:00:00`);
+              d.setDate(d.getDate() + 30);
+              state.contractSigningDate = d.toISOString().slice(0, 10);
+            } else {
+              state.contractSigningDate = hire;
+            }
+          }
         }
       }
       setForm(state);
@@ -353,17 +409,42 @@ export default function HrDocumentDraft() {
         form.reincidenciaPriorCartaId || null;
     } else if (request.requestType === "renuncia") {
       fields.effective_date = form.effectiveDate || null;
-      fields.narrative = form.renunciaNarrative || null;
+      // narrative is already set from form.narrative (the Formal Narrative box)
+      // in the base `fields` above. Don't overwrite it with renunciaNarrative —
+      // that field is never edited in the UI, so it would clobber what HR typed.
       fields.hire_date_snapshot = form.hireDateSnapshot || null;
       fields.salario_diario_snapshot = form.salarioDiarioSnapshot ? parseFloat(form.salarioDiarioSnapshot) : null;
       fields.aguinaldo_monto = form.aguinaldoMonto ? parseFloat(form.aguinaldoMonto) : null;
       fields.vacaciones_monto = form.vacacionesMonto ? parseFloat(form.vacacionesMonto) : null;
       fields.prima_vacacional_monto = form.primaVacacionalMonto ? parseFloat(form.primaVacacionalMonto) : null;
+      fields.salarios_devengados_monto = form.salariosDevengadosMonto ? parseFloat(form.salariosDevengadosMonto) : null;
       fields.total_monto = form.totalMonto ? parseFloat(form.totalMonto) : null;
       fields.total_en_letras = form.totalEnLetras || null;
       fields.curp_snapshot = form.curpSnapshot || null;
       fields.rfc_snapshot = form.rfcSnapshot || null;
       fields.clave_elector = form.claveElector || null;
+    } else if (
+      request.requestType === "rescision_prueba" ||
+      request.requestType === "rescision_desempeno"
+    ) {
+      fields.supervisor_name_snapshot = form.supervisorNameSnapshot || null;
+      fields.incident_date_long_snapshot = form.incidentDateLongSnapshot || null;
+      fields.kpi_table = form.rescisionKpiTable;
+      fields.contract_signing_date = form.contractSigningDate || null;
+      // termination_effective_date is NOT NULL — leave it unset if blank
+      if (form.terminationEffectiveDate) {
+        fields.termination_effective_date = form.terminationEffectiveDate;
+      }
+      fields.hire_date_snapshot = form.hireDateSnapshot || null;
+      fields.salario_diario_snapshot = form.salarioDiarioSnapshot ? parseFloat(form.salarioDiarioSnapshot) : null;
+      fields.aguinaldo_monto = form.aguinaldoMonto ? parseFloat(form.aguinaldoMonto) : null;
+      fields.vacaciones_monto = form.vacacionesMonto ? parseFloat(form.vacacionesMonto) : null;
+      fields.prima_vacacional_monto = form.primaVacacionalMonto ? parseFloat(form.primaVacacionalMonto) : null;
+      fields.salarios_devengados_monto = form.salariosDevengadosMonto ? parseFloat(form.salariosDevengadosMonto) : null;
+      fields.total_monto = form.totalMonto ? parseFloat(form.totalMonto) : null;
+      fields.total_en_letras = form.totalEnLetras || null;
+      fields.curp_snapshot = form.curpSnapshot || null;
+      fields.rfc_snapshot = form.rfcSnapshot || null;
     }
 
     try {
@@ -377,7 +458,7 @@ export default function HrDocumentDraft() {
         // Now update the freshly-created row with the form fields
         await saveDraft.mutateAsync({
           draftId: result.id,
-          type: result.type as "carta" | "acta" | "renuncia",
+          type: result.type as "carta" | "acta" | "renuncia" | "rescision_prueba",
           fields,
           requestId: request.id,
         });
@@ -424,11 +505,19 @@ export default function HrDocumentDraft() {
       aguinaldoMonto: form.aguinaldoMonto ? parseFloat(form.aguinaldoMonto) : draft.aguinaldoMonto,
       vacacionesMonto: form.vacacionesMonto ? parseFloat(form.vacacionesMonto) : draft.vacacionesMonto,
       primaVacacionalMonto: form.primaVacacionalMonto ? parseFloat(form.primaVacacionalMonto) : draft.primaVacacionalMonto,
+      salariosDevengadosMonto: form.salariosDevengadosMonto ? parseFloat(form.salariosDevengadosMonto) : draft.salariosDevengadosMonto,
       totalMonto: form.totalMonto ? parseFloat(form.totalMonto) : draft.totalMonto,
       totalEnLetras: form.totalEnLetras || draft.totalEnLetras,
       curpSnapshot: form.curpSnapshot || draft.curpSnapshot,
       rfcSnapshot: form.rfcSnapshot || draft.rfcSnapshot,
       claveElector: form.claveElector || draft.claveElector,
+      rescisionKpiTable:
+        form.rescisionKpiTable.length > 0
+          ? form.rescisionKpiTable
+          : draft.rescisionKpiTable,
+      contractSigningDate: form.contractSigningDate || draft.contractSigningDate,
+      terminationEffectiveDate:
+        form.terminationEffectiveDate || draft.terminationEffectiveDate,
     };
   }
 
@@ -439,7 +528,13 @@ export default function HrDocumentDraft() {
       return generateCartaPdf(liveDraft, request);
     }
     if (request.requestType === "renuncia") {
-      return generateRenunciaPacketPdf(liveDraft, request);
+      return generateRenunciaPacketPdf(liveDraft, request, { maskSalary: !finiquitoUnmasked });
+    }
+    if (request.requestType === "rescision_prueba") {
+      return generateRescisionPdf(liveDraft, request, { maskSalary: !finiquitoUnmasked });
+    }
+    if (request.requestType === "rescision_desempeno") {
+      return generateRescisionDesempenoPdf(liveDraft, request, { maskSalary: !finiquitoUnmasked });
     }
     return generateActaPdf(
       liveDraft,
@@ -465,6 +560,10 @@ export default function HrDocumentDraft() {
 
   async function handleFinalizePdf() {
     if (!draft || !request) return;
+    if (!canFinalize) {
+      toast.error("Acknowledge the confidentiality box above to finalize finiquito documents.");
+      return;
+    }
     // Auto-save before PDF generation
     if (formDirty.current) {
       await handleSave();
@@ -508,6 +607,10 @@ export default function HrDocumentDraft() {
     if (scanInputRef.current) scanInputRef.current.value = "";
     if (!file) return;
 
+    if (!canFinalize) {
+      toast.error("Acknowledge the confidentiality box above to upload the signed scan.");
+      return;
+    }
     if (file.type !== "application/pdf") {
       toast.error("File must be PDF");
       return;
@@ -576,6 +679,18 @@ export default function HrDocumentDraft() {
   const isTerminal =
     request.status === "canceled" || request.status === "downgraded";
 
+  // Docs that contain salary information. Managers can fill these in but
+  // cannot finalize or upload the signed scan — those produce the legally-
+  // binding document and require real amounts visible to the actor.
+  const isSalaryDoc =
+    request.requestType === "renuncia" ||
+    request.requestType === "rescision_prueba" ||
+    request.requestType === "rescision_desempeno";
+  // Owner/HR can always finalize. Managers can finalize salary docs once they've
+  // acknowledged the confidentiality box (finiquitoUnmasked encodes "allowed to
+  // see real amounts AND has acked if required"). Non-salary docs are open to all.
+  const canFinalize = !isSalaryDoc || canViewSalary || finiquitoUnmasked;
+
   // ── Render ─────────────────────────────────────────────────────────
 
   return (
@@ -596,7 +711,11 @@ export default function HrDocumentDraft() {
               ? "Disciplinary Act"
               : request.requestType === "renuncia"
                 ? "Resignation Packet"
-                : "Commitment Letter"}
+                : request.requestType === "rescision_prueba"
+                  ? "Probation Termination"
+                  : request.requestType === "rescision_desempeno"
+                    ? "Performance Termination"
+                    : "Commitment Letter"}
           </h1>
           <Badge variant="outline" className="text-xs">
             {draft?.docRef ?? "— (generated on save)"}
@@ -618,19 +737,34 @@ export default function HrDocumentDraft() {
                 variant="outline"
                 size="sm"
                 onClick={handlePreviewPdf}
-                disabled={!draft || !form.narrative.trim()}
+                disabled={
+                  !draft ||
+                  (request.requestType === "rescision_prueba" ||
+                  request.requestType === "rescision_desempeno"
+                    ? !form.terminationEffectiveDate
+                    : !form.narrative.trim())
+                }
               >
                 <Eye className="mr-1 h-4 w-4" /> Preview PDF
               </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleFinalizePdf}
-                disabled={!draft || uploadPdf.isPending}
-              >
-                <Upload className="mr-1 h-4 w-4" />
-                {uploadPdf.isPending ? "Uploading..." : "Finalize & Save PDF"}
-              </Button>
+              {canFinalize ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleFinalizePdf}
+                  disabled={!draft || uploadPdf.isPending}
+                >
+                  <Upload className="mr-1 h-4 w-4" />
+                  {uploadPdf.isPending ? "Uploading..." : "Finalize & Save PDF"}
+                </Button>
+              ) : (
+                <span
+                  className="text-xs text-muted-foreground italic"
+                  title="Finalizing requires the actual finiquito amounts. Acknowledge the confidentiality box above to unlock."
+                >
+                  Acknowledge confidentiality box to finalize
+                </span>
+              )}
             </>
           )}
           {draft?.pdfPath && (
@@ -679,13 +813,22 @@ export default function HrDocumentDraft() {
             onChange={handleScanFileSelect}
           />
 
-          {!draft.pdfPath && (
+          {!canFinalize && !draft.signedAt && (
+            <p className="text-xs text-muted-foreground italic">
+              Acknowledge the confidentiality box above (Confidencial — datos de
+              finiquito y salario) to unlock finalizing and uploading the signed
+              scan. You verify the real finiquito amounts on the printed
+              document before locking it.
+            </p>
+          )}
+
+          {canFinalize && !draft.pdfPath && (
             <p className="text-xs text-muted-foreground">
               Generate and save the PDF first before uploading the signed scan.
             </p>
           )}
 
-          {draft.pdfPath && !draft.signedAt && (
+          {canFinalize && draft.pdfPath && !draft.signedAt && (
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
@@ -720,17 +863,19 @@ export default function HrDocumentDraft() {
                   <ExternalLink className="mr-1 h-3 w-3" /> View Signed
                   Scan
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => scanInputRef.current?.click()}
-                  disabled={uploadScan.isPending}
-                >
-                  <RefreshCw className="mr-1 h-3 w-3" />
-                  {uploadScan.isPending
-                    ? "Uploading..."
-                    : "Replace scan"}
-                </Button>
+                {canFinalize && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => scanInputRef.current?.click()}
+                    disabled={uploadScan.isPending}
+                  >
+                    <RefreshCw className="mr-1 h-3 w-3" />
+                    {uploadScan.isPending
+                      ? "Uploading..."
+                      : "Replace scan"}
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -764,7 +909,9 @@ export default function HrDocumentDraft() {
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge
                   variant={
-                    request.requestType === "acta"
+                    request.requestType === "acta" ||
+                    request.requestType === "rescision_prueba" ||
+                    request.requestType === "rescision_desempeno"
                       ? "destructive"
                       : request.requestType === "renuncia"
                         ? "secondary"
@@ -775,7 +922,11 @@ export default function HrDocumentDraft() {
                     ? "Disciplinary Act"
                     : request.requestType === "renuncia"
                       ? "Voluntary Resignation"
-                      : "Commitment Letter"}
+                      : request.requestType === "rescision_prueba"
+                        ? "Probation Termination"
+                        : request.requestType === "rescision_desempeno"
+                          ? "Performance Termination"
+                          : "Commitment Letter"}
                 </Badge>
                 <Badge variant="secondary" className="text-xs">
                   {request.status === "pending"
@@ -902,6 +1053,9 @@ export default function HrDocumentDraft() {
               <div className="space-y-1">
                 <Label htmlFor="snap-horario" className="text-xs text-muted-foreground">
                   Schedule
+                  <span className="ml-2 font-normal italic">
+                    Ej: Lun-Mar-Mié-Jue 7:00 AM – 6:00 PM · Hora de Comida: 13:00
+                  </span>
                 </Label>
                 <Textarea
                   id="snap-horario"
@@ -913,7 +1067,7 @@ export default function HrDocumentDraft() {
                       horarioSnapshot: e.target.value,
                     }))
                   }
-                  placeholder="Ej: Lun-Vie 9:00 AM – 6:00 PM"
+                  placeholder="Ej: Lun-Vie 9:00 AM – 6:00 PM · Lunch hour: 1:00 PM – 2:00 PM"
                 />
               </div>
             </section>
@@ -1245,39 +1399,56 @@ export default function HrDocumentDraft() {
 
                 {/* Finiquito calculator */}
                 <div className="space-y-3 rounded-lg border p-3">
+                  <SensitiveDataAckGate
+                    active={ackGateActive}
+                    context="finiquito_calculation"
+                    acknowledgmentText={FINIQUITO_ACK_TEXT}
+                    subjectEmployeeId={request.employeeId}
+                    hrDocumentRequestId={request.id}
+                    onAcknowledged={() => setFiniquitoAcked(true)}
+                  >
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-medium uppercase tracking-wider">
                       Severance — LFT Calculation
                     </Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const sd = parseFloat(form.salarioDiarioSnapshot);
-                        const hd = form.hireDateSnapshot;
-                        const rd = form.effectiveDate;
-                        if (!sd || !hd || !rd) {
-                          toast.error("Enter hire date, daily wage, and effective date first");
-                          return;
-                        }
-                        const aguinaldo = calcAguinaldoProporcional({ salarioDiario: sd, hireDate: hd, resignationDate: rd });
-                        const vac = calcVacaciones({ salarioDiario: sd, hireDate: hd, resignationDate: rd });
-                        const prima = calcPrimaVacacional(vac.amount);
-                        const total = calcFiniquitoTotal({ aguinaldo, vacaciones: vac.amount, prima });
-                        setFormDirty((f) => ({
-                          ...f,
-                          aguinaldoMonto: String(aguinaldo),
-                          vacacionesMonto: String(vac.amount),
-                          primaVacacionalMonto: String(prima),
-                          totalMonto: String(total),
-                          totalEnLetras: numberToSpanishWords(total),
-                        }));
-                      }}
-                    >
-                      Auto-calculate
-                    </Button>
+                    {canViewFiniquito && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const sd = parseFloat(form.salarioDiarioSnapshot);
+                          const hd = form.hireDateSnapshot;
+                          const rd = form.effectiveDate;
+                          if (!sd || !hd || !rd) {
+                            toast.error("Enter hire date, daily wage, and effective date first");
+                            return;
+                          }
+                          const aguinaldo = calcAguinaldoProporcional({ salarioDiario: sd, hireDate: hd, resignationDate: rd });
+                          const vac = calcVacaciones({ salarioDiario: sd, hireDate: hd, resignationDate: rd });
+                          const prima = calcPrimaVacacional(vac.amount);
+                          const devengados = parseFloat(form.salariosDevengadosMonto) || 0;
+                          const total = calcFiniquitoTotal({ aguinaldo, vacaciones: vac.amount, prima, salariosDevengados: devengados });
+                          setFormDirty((f) => ({
+                            ...f,
+                            aguinaldoMonto: String(aguinaldo),
+                            vacacionesMonto: String(vac.amount),
+                            primaVacacionalMonto: String(prima),
+                            totalMonto: String(total),
+                            totalEnLetras: numberToSpanishWords(total),
+                          }));
+                        }}
+                      >
+                        Auto-calculate
+                      </Button>
+                    )}
                   </div>
+
+                  {!canViewFiniquito && (
+                    <p className="text-[11px] text-muted-foreground italic">
+                      Salary information is hidden. Visible to Owner and HR only.
+                    </p>
+                  )}
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
@@ -1300,10 +1471,13 @@ export default function HrDocumentDraft() {
                         Daily wage ($ MXN)
                       </Label>
                       <Input
-                        type="number"
+                        type={canViewFiniquito ? "number" : "text"}
                         step="0.01"
-                        value={form.salarioDiarioSnapshot}
+                        value={canViewFiniquito ? form.salarioDiarioSnapshot : MASKED}
+                        readOnly={!canViewFiniquito}
+                        className={!canViewFiniquito ? "bg-muted/30 tracking-widest" : undefined}
                         onChange={(e) =>
+                          canViewFiniquito &&
                           setFormDirty((f) => ({
                             ...f,
                             salarioDiarioSnapshot: e.target.value,
@@ -1319,10 +1493,13 @@ export default function HrDocumentDraft() {
                         Prorated Christmas bonus
                       </Label>
                       <Input
-                        type="number"
+                        type={canViewFiniquito ? "number" : "text"}
                         step="0.01"
-                        value={form.aguinaldoMonto}
+                        value={canViewFiniquito ? form.aguinaldoMonto : MASKED}
+                        readOnly={!canViewFiniquito}
+                        className={!canViewFiniquito ? "bg-muted/30 tracking-widest" : undefined}
                         onChange={(e) =>
+                          canViewFiniquito &&
                           setFormDirty((f) => ({
                             ...f,
                             aguinaldoMonto: e.target.value,
@@ -1335,10 +1512,13 @@ export default function HrDocumentDraft() {
                         Accrued vacation
                       </Label>
                       <Input
-                        type="number"
+                        type={canViewFiniquito ? "number" : "text"}
                         step="0.01"
-                        value={form.vacacionesMonto}
+                        value={canViewFiniquito ? form.vacacionesMonto : MASKED}
+                        readOnly={!canViewFiniquito}
+                        className={!canViewFiniquito ? "bg-muted/30 tracking-widest" : undefined}
                         onChange={(e) =>
+                          canViewFiniquito &&
                           setFormDirty((f) => ({
                             ...f,
                             vacacionesMonto: e.target.value,
@@ -1351,10 +1531,13 @@ export default function HrDocumentDraft() {
                         Vacation premium (25%)
                       </Label>
                       <Input
-                        type="number"
+                        type={canViewFiniquito ? "number" : "text"}
                         step="0.01"
-                        value={form.primaVacacionalMonto}
+                        value={canViewFiniquito ? form.primaVacacionalMonto : MASKED}
+                        readOnly={!canViewFiniquito}
+                        className={!canViewFiniquito ? "bg-muted/30 tracking-widest" : undefined}
                         onChange={(e) =>
+                          canViewFiniquito &&
                           setFormDirty((f) => ({
                             ...f,
                             primaVacacionalMonto: e.target.value,
@@ -1363,14 +1546,48 @@ export default function HrDocumentDraft() {
                       />
                     </div>
                     <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">
+                        Salarios Devengados de Días
+                      </Label>
+                      <Input
+                        type={canViewFiniquito ? "number" : "text"}
+                        step="0.01"
+                        value={canViewFiniquito ? form.salariosDevengadosMonto : MASKED}
+                        readOnly={!canViewFiniquito}
+                        className={!canViewFiniquito ? "bg-muted/30 tracking-widest" : undefined}
+                        onChange={(e) =>
+                          canViewFiniquito &&
+                          setFormDirty((f) => {
+                            // Live-update the Total as devengados changes, using
+                            // the current aguinaldo / vacaciones / prima values.
+                            const total = calcFiniquitoTotal({
+                              aguinaldo: parseFloat(f.aguinaldoMonto) || 0,
+                              vacaciones: parseFloat(f.vacacionesMonto) || 0,
+                              prima: parseFloat(f.primaVacacionalMonto) || 0,
+                              salariosDevengados: parseFloat(e.target.value) || 0,
+                            });
+                            return {
+                              ...f,
+                              salariosDevengadosMonto: e.target.value,
+                              totalMonto: String(total),
+                              totalEnLetras: numberToSpanishWords(total),
+                            };
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground font-medium">
                         Total
                       </Label>
                       <Input
-                        type="number"
+                        type={canViewFiniquito ? "number" : "text"}
                         step="0.01"
-                        value={form.totalMonto}
+                        value={canViewFiniquito ? form.totalMonto : MASKED}
+                        readOnly={!canViewFiniquito}
+                        className={!canViewFiniquito ? "bg-muted/30 tracking-widest" : undefined}
                         onChange={(e) =>
+                          canViewFiniquito &&
                           setFormDirty((f) => ({
                             ...f,
                             totalMonto: e.target.value,
@@ -1386,8 +1603,11 @@ export default function HrDocumentDraft() {
                     </Label>
                     <Textarea
                       rows={2}
-                      value={form.totalEnLetras}
+                      value={canViewFiniquito ? form.totalEnLetras : MASKED}
+                      readOnly={!canViewFiniquito}
+                      className={!canViewFiniquito ? "bg-muted/30 tracking-widest" : undefined}
                       onChange={(e) =>
+                        canViewFiniquito &&
                         setFormDirty((f) => ({
                           ...f,
                           totalEnLetras: e.target.value,
@@ -1395,6 +1615,7 @@ export default function HrDocumentDraft() {
                       }
                     />
                   </div>
+                  </SensitiveDataAckGate>
                 </div>
 
                 {/* Identity snapshots */}
@@ -1449,6 +1670,428 @@ export default function HrDocumentDraft() {
                       />
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Rescisión (Periodo de Prueba o Bajo Desempeño) ─── */}
+            {(request.requestType === "rescision_prueba" ||
+              request.requestType === "rescision_desempeno") && (
+              <div className="space-y-4 pt-2 border-t">
+                {/* Contract + termination dates */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="rp-hire-date" className="text-xs font-medium">
+                      Hire date
+                    </Label>
+                    <Input
+                      id="rp-hire-date"
+                      type="date"
+                      value={form.hireDateSnapshot}
+                      onChange={(e) =>
+                        setFormDirty((f) => ({
+                          ...f,
+                          hireDateSnapshot: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="rp-contract-date" className="text-xs font-medium">
+                      {request.requestType === "rescision_desempeno"
+                        ? "Fin del periodo de capacitación inicial (continuación)"
+                        : "Contract signing date"}
+                    </Label>
+                    <Input
+                      id="rp-contract-date"
+                      type="date"
+                      value={form.contractSigningDate}
+                      onChange={(e) =>
+                        setFormDirty((f) => ({
+                          ...f,
+                          contractSigningDate: e.target.value,
+                        }))
+                      }
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      {request.requestType === "rescision_desempeno"
+                        ? "Fecha en que terminó la capacitación inicial y continuó el contrato. Por defecto ≈30 días tras el ingreso."
+                        : "Defaults to hire date if blank."}
+                    </p>
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <Label htmlFor="rp-termination-date" className="text-xs font-medium">
+                      Termination effective date
+                    </Label>
+                    <Input
+                      id="rp-termination-date"
+                      type="date"
+                      value={form.terminationEffectiveDate}
+                      onChange={(e) =>
+                        setFormDirty((f) => ({
+                          ...f,
+                          terminationEffectiveDate: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* KPI editor — 4 cols (kpi/required/recorded/met) */}
+                <div className="space-y-3 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium uppercase tracking-wider">
+                      KPIs — Required vs Recorded
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setFormDirty((f) => ({
+                          ...f,
+                          rescisionKpiTable: [
+                            ...f.rescisionKpiTable,
+                            { kpi: "", required: "", recorded: "", met: "", daysNotMet: "" },
+                          ],
+                        }))
+                      }
+                    >
+                      <Plus className="mr-1 h-3 w-3" /> Add row
+                    </Button>
+                  </div>
+                  {form.rescisionKpiTable.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      No KPI rows. Default rows are seeded on first save —
+                      reload if you don't see them.
+                    </p>
+                  )}
+                  {form.rescisionKpiTable.map((row, idx) => (
+                    <div
+                      key={idx}
+                      className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 items-end rounded-md border p-2"
+                    >
+                      <div className="space-y-1">
+                        {idx === 0 && (
+                          <Label className="text-[10px] text-muted-foreground">
+                            Métrica / KPI
+                          </Label>
+                        )}
+                        <Input
+                          value={row.kpi}
+                          placeholder="e.g. Llamadas diarias"
+                          onChange={(e) =>
+                            setFormDirty((f) => {
+                              const t = [...f.rescisionKpiTable];
+                              t[idx] = { ...t[idx], kpi: e.target.value };
+                              return { ...f, rescisionKpiTable: t };
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        {idx === 0 && (
+                          <Label className="text-[10px] text-muted-foreground">
+                            Requerido
+                          </Label>
+                        )}
+                        <Input
+                          value={row.required}
+                          placeholder="e.g. 350"
+                          onChange={(e) =>
+                            setFormDirty((f) => {
+                              const t = [...f.rescisionKpiTable];
+                              t[idx] = { ...t[idx], required: e.target.value };
+                              return { ...f, rescisionKpiTable: t };
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        {idx === 0 && (
+                          <Label className="text-[10px] text-muted-foreground">
+                            Registrado
+                          </Label>
+                        )}
+                        <Input
+                          value={row.recorded}
+                          placeholder="actual"
+                          onChange={(e) =>
+                            setFormDirty((f) => {
+                              const t = [...f.rescisionKpiTable];
+                              t[idx] = { ...t[idx], recorded: e.target.value };
+                              return { ...f, rescisionKpiTable: t };
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        {idx === 0 && (
+                          <Label className="text-[10px] text-muted-foreground">
+                            Cumplimiento
+                          </Label>
+                        )}
+                        <select
+                          value={row.met}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onChange={(e) =>
+                            setFormDirty((f) => {
+                              const t = [...f.rescisionKpiTable];
+                              const met = e.target.value;
+                              // Clear the days count when it no longer applies.
+                              t[idx] = {
+                                ...t[idx],
+                                met,
+                                daysNotMet: met === "No" ? t[idx].daysNotMet ?? "" : "",
+                              };
+                              return { ...f, rescisionKpiTable: t };
+                            })
+                          }
+                        >
+                          <option value="">—</option>
+                          <option value="Sí">Sí</option>
+                          <option value="No">No</option>
+                          <option value="Parcial">Parcial</option>
+                        </select>
+                        {row.met === "No" && (
+                          <Input
+                            type="number"
+                            min="0"
+                            value={row.daysNotMet ?? ""}
+                            placeholder="Días sin cumplir"
+                            className="mt-1"
+                            onChange={(e) =>
+                              setFormDirty((f) => {
+                                const t = [...f.rescisionKpiTable];
+                                t[idx] = { ...t[idx], daysNotMet: e.target.value };
+                                return { ...f, rescisionKpiTable: t };
+                              })
+                            }
+                          />
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() =>
+                          setFormDirty((f) => ({
+                            ...f,
+                            rescisionKpiTable: f.rescisionKpiTable.filter(
+                              (_, i) => i !== idx,
+                            ),
+                          }))
+                        }
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Finiquito calculator — identical to renuncia */}
+                <div className="space-y-3 rounded-lg border p-3">
+                  <SensitiveDataAckGate
+                    active={ackGateActive}
+                    context="finiquito_calculation"
+                    acknowledgmentText={FINIQUITO_ACK_TEXT}
+                    subjectEmployeeId={request.employeeId}
+                    hrDocumentRequestId={request.id}
+                    onAcknowledged={() => setFiniquitoAcked(true)}
+                  >
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium uppercase tracking-wider">
+                      Severance — LFT Calculation
+                    </Label>
+                    {canViewFiniquito && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const sd = parseFloat(form.salarioDiarioSnapshot);
+                          const hd = form.hireDateSnapshot;
+                          const rd = form.terminationEffectiveDate;
+                          if (!sd || !hd || !rd) {
+                            toast.error("Enter hire date, daily wage, and termination date first");
+                            return;
+                          }
+                          const aguinaldo = calcAguinaldoProporcional({ salarioDiario: sd, hireDate: hd, resignationDate: rd });
+                          const vac = calcVacaciones({ salarioDiario: sd, hireDate: hd, resignationDate: rd });
+                          const prima = calcPrimaVacacional(vac.amount);
+                          const devengados = parseFloat(form.salariosDevengadosMonto) || 0;
+                          const total = calcFiniquitoTotal({ aguinaldo, vacaciones: vac.amount, prima, salariosDevengados: devengados });
+                          setFormDirty((f) => ({
+                            ...f,
+                            aguinaldoMonto: String(aguinaldo),
+                            vacacionesMonto: String(vac.amount),
+                            primaVacacionalMonto: String(prima),
+                            totalMonto: String(total),
+                            totalEnLetras: numberToSpanishWords(total),
+                          }));
+                        }}
+                      >
+                        Auto-calculate
+                      </Button>
+                    )}
+                  </div>
+
+                  {!canViewFiniquito && (
+                    <p className="text-[11px] text-muted-foreground italic">
+                      Salary information is hidden. Visible to Owner and HR only.
+                    </p>
+                  )}
+
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">
+                      Daily wage ($ MXN)
+                    </Label>
+                    <Input
+                      type={canViewFiniquito ? "number" : "text"}
+                      step="0.01"
+                      value={canViewFiniquito ? form.salarioDiarioSnapshot : MASKED}
+                      readOnly={!canViewFiniquito}
+                      className={!canViewFiniquito ? "bg-muted/30 tracking-widest" : undefined}
+                      onChange={(e) =>
+                        canViewFiniquito &&
+                        setFormDirty((f) => ({
+                          ...f,
+                          salarioDiarioSnapshot: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">
+                        Prorated Christmas bonus
+                      </Label>
+                      <Input
+                        type={canViewFiniquito ? "number" : "text"}
+                        step="0.01"
+                        value={canViewFiniquito ? form.aguinaldoMonto : MASKED}
+                        readOnly={!canViewFiniquito}
+                        className={!canViewFiniquito ? "bg-muted/30 tracking-widest" : undefined}
+                        onChange={(e) =>
+                          canViewFiniquito &&
+                          setFormDirty((f) => ({
+                            ...f,
+                            aguinaldoMonto: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">
+                        Accrued vacation
+                      </Label>
+                      <Input
+                        type={canViewFiniquito ? "number" : "text"}
+                        step="0.01"
+                        value={canViewFiniquito ? form.vacacionesMonto : MASKED}
+                        readOnly={!canViewFiniquito}
+                        className={!canViewFiniquito ? "bg-muted/30 tracking-widest" : undefined}
+                        onChange={(e) =>
+                          canViewFiniquito &&
+                          setFormDirty((f) => ({
+                            ...f,
+                            vacacionesMonto: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">
+                        Vacation premium (25%)
+                      </Label>
+                      <Input
+                        type={canViewFiniquito ? "number" : "text"}
+                        step="0.01"
+                        value={canViewFiniquito ? form.primaVacacionalMonto : MASKED}
+                        readOnly={!canViewFiniquito}
+                        className={!canViewFiniquito ? "bg-muted/30 tracking-widest" : undefined}
+                        onChange={(e) =>
+                          canViewFiniquito &&
+                          setFormDirty((f) => ({
+                            ...f,
+                            primaVacacionalMonto: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">
+                        Salarios Devengados de Días
+                      </Label>
+                      <Input
+                        type={canViewFiniquito ? "number" : "text"}
+                        step="0.01"
+                        value={canViewFiniquito ? form.salariosDevengadosMonto : MASKED}
+                        readOnly={!canViewFiniquito}
+                        className={!canViewFiniquito ? "bg-muted/30 tracking-widest" : undefined}
+                        onChange={(e) =>
+                          canViewFiniquito &&
+                          setFormDirty((f) => {
+                            // Live-update the Total as devengados changes, using
+                            // the current aguinaldo / vacaciones / prima values.
+                            const total = calcFiniquitoTotal({
+                              aguinaldo: parseFloat(f.aguinaldoMonto) || 0,
+                              vacaciones: parseFloat(f.vacacionesMonto) || 0,
+                              prima: parseFloat(f.primaVacacionalMonto) || 0,
+                              salariosDevengados: parseFloat(e.target.value) || 0,
+                            });
+                            return {
+                              ...f,
+                              salariosDevengadosMonto: e.target.value,
+                              totalMonto: String(total),
+                              totalEnLetras: numberToSpanishWords(total),
+                            };
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground font-medium">
+                        Total
+                      </Label>
+                      <Input
+                        type={canViewFiniquito ? "number" : "text"}
+                        step="0.01"
+                        value={canViewFiniquito ? form.totalMonto : MASKED}
+                        readOnly={!canViewFiniquito}
+                        className={!canViewFiniquito ? "bg-muted/30 tracking-widest" : undefined}
+                        onChange={(e) =>
+                          canViewFiniquito &&
+                          setFormDirty((f) => ({
+                            ...f,
+                            totalMonto: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">
+                      Total in words
+                    </Label>
+                    <Textarea
+                      rows={2}
+                      value={canViewFiniquito ? form.totalEnLetras : MASKED}
+                      readOnly={!canViewFiniquito}
+                      className={!canViewFiniquito ? "bg-muted/30 tracking-widest" : undefined}
+                      onChange={(e) =>
+                        canViewFiniquito &&
+                        setFormDirty((f) => ({
+                          ...f,
+                          totalEnLetras: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  </SensitiveDataAckGate>
                 </div>
               </div>
             )}

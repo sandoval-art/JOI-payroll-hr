@@ -39,7 +39,7 @@ import {
   useHrDocumentRequestsForEmployee,
   issueHrDocumentSignedUrl,
 } from "@/hooks/useHrDocumentRequests";
-import type { HrDocumentRequestStatus } from "@/types/hr-docs";
+import type { HrDocumentRequestStatus, HrDocumentRequestType } from "@/types/hr-docs";
 
 const STATUS_LABELS: Record<
   string,
@@ -146,7 +146,9 @@ export default function HrDocumentQueue() {
                           <TableCell>
                             <Badge
                               variant={
-                                req.requestType === "acta"
+                                req.requestType === "acta" ||
+                                req.requestType === "rescision_prueba" ||
+                                req.requestType === "rescision_desempeno"
                                   ? "destructive"
                                   : req.requestType === "renuncia"
                                     ? "secondary"
@@ -154,7 +156,15 @@ export default function HrDocumentQueue() {
                               }
                               className="text-xs"
                             >
-                              {req.requestType === "acta" ? "Disciplinary Act" : req.requestType === "renuncia" ? "Resignation" : "Commitment Letter"}
+                              {req.requestType === "acta"
+                                ? "Disciplinary Act"
+                                : req.requestType === "renuncia"
+                                  ? "Resignation"
+                                  : req.requestType === "rescision_prueba"
+                                    ? "Probation Termination"
+                                    : req.requestType === "rescision_desempeno"
+                                      ? "Performance Termination"
+                                      : "Commitment Letter"}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -289,13 +299,17 @@ function RequestDetail({
           {/* Header info */}
           <div className="flex items-center gap-3 flex-wrap">
             <Badge
-              variant={req.requestType === "acta" ? "destructive" : req.requestType === "renuncia" ? "secondary" : "outline"}
+              variant={req.requestType === "acta" || req.requestType === "rescision_prueba" || req.requestType === "rescision_desempeno" ? "destructive" : req.requestType === "renuncia" ? "secondary" : "outline"}
             >
               {req.requestType === "acta"
                 ? "Disciplinary Act"
                 : req.requestType === "renuncia"
                   ? "Voluntary Resignation"
-                  : "Commitment Letter"}
+                  : req.requestType === "rescision_prueba"
+                    ? "Probation Termination"
+                    : req.requestType === "rescision_desempeno"
+                      ? "Performance Termination"
+                      : "Commitment Letter"}
             </Badge>
             <Badge variant={si.variant}>{si.label}</Badge>
           </div>
@@ -350,9 +364,9 @@ function RequestDetail({
 
           {/* Fulfilled doc links */}
           {req.status === "fulfilled" &&
-            (req.fulfilledCartaId || req.fulfilledActaId || req.fulfilledRenunciaId) && (
+            (req.fulfilledCartaId || req.fulfilledActaId || req.fulfilledRenunciaId || req.fulfilledRescisionId) && (
               <QueueFulfilledLinks
-                finalizationId={(req.fulfilledCartaId ?? req.fulfilledActaId ?? req.fulfilledRenunciaId)!}
+                finalizationId={(req.fulfilledCartaId ?? req.fulfilledActaId ?? req.fulfilledRenunciaId ?? req.fulfilledRescisionId)!}
                 type={req.requestType}
               />
             )}
@@ -508,7 +522,7 @@ function QueueFulfilledLinks({
   type,
 }: {
   finalizationId: string;
-  type: "carta" | "acta";
+  type: HrDocumentRequestType;
 }) {
   const [loading, setLoading] = useState<string | null>(null);
 

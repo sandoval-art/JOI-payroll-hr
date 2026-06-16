@@ -6,9 +6,25 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { StageSelector } from "./StageSelector";
-import { useCandidate, useUpdateCandidate } from "@/hooks/useRecruiting";
+import { Badge } from "@/components/ui/badge";
+import {
+  useCandidate,
+  useUpdateCandidate,
+  useSendWhatsAppInvite,
+  useCandidateInterviews,
+} from "@/hooks/useRecruiting";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { UserPlus, MessageCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { isTerminal } from "@/lib/recruiting/stages";
+import {
+  normalizePhone,
+  buildInterviewInviteMessage,
+  buildWhatsAppUrl,
+} from "@/lib/recruiting/whatsapp";
+import { MediaAttachment } from "@/components/MediaAttachment";
+import { PositionFitPicker } from "./PositionFitPicker";
 import type { Stage } from "@/lib/recruiting/stages";
 
 interface Props {
@@ -18,7 +34,10 @@ interface Props {
 
 export function CandidateDrawer({ candidateId, onClose }: Props) {
   const { data: candidate, isLoading } = useCandidate(candidateId ?? undefined);
+  const { data: interviews = [] } = useCandidateInterviews(candidateId ?? undefined);
   const updateMutation = useUpdateCandidate();
+  const sendInvite = useSendWhatsAppInvite();
+  const navigate = useNavigate();
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
@@ -28,6 +47,7 @@ export function CandidateDrawer({ candidateId, onClose }: Props) {
     city: "",
     applicant_notes: "",
   });
+  const [recruiterNotes, setRecruiterNotes] = useState("");
 
   useEffect(() => {
     if (candidate) {
@@ -38,9 +58,38 @@ export function CandidateDrawer({ candidateId, onClose }: Props) {
         city: candidate.city ?? "",
         applicant_notes: candidate.applicant_notes ?? "",
       });
+      setRecruiterNotes(candidate.recruiter_notes ?? "");
       setEditing(false);
     }
   }, [candidate]);
+
+  const recruiterNotesDirty =
+    !!candidate && recruiterNotes !== (candidate.recruiter_notes ?? "");
+
+  const saveRecruiterNotes = async () => {
+    if (!candidate) return;
+    try {
+      await updateMutation.mutateAsync({
+        id: candidate.id,
+        patch: { recruiter_notes: recruiterNotes.trim() || null },
+      });
+      toast.success("Notes saved");
+    } catch (e) {
+      toast.error(`Save failed: ${e instanceof Error ? e.message : "unknown"}`);
+    }
+  };
+
+  const handlePositionsChange = async (next: string[]) => {
+    if (!candidate) return;
+    try {
+      await updateMutation.mutateAsync({
+        id: candidate.id,
+        patch: { position_fits: next },
+      });
+    } catch (e) {
+      toast.error(`Update failed: ${e instanceof Error ? e.message : "unknown"}`);
+    }
+  };
 
   const handleStageChange = async (next: Stage) => {
     if (!candidate) return;
@@ -54,6 +103,32 @@ export function CandidateDrawer({ candidateId, onClose }: Props) {
     } catch (e) {
       toast.error(`Failed: ${e instanceof Error ? e.message : "unknown"}`);
     }
+  };
+
+  const handleSendInvite = () => {
+    if (!candidate) return;
+    const phoneDigits = normalizePhone(candidate.phone);
+    if (!phoneDigits) {
+      toast.error("No valid WhatsApp number on file. Add one under Details first.");
+      return;
+    }
+    const message = buildInterviewInviteMessage(candidate.full_name);
+    // Open WhatsApp synchronously on click so the browser doesn't block the
+    // popup. The DB write happens after — the recruiter still taps send.
+    window.open(
+      buildWhatsAppUrl(phoneDigits, message),
+      "_blank",
+      "noopener,noreferrer",
+    );
+    sendInvite.mutate(
+      { candidate: { id: candidate.id, stage: candidate.stage }, messageBody: message },
+      {
+        onSuccess: (res) =>
+          toast.success(res.advanced ? "Invite sent — moved to Contacted" : "Invite logged"),
+        onError: (e) =>
+          toast.error(`Couldn't log the invite: ${e instanceof Error ? e.message : "unknown"}`),
+      },
+    );
   };
 
   const saveEdits = async () => {
@@ -90,6 +165,122 @@ export function CandidateDrawer({ candidateId, onClose }: Props) {
                 />
               </div>
 
+              {/*
+                "Hire as employee" button. Hidden once the candidate is in a
+                terminal stage (already hired, passed, withdrew, ghosted) since
+                you can't re-hire from this row — the rehire check on the
+                employee form handles that case directly.
+              */}
+              {!isTerminal(candidate.stage) && (
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    onClose();
+                    navigate(`/empleados?hireFromCandidate=${candidate.id}`);
+                  }}
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Hire as employee
+                </Button>
+              )}
+
+              {/*
+                WhatsApp interview invite (Path A: opens WhatsApp with the
+                Calendly link pre-filled; recruiter taps send). Hidden for
+                terminal candidates. Disabled when there's no usable phone.
+              */}
+              {!isTerminal(candidate.stage) && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleSendInvite}
+                  disabled={sendInvite.isPending || !normalizePhone(candidate.phone)}
+                  title={
+                    normalizePhone(candidate.phone)
+                      ? undefined
+                      : "No valid WhatsApp number on file"
+                  }
+                >
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  Send WhatsApp interview invite
+                </Button>
+              )}
+
+              {candidate.last_contacted_at && (
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Last contacted {format(new Date(candidate.last_contacted_at), "PP p")}
+                </p>
+              )}
+
+              <Separator />
+
+              {/* Position fit tags — which roles this person is good for,
+                  regardless of what they applied to. Saves on toggle. */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Position fit</h3>
+                <PositionFitPicker
+                  value={candidate.position_fits ?? []}
+                  onChange={handlePositionsChange}
+                  disabled={updateMutation.isPending}
+                />
+              </div>
+
+              {/* Interview attendance history — fed by the Completed / No show
+                  buttons on the Upcoming Interviews widget. */}
+              {interviews.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-medium">Interview history</h3>
+                    {(() => {
+                      const noShows = interviews.filter((iv) => iv.outcome === "no_show").length;
+                      return noShows > 0 ? (
+                        <Badge variant="destructive" className="text-xs">
+                          {noShows} no-show{noShows > 1 ? "s" : ""}
+                        </Badge>
+                      ) : null;
+                    })()}
+                  </div>
+                  <ul className="space-y-1">
+                    {interviews.map((iv) => (
+                      <li key={iv.id} className="flex items-center gap-2 text-sm">
+                        <span className="text-muted-foreground tabular-nums">
+                          {format(new Date(iv.scheduled_at ?? iv.conducted_at), "MM/dd/yyyy p")}
+                        </span>
+                        {iv.outcome ? (
+                          <Badge
+                            variant={iv.outcome === "completed" ? "default" : "destructive"}
+                            className="text-xs"
+                          >
+                            {iv.outcome === "completed" ? "Completed" : "No show"}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">Interviewed</Badge>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Internal recruiter notes — separate from applicant_notes,
+                  which holds what the candidate wrote on the form. */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium">Recruiter notes</h3>
+                  {recruiterNotesDirty && (
+                    <Button size="sm" onClick={saveRecruiterNotes} disabled={updateMutation.isPending}>
+                      Save
+                    </Button>
+                  )}
+                </div>
+                <Textarea
+                  value={recruiterNotes}
+                  onChange={(e) => setRecruiterNotes(e.target.value)}
+                  placeholder="e.g. Great customer service profile, not a sales fit"
+                  rows={3}
+                />
+              </div>
+
               <Separator />
 
               <div className="space-y-3">
@@ -121,7 +312,7 @@ export function CandidateDrawer({ candidateId, onClose }: Props) {
                 ))}
 
                 <div>
-                  <Label className="text-sm">Applicant notes</Label>
+                  <Label className="text-sm">Applicant notes (from application form)</Label>
                   {editing ? (
                     <Textarea
                       value={form.applicant_notes}
@@ -132,6 +323,14 @@ export function CandidateDrawer({ candidateId, onClose }: Props) {
                     <div className="text-sm whitespace-pre-wrap">{candidate.applicant_notes ?? "—"}</div>
                   )}
                 </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium">Attachments</h3>
+                <MediaAttachment label="CV / Resume" url={candidate.cv_url} buttonLabel="View CV" />
+                <MediaAttachment label="Intro recording" url={candidate.presentation_url} />
               </div>
 
               <Separator />

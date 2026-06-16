@@ -15,7 +15,6 @@ import {
   createDoc,
   drawParagraph,
   drawMetadataTable,
-  drawFooters,
   drawSignatureBlock,
   ensureSpace,
   MARGIN_LEFT,
@@ -31,22 +30,22 @@ function fmtMoney(n: number | null | undefined): string {
   return `$ ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function formatDateEnMixed(dateISO: string | null | undefined): string {
-  if (!dateISO) return "";
-  const d = new Date(`${dateISO.slice(0, 10)}T00:00:00`);
-  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  return `${days[d.getDay()]}, ${d.getDate()} de ${months[d.getMonth()]} de ${d.getFullYear()}`;
-}
+const MASKED_MONEY = "$ * * * *";
+const MASKED_TEXT = "* * * * * * * * * *";
 
 export function generateRenunciaPacketPdf(
   draft: FinalizationDraft,
   request: HrDocumentRequestQueueItem,
+  opts?: { maskSalary?: boolean },
 ): Blob {
+  const mask = opts?.maskSalary === true;
+  const money = (n: number | null | undefined): string =>
+    mask ? MASKED_MONEY : fmtMoney(n);
+  const letras = (s: string | null | undefined): string =>
+    mask ? MASKED_TEXT : (s ?? "");
   const doc = createDoc();
   const effectiveDate = draft.effectiveDate ?? draft.incidentDate;
   const effectiveDateLong = formatDateSpanishFull(effectiveDate);
-  const effectiveDateEnMixed = formatDateEnMixed(effectiveDate);
   const trabajador = draft.trabajadorNameSnapshot ?? "";
   const puesto = draft.puestoSnapshot ?? "";
 
@@ -56,7 +55,7 @@ export function generateRenunciaPacketPdf(
   doc.setFont("Helvetica", "normal");
   doc.setFontSize(10);
   doc.text(
-    `Guadalajara, Jalisco, a ${effectiveDateEnMixed}`,
+    `Guadalajara, Jalisco, a ${effectiveDateLong}`,
     PAGE_WIDTH - 0.75,
     y,
     { align: "right" },
@@ -125,7 +124,7 @@ export function generateRenunciaPacketPdf(
       { label: "Fecha de renuncia:", value: effectiveDateLong },
       { label: "Puesto desempeñado:", value: puesto.toUpperCase() },
       { label: "Horario de Trabajo:", value: draft.horarioSnapshot ?? "" },
-      { label: "Salario Diario:", value: fmtMoney(draft.salarioDiarioSnapshot) },
+      { label: "Salario Diario:", value: money(draft.salarioDiarioSnapshot) },
     ],
     MARGIN_LEFT,
     y,
@@ -136,8 +135,8 @@ export function generateRenunciaPacketPdf(
 
   // Finiquito body paragraph
   const finVars = {
-    total_monto: fmtMoney(draft.totalMonto),
-    total_en_letras: draft.totalEnLetras ?? "",
+    total_monto: money(draft.totalMonto),
+    total_en_letras: letras(draft.totalEnLetras),
     effective_date: effectiveDateLong,
   };
   y = drawParagraph(
@@ -151,9 +150,10 @@ export function generateRenunciaPacketPdf(
 
   // Itemized table
   const items = [
-    { label: "Aguinaldo proporcional", value: fmtMoney(draft.aguinaldoMonto) },
-    { label: "Vacaciones correspondientes", value: fmtMoney(draft.vacacionesMonto) },
-    { label: "Prima vacacional (25%)", value: fmtMoney(draft.primaVacacionalMonto) },
+    { label: "Aguinaldo proporcional", value: money(draft.aguinaldoMonto) },
+    { label: "Vacaciones correspondientes", value: money(draft.vacacionesMonto) },
+    { label: "Prima vacacional (25%)", value: money(draft.primaVacacionalMonto) },
+    { label: "Salarios Devengados de Días", value: money(draft.salariosDevengadosMonto) },
   ];
   y = drawMetadataTable(doc, items.map((i) => ({ label: i.label, value: i.value })), MARGIN_LEFT, y, 2.5, CONTENT_WIDTH);
 
@@ -166,7 +166,7 @@ export function generateRenunciaPacketPdf(
   doc.setFontSize(10);
   doc.text("Total", MARGIN_LEFT + 0.08, y + 0.2);
   doc.rect(MARGIN_LEFT + 2.5, y, CONTENT_WIDTH - 2.5, totalRowH);
-  doc.text(fmtMoney(draft.totalMonto), MARGIN_LEFT + 2.58, y + 0.2);
+  doc.text(money(draft.totalMonto), MARGIN_LEFT + 2.58, y + 0.2);
   y += totalRowH;
 
   // Importe con letra row
@@ -176,7 +176,7 @@ export function generateRenunciaPacketPdf(
   doc.text("Importe con letra", MARGIN_LEFT + 0.08, y + 0.2);
   doc.rect(MARGIN_LEFT + 2.5, y, CONTENT_WIDTH - 2.5, letraRowH);
   doc.setFontSize(8);
-  const letraText = draft.totalEnLetras ?? "";
+  const letraText = letras(draft.totalEnLetras);
   const letraLines = doc.splitTextToSize(letraText, CONTENT_WIDTH - 2.5 - 0.16);
   doc.text(letraLines[0] ?? "", MARGIN_LEFT + 2.58, y + 0.2);
   y += letraRowH + 0.2;
@@ -339,8 +339,10 @@ export function generateRenunciaPacketPdf(
   y = ensureSpace(doc, y, 0.6);
   y = drawSignatureBlock(doc, MARGIN_LEFT + CONTENT_WIDTH / 4, y, CONTENT_WIDTH / 2, "", trabajador, { bold: true });
 
-  // ── Footers ────────────────────────────────────────────────────
-  drawFooters(doc, draft.docRef ?? "");
+  // ── No footers ─────────────────────────────────────────────────
+  // The renuncia packet intentionally omits the folio header (docRef) and
+  // page numbers — it's a signed employee-facing packet, not an internal
+  // numbered record. Other doc types still call drawFooters.
 
   return doc.output("blob");
 }

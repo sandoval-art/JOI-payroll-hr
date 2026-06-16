@@ -36,6 +36,22 @@ Deno.serve(async (req) => {
   const rawBody = payload.HtmlBody || payload.TextBody || "";
   const parsed = parseApplicationEmail(rawBody);
 
+  // 3b. Guard: the inbound address also receives other Gravity Forms
+  // notifications (e.g. the website Contact form). Those parse to all-null
+  // fields and used to create empty candidate rows. If we extracted nothing
+  // that identifies an applicant, acknowledge with 200 (so Postmark doesn't
+  // retry) but don't insert.
+  if (!parsed.full_name && !parsed.curp && !parsed.phone && !parsed.cv_url) {
+    console.log(
+      "ignored non-application email",
+      JSON.stringify({ subject: payload.Subject, from: payload.From }),
+    );
+    return new Response(
+      JSON.stringify({ ok: true, action: "ignored_non_application" }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  }
+
   const receivedAt = payload.Date
     ? new Date(payload.Date).toISOString()
     : new Date().toISOString();
@@ -60,10 +76,15 @@ Deno.serve(async (req) => {
         .from("recruiting_candidates")
         .update({
           full_name: parsed.full_name,
+          // Only overwrite email when the new submission actually has one —
+          // never wipe a known email with null.
+          ...(parsed.email ? { email: parsed.email } : {}),
           phone: parsed.phone,
           role_interest: parsed.role_interest,
           english_level_self: parsed.english_level_self,
           applicant_notes: parsed.applicant_notes,
+          cv_url: parsed.cv_url,
+          presentation_url: parsed.presentation_url,
           raw_email_body: rawBody,
           raw_email_received_at: receivedAt,
           needs_manual_review: parsed.needs_manual_review,
@@ -99,10 +120,13 @@ Deno.serve(async (req) => {
       source: "form",
       full_name: parsed.full_name,
       curp: parsed.curp,
+      email: parsed.email,
       phone: parsed.phone,
       role_interest: parsed.role_interest,
       english_level_self: parsed.english_level_self,
       applicant_notes: parsed.applicant_notes,
+      cv_url: parsed.cv_url,
+      presentation_url: parsed.presentation_url,
       raw_email_body: rawBody,
       raw_email_received_at: receivedAt,
       needs_manual_review: parsed.needs_manual_review,
