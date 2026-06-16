@@ -45,7 +45,11 @@ cover several named campaigns) rather than all-org access.
 
 **Also fixed in the same change:** the app previously swallowed the function's
 real error and showed the cryptic *"Edge Function returned a non-2xx status
-code"* toast. `useEditTimeClock` now unwraps `error.context` (the
-`FunctionsHttpError` body) so users see the actual reason, e.g.
-*"reason is required (min 3 chars)"* or *"Cross-org edit blocked."* The helper
-`edgeErrorMessage()` is reusable for other `supabase.functions.invoke` calls.
+code"* toast. The shared helper `edgeErrorMessage()` (in `src/lib/edge.ts`) now
+unwraps `error.context` (the `FunctionsHttpError` body) so users see the actual
+reason, e.g. *"reason is required (min 3 chars)"* or *"Cross-org edit blocked."*
+
+This helper is applied to **every** `supabase.functions.invoke` call in the app
+(11 sites across `useSupabasePayroll`, `useHrDocumentRequests`, `SystemUsers`,
+`HrTimeOff`, `ProvisionOrg`, `CampaignDetail`, `EmpleadoPerfil`, and
+`SubmitEODForAgentDialog`). Use it for any new edge-function call too.
