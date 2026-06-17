@@ -191,6 +191,33 @@ them to production** (via `supabase db push` or the Supabase MCP) after merge.
 
 ---
 
+## Hotfix log / notes for Joe
+
+**2026-06-17 — disabled legacy auto-create-period (stopgap, feeds Task 3).**
+Production was throwing `null value in column "period_code" of relation
+"payroll_periods" violates not-null constraint` (3× at 08:25). Cause: Phase 1 made
+`period_code/year/month/half` NOT NULL on `payroll_periods`, but the legacy
+`useCreatePeriod()` in `src/hooks/useSupabasePayroll.ts` only inserts
+`start_date/end_date/period_type`. Dashboard, EmpleadoPerfil, and PayrollRun all
+call it from an auto-create `useEffect`, and `useActivePeriod()` reads the old
+lowercase status `"open"` (live system uses `"OPEN"`), so no period is ever found
+and the broken insert fired on every page visit.
+
+Stopgap applied: `useCreatePeriod()` is now a no-op (logs a warning, touches no DB).
+This only stops the bleeding — it does not remove the dead path.
+
+**Joe, when you do Task 3 (retire the legacy screen):** also delete these
+now-dead auto-create effects and the legacy period hooks rather than leaving the
+no-op shim. Sites to clean up:
+- `src/pages/Dashboard.tsx` (~line 62–67 auto-create effect)
+- `src/pages/EmpleadoPerfil.tsx` (~line 292–297)
+- `src/pages/PayrollRun.tsx` (~line 81–86)
+- `src/pages/Historial.tsx` (~line 120, re-create on close)
+- `src/hooks/useSupabasePayroll.ts` — `useCreatePeriod`, `useActivePeriod`,
+  `useClosePeriod` (all query lowercase status; superseded by `usePayroll.ts`).
+
+---
+
 ## Task plan (one task = one PR, in order)
 
 1. **Lock cadence to quincenal.** Change base from `monthly/4` to `monthly/2` in
