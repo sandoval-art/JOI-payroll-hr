@@ -216,6 +216,31 @@ no-op shim. Sites to clean up:
 - `src/hooks/useSupabasePayroll.ts` — `useCreatePeriod`, `useActivePeriod`,
   `useClosePeriod` (all query lowercase status; superseded by `usePayroll.ts`).
 
+### Knock-on: who still reads the dead `useActivePeriod()`
+
+`useActivePeriod()` queries lowercase status `"open"`, so it has returned `null`
+since Phase 1 (live status is `"OPEN"`). These were already degraded before the
+2026-06-17 no-op — the no-op did not cause them, it just stopped the insert error.
+Replacements already exist in the new `/admin/payroll` system; these legacy
+surfaces should be repointed or removed during the rework:
+
+- **EmpleadoPerfil.tsx** — payroll summary card (`empPayrollRecord` from empty
+  `records`) shows blank net pay. Real figure is at `/admin/payroll/agent/:id`.
+- **Dashboard.tsx** — SPIFF import "Confirm" (`handleConfirmSpiff`). Was silently
+  no-op'ing (early-return on always-null `activePeriod`). As of 2026-06-17 it shows
+  an error toast and aborts instead of silently dropping bonuses. NOTE: a period-id
+  repoint is NOT the fix — the live `payroll_records` table has no `period_id` and
+  no `additional_bonuses` column, and its unique key is `(week_id, employee_id)`.
+  The legacy `useUpsertPayrollRecord` (writes `period_id`/`additional_bonuses`,
+  onConflict `employee_id,period_id`) is broken against this schema. Real rewire:
+  write SPIFF amounts by `week_id` into `extra_bonus` (or `commission`). KPI cards/
+  biweekly total already use the new hooks and are fine.
+- **Historial.tsx** — "Close Period" button (`{activePeriod && …}`) never renders;
+  close/lock belongs to the new system (Task 4).
+- **PayrollRun.tsx** — gated on `activePeriod`, stuck on loading; retired in Task 3.
+- **Empleados.tsx** — declares `records` from the dead hook but never uses it;
+  drop the orphan query.
+
 ---
 
 ## Task plan (one task = one PR, in order)
