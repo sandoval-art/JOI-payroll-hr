@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useTLCampaignsWithClient,
@@ -123,6 +123,12 @@ export default function Spiffs() {
   const defaultDate = weekOffset === 0 ? todayLocal() : weekStart;
 
   const [drafts, setDrafts] = useState<SpiffDraft[]>([makeEmptyDraft(defaultDate)]);
+
+  // Reset drafts when week changes so dates stay within the new week bounds
+  useEffect(() => {
+    const defaultDate = weekOffset === 0 ? todayLocal() : weekStart;
+    setDrafts([makeEmptyDraft(defaultDate)]);
+  }, [weekOffset, weekStart]);
 
   // Hooks
   const campaignsQuery = useTLCampaignsWithClient(employeeId);
