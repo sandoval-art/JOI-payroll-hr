@@ -216,6 +216,8 @@ export function useSpiffsForWeek(weekStart: string, weekEnd: string) {
 
       return rows.map((r) => ({
         ...r,
+        amount_usd: Number(r.amount_usd),
+        status: r.status as SpiffRow["status"],
         employee_name: empMap.get(r.employee_id) ?? "",
         client_name: clientMap.get(r.client_id) ?? "",
       }));
