@@ -30,12 +30,13 @@ DECLARE
   v_att_total numeric := 0;
   v_orphans   int     := 0;
 BEGIN
-  -- Org-scoped lookup (SECURITY DEFINER bypasses RLS — check manually)
-  SELECT id, client_id, week_start, week_end, status, organization_id
+  -- Org-scoped lookup via clients.organization_id (invoices has no organization_id column)
+  SELECT i.id, i.client_id, i.week_start, i.week_end, i.status, c.organization_id
     INTO v_inv
-    FROM invoices
-   WHERE id = p_invoice_id
-     AND organization_id = my_org_id();
+    FROM invoices i
+    JOIN clients c ON c.id = i.client_id
+   WHERE i.id = p_invoice_id
+     AND c.organization_id = my_org_id();
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invoice % not found or not in this organisation', p_invoice_id;
@@ -134,11 +135,12 @@ DECLARE
   v_det_count int;
   v_det_total numeric;
 BEGIN
-  SELECT id, status, organization_id
+  SELECT i.id, i.status, c.organization_id
     INTO v_inv
-    FROM invoices
-   WHERE id = p_invoice_id
-     AND organization_id = my_org_id();
+    FROM invoices i
+    JOIN clients c ON c.id = i.client_id
+   WHERE i.id = p_invoice_id
+     AND c.organization_id = my_org_id();
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invoice % not found or not in this organisation', p_invoice_id;
