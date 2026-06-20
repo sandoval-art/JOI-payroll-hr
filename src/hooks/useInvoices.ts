@@ -191,6 +191,14 @@ export interface WeeklyPreviewRow {
   existing_invoice_id: string | null;
   is_flat_bill: boolean;
   flat_amount: number;
+  is_gap_warning: boolean;
+  gap_dates: string[] | null;
+}
+
+export interface GapWarning {
+  employee_id: string;
+  employee_name: string;
+  gap_dates: string[];
 }
 
 export interface ClientPreview {
@@ -203,6 +211,7 @@ export interface ClientPreview {
   total_days: number;
   total_amount: number;
   missing_rate_count: number;
+  gap_warnings: GapWarning[];
 }
 
 export function useWeeklyPreview(monday: string | null, sunday: string | null) {
@@ -215,14 +224,15 @@ export function useWeeklyPreview(monday: string | null, sunday: string | null) {
         p_sunday: sunday!,
       });
       if (error) throw error;
-      const rawRows = (data || []) as WeeklyPreviewRow[];
       // Filter out test / mock campaigns — they shouldn't appear in real invoice
       // generation. Filter is on campaign_name with the DEV_MOCK_ prefix; keep
       // it client-side so the RPC stays general-purpose (other consumers may
       // want to see all campaigns).
-      const rows = rawRows.filter(
+      const allRows = (data as WeeklyPreviewRow[] || []).filter(
         (r) => !(r.campaign_name ?? "").toUpperCase().startsWith("DEV_MOCK"),
       );
+      const gapRows = allRows.filter((r) => r.is_gap_warning);
+      const rows = allRows.filter((r) => !r.is_gap_warning);
       const byClient = new Map<string, ClientPreview>();
       for (const r of rows) {
         let bucket = byClient.get(r.client_id);
@@ -237,6 +247,13 @@ export function useWeeklyPreview(monday: string | null, sunday: string | null) {
             total_days: 0,
             total_amount: 0,
             missing_rate_count: 0,
+            gap_warnings: gapRows
+              .filter((g) => g.client_id === r.client_id)
+              .map((g) => ({
+                employee_id: g.employee_id,
+                employee_name: g.employee_name,
+                gap_dates: g.gap_dates ?? [],
+              })),
           };
           byClient.set(r.client_id, bucket);
         }
@@ -440,3 +457,62 @@ export function useUpdateBillRate() {
 
 export const fmtUSD = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+
+/* ----------------------------------------------------------------- */
+/*  Spiff attachment / detachment                                      */
+/* ----------------------------------------------------------------- */
+
+export interface AttachSpiffsResult {
+  attached_count: number;
+  attached_total_usd: number;
+  orphan_count: number;
+}
+
+export interface DetachSpiffsResult {
+  detached_count: number;
+  detached_total_usd: number;
+}
+
+/**
+ * Attach pending spiffs for a draft invoice's client + week to
+ * the matching agent lines. Idempotent — safe to call any time.
+ * Invalidates ["invoice", invoiceId] on success.
+ */
+export function useAttachSpiffs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (invoiceId: string): Promise<AttachSpiffsResult> => {
+      const { data, error } = await supabase.rpc("attach_pending_spiffs", {
+        p_invoice_id: invoiceId,
+      });
+      if (error) throw error;
+      // RPC returns a set-returning function; result is an array with one row.
+      return (data as AttachSpiffsResult[])[0] ?? { attached_count: 0, attached_total_usd: 0, orphan_count: 0 };
+    },
+    onSuccess: (_result, invoiceId) => {
+      qc.invalidateQueries({ queryKey: ["invoice", invoiceId] });
+    },
+  });
+}
+
+/**
+ * Detach all billed spiffs from an invoice's lines, resetting them
+ * to 'pending'. Called before unlocking a sent invoice to draft.
+ * Guards server-side against paid invoices.
+ */
+export function useDetachSpiffs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (invoiceId: string): Promise<DetachSpiffsResult> => {
+      const { data, error } = await supabase.rpc("detach_invoice_spiffs", {
+        p_invoice_id: invoiceId,
+      });
+      if (error) throw error;
+      return (data as DetachSpiffsResult[])[0] ?? { detached_count: 0, detached_total_usd: 0 };
+    },
+    onSuccess: (_result, invoiceId) => {
+      qc.invalidateQueries({ queryKey: ["invoice", invoiceId] });
+      qc.invalidateQueries({ queryKey: ["spiffs-week"] });
+    },
+  });
+}
