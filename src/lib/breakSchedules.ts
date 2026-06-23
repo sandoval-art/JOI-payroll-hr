@@ -20,7 +20,12 @@ export interface BreakSchedule {
   clockIn: string;
   clockOut: string;
   break1: string;
-  lunch: string;
+  /**
+   * Fixed lunch window for current agents. Set to `null` for a NEW hire to have
+   * their lunch auto-balanced into the emptiest window for their team (see
+   * useLunchSlot / lunchBalancer). Existing agents keep their printed time.
+   */
+  lunch: string | null;
   lunchGroup: "A" | "B" | "C" | null;
   break2: string;
   /** Present only for employees with a different weekend shift (e.g. EMP-024). */

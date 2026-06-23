@@ -1,5 +1,6 @@
 import { LogIn, LogOut, Coffee, UtensilsCrossed, CalendarDays, AlertCircle } from "lucide-react";
 import { getBreakSchedule, type AltShift, type BreakSchedule } from "@/lib/breakSchedules";
+import { useLunchSlot } from "@/hooks/useLunchSlot";
 
 interface ScheduleBannerProps {
   employeeId: string | null | undefined;
@@ -53,6 +54,11 @@ const TONE: Record<
  */
 export function ScheduleBanner({ employeeId, variant = "full" }: ScheduleBannerProps) {
   const schedule = getBreakSchedule(employeeId);
+  // Lunch is balanced dynamically per team; fall back to the static value while
+  // it resolves or if the employee/campaign can't be looked up.
+  const computedLunch = useLunchSlot(employeeId);
+  const lunchValue = computedLunch?.label ?? schedule?.lunch ?? "—";
+  const lunchGroup = computedLunch?.group ?? schedule?.lunchGroup ?? null;
 
   if (variant === "compact") {
     if (!schedule) return null; // keep the area clean when nothing's on file
@@ -66,8 +72,8 @@ export function ScheduleBanner({ employeeId, variant = "full" }: ScheduleBannerP
         <Pill tone="break" label="Break 1" value={schedule.break1} />
         <Pill
           tone="lunch"
-          label={schedule.lunchGroup ? `Lunch (${schedule.lunchGroup})` : "Lunch"}
-          value={schedule.lunch}
+          label={lunchGroup ? `Lunch (${lunchGroup})` : "Lunch"}
+          value={lunchValue}
         />
         <Pill tone="break" label="Break 2" value={schedule.break2} />
         <Pill tone="out" label="Out" value={schedule.clockOut} />
@@ -96,7 +102,7 @@ export function ScheduleBanner({ employeeId, variant = "full" }: ScheduleBannerP
           {schedule.campaign} · {schedule.unit}
         </div>
       </div>
-      <ShiftRow s={schedule} days={schedule.days} />
+      <ShiftRow s={schedule} days={schedule.days} lunchValue={lunchValue} lunchGroup={lunchGroup} />
       {schedule.altShift && <AltShiftRow alt={schedule.altShift} />}
       <p className="px-4 pb-3 pt-1 text-xs text-muted-foreground">
         Stay within these exact times — breaks are scheduled, not chosen. Log every
@@ -118,7 +124,17 @@ function Pill({ tone, label, value }: { tone: Tone; label: string; value: string
   );
 }
 
-function ShiftRow({ s, days }: { s: BreakSchedule; days: string }) {
+function ShiftRow({
+  s,
+  days,
+  lunchValue,
+  lunchGroup,
+}: {
+  s: BreakSchedule;
+  days: string;
+  lunchValue: string;
+  lunchGroup: "A" | "B" | "C" | null;
+}) {
   return (
     <div className="px-4 pt-3">
       <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -130,8 +146,8 @@ function ShiftRow({ s, days }: { s: BreakSchedule; days: string }) {
         <Chip
           tone="lunch"
           icon={<UtensilsCrossed className="h-3.5 w-3.5" />}
-          label={s.lunchGroup ? `Lunch · Group ${s.lunchGroup}` : "Lunch"}
-          value={s.lunch}
+          label={lunchGroup ? `Lunch · Group ${lunchGroup}` : "Lunch"}
+          value={lunchValue}
         />
         <Chip tone="break" icon={<Coffee className="h-3.5 w-3.5" />} label="Break 2" value={s.break2} />
       </div>

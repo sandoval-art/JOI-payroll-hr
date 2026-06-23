@@ -224,9 +224,30 @@ first/second breaks roll in staggered 15-minute waves (max 3 people off the floo
 - **EMP-119** has no department/shift assigned, so no schedule is on file — the banner shows a
   soft "check with HR" empty state.
 
-### How to change a schedule
-Edit `src/lib/breakSchedules.ts` and redeploy. When TLs need to edit schedules without a deploy,
-lift this same shape into an `employee_break_schedules` table (or `break_group`/`slot` columns on
-`employees`) and swap the banner's import for a query — the field names are already aligned. The
-fully auto-generated version (computing the staggered waves from department + group) is the most
-fragile piece and deserves its own scoped pass.
+### Dynamic lunch balancing — "freeze current, balance new hires"
+Current agents keep their printed lunch. Only **new hires** get auto-assigned, each dropped into
+the emptiest lunch window for their team so the team evens out as it grows. No existing agent's
+lunch ever moves.
+
+- **Current vs new:** a schedule entry with a real `lunch` string is a current agent (frozen). A
+  new hire is added to `breakSchedules.ts` with their clock-in/breaks and **`lunch: null`** — that
+  null is the signal to auto-balance their lunch.
+- **Grouping:** by `campaign_id`. In this DB the campaign *is* the team (`SLOC Weekday`, `MCA`,
+  `Underwriting`, …) and everyone in a campaign shares days/hours, so it's the right lunch pool.
+  `shift_type`/`department` are inconsistent across the roster and would fragment teams, so they
+  are deliberately not used.
+- **Assignment:** seed each window's count from teammates with a fixed lunch, then place the
+  `lunch: null` teammates one by one (stable `(created_at, id)` hire order) into the currently
+  emptiest window; ties go to the earlier window.
+- **Code:** `src/lib/lunchBalancer.ts` (windows + helpers) and `src/hooks/useLunchSlot.ts` (roster
+  query + placement). The banner shows the computed window for a new hire and the static `lunch`
+  for everyone else.
+- **Scope:** only lunch balances. First/second breaks (waves of 3) and clock-in/out stay static.
+- **Known nuance:** balancing is per-team, so the noon window can still run heavier client-wide
+  (single-person desks default to noon). Offset each campaign's starting window if client-wide
+  leveling is ever needed.
+
+### How to change the static parts (breaks, clock-in/out)
+Edit `src/lib/breakSchedules.ts` and redeploy. When TLs need to edit these without a deploy, lift
+the shape into an `employee_break_schedules` table and swap the banner's import for a query — field
+names are already aligned.
