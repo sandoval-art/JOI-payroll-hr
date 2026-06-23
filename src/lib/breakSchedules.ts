@@ -74,6 +74,8 @@ export const BREAK_SCHEDULES: Record<string, BreakSchedule> = {
   "EMP-034": { campaign: "Scoop", unit: "Tech Support WE", days: "Fri – Sun", clockIn: "7:00a", clockOut: "7:00p", break1: "10:00a – 10:15a", lunch: "12:00p – 1:00p", lunchGroup: null, break2: "5:45p – 6:00p" },
   "EMP-006": { campaign: "One Star Capital", unit: "Funding Manager", days: "Mon – Fri", clockIn: "8:00a", clockOut: "5:00p", break1: "11:00a – 11:15a", lunch: "12:00p – 1:00p", lunchGroup: null, break2: "3:45p – 4:00p" },
   "EMP-024": { campaign: "Torro", unit: "Underwriting Weekend", days: "Fri / Mon / Tue", clockIn: "8:00a", clockOut: "5:00p", break1: "11:00a – 11:15a", lunch: "12:00p – 1:00p", lunchGroup: null, break2: "3:45p – 4:00p", altShift: { label: "Sat / Sun", days: "Sat / Sun", clockIn: "10:00a", clockOut: "5:00p", break1: "1:00p – 1:15p", lunch: "2:00p – 3:00p", break2: "3:45p – 4:00p" } },
+  // Test account (sandoval-agent@gmail.com) — placeholder schedule for previewing the banner.
+  "sandovalagent": { campaign: "Torro", unit: "Test", days: "Mon – Fri", clockIn: "8:00a", clockOut: "5:00p", break1: "10:30a – 10:45a", lunch: "1:00p – 2:00p", lunchGroup: "B", break2: "3:45p – 4:00p" },
 };
 
 /** Returns the schedule for an employee_id, or null if none is on file. */

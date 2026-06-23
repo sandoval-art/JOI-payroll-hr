@@ -579,19 +579,15 @@ export default function Timeclock() {
                 </AlertDescription>
               </Alert>
             ) : (
-              <div className="space-y-2">
-                <Button
-                  size="lg"
-                  className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white text-lg"
-                  onClick={() => setConfirmClockInOpen(true)}
-                  disabled={clockInMutation.isPending}
-                >
-                  <LogIn className="mr-2 h-5 w-5" />
-                  {clockInMutation.isPending ? "Processing..." : "Clock In"}
-                </Button>
-                {/* Small one-line schedule reminder directly under the button */}
-                <ScheduleBanner employeeId={employee?.employee_id} variant="compact" />
-              </div>
+              <Button
+                size="lg"
+                className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white text-lg"
+                onClick={() => setConfirmClockInOpen(true)}
+                disabled={clockInMutation.isPending}
+              >
+                <LogIn className="mr-2 h-5 w-5" />
+                {clockInMutation.isPending ? "Processing..." : "Clock In"}
+              </Button>
             )
           )}
 

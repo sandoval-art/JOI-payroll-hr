@@ -10,6 +10,39 @@ interface ScheduleBannerProps {
   variant?: "full" | "compact";
 }
 
+/** Color scheme so each segment type is instantly recognizable. */
+type Tone = "in" | "break" | "lunch" | "out";
+
+const TONE: Record<
+  Tone,
+  { pill: string; chip: string; icon: string; label: string }
+> = {
+  in: {
+    pill: "bg-emerald-50 border-emerald-200",
+    chip: "bg-emerald-50 border-emerald-200",
+    icon: "text-emerald-600",
+    label: "text-emerald-700",
+  },
+  break: {
+    pill: "bg-amber-50 border-amber-200",
+    chip: "bg-amber-50 border-amber-200",
+    icon: "text-amber-600",
+    label: "text-amber-800",
+  },
+  lunch: {
+    pill: "bg-violet-50 border-violet-200",
+    chip: "bg-violet-50 border-violet-200",
+    icon: "text-violet-600",
+    label: "text-violet-700",
+  },
+  out: {
+    pill: "bg-rose-50 border-rose-200",
+    chip: "bg-rose-50 border-rose-200",
+    icon: "text-rose-600",
+    label: "text-rose-700",
+  },
+};
+
 /**
  * Read-only banner that shows an agent their own scheduled clock-in/out and
  * breaks. Data comes from src/lib/breakSchedules.ts (sourced from the June 17
@@ -24,19 +57,20 @@ export function ScheduleBanner({ employeeId, variant = "full" }: ScheduleBannerP
   if (variant === "compact") {
     if (!schedule) return null; // keep the area clean when nothing's on file
     return (
-      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-xs">
         <span className="inline-flex items-center gap-1 font-medium text-[#0A1133]">
           <CalendarDays className="h-3.5 w-3.5 text-[#FFA700]" />
           Your schedule
         </span>
-        <CompactItem label="In" value={schedule.clockIn} />
-        <CompactItem label="Break 1" value={schedule.break1} />
-        <CompactItem
+        <Pill tone="in" label="In" value={schedule.clockIn} />
+        <Pill tone="break" label="Break 1" value={schedule.break1} />
+        <Pill
+          tone="lunch"
           label={schedule.lunchGroup ? `Lunch (${schedule.lunchGroup})` : "Lunch"}
           value={schedule.lunch}
         />
-        <CompactItem label="Break 2" value={schedule.break2} />
-        <CompactItem label="Out" value={schedule.clockOut} />
+        <Pill tone="break" label="Break 2" value={schedule.break2} />
+        <Pill tone="out" label="Out" value={schedule.clockOut} />
       </div>
     );
   }
@@ -52,7 +86,7 @@ export function ScheduleBanner({ employeeId, variant = "full" }: ScheduleBannerP
   }
 
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50/60 overflow-hidden">
+    <div className="rounded-lg border border-amber-200 bg-white overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#0A1133] text-white">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <CalendarDays className="h-4 w-4 text-[#FFA700]" />
@@ -64,7 +98,7 @@ export function ScheduleBanner({ employeeId, variant = "full" }: ScheduleBannerP
       </div>
       <ShiftRow s={schedule} days={schedule.days} />
       {schedule.altShift && <AltShiftRow alt={schedule.altShift} />}
-      <p className="px-4 pb-3 pt-1 text-xs text-amber-800/80">
+      <p className="px-4 pb-3 pt-1 text-xs text-muted-foreground">
         Stay within these exact times — breaks are scheduled, not chosen. Log every
         break and lunch in both the JOI app and your CRM.
       </p>
@@ -72,10 +106,13 @@ export function ScheduleBanner({ employeeId, variant = "full" }: ScheduleBannerP
   );
 }
 
-function CompactItem({ label, value }: { label: string; value: string }) {
+function Pill({ tone, label, value }: { tone: Tone; label: string; value: string }) {
+  const t = TONE[tone];
   return (
-    <span className="inline-flex items-center gap-1">
-      <span className="text-muted-foreground">{label}</span>
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${t.pill}`}
+    >
+      <span className={`font-medium ${t.label}`}>{label}</span>
       <span className="font-semibold text-[#0A1133]">{value}</span>
     </span>
   );
@@ -84,21 +121,22 @@ function CompactItem({ label, value }: { label: string; value: string }) {
 function ShiftRow({ s, days }: { s: BreakSchedule; days: string }) {
   return (
     <div className="px-4 pt-3">
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-amber-900/70">
+      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {days}
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Chip icon={<LogIn className="h-3.5 w-3.5" />} label="Clock in" value={s.clockIn} />
-        <Chip icon={<Coffee className="h-3.5 w-3.5" />} label="Break 1" value={s.break1} />
+        <Chip tone="in" icon={<LogIn className="h-3.5 w-3.5" />} label="Clock in" value={s.clockIn} />
+        <Chip tone="break" icon={<Coffee className="h-3.5 w-3.5" />} label="Break 1" value={s.break1} />
         <Chip
+          tone="lunch"
           icon={<UtensilsCrossed className="h-3.5 w-3.5" />}
           label={s.lunchGroup ? `Lunch · Group ${s.lunchGroup}` : "Lunch"}
           value={s.lunch}
         />
-        <Chip icon={<Coffee className="h-3.5 w-3.5" />} label="Break 2" value={s.break2} />
+        <Chip tone="break" icon={<Coffee className="h-3.5 w-3.5" />} label="Break 2" value={s.break2} />
       </div>
-      <div className="mt-2 text-xs text-amber-900/60">
-        <LogOut className="mr-1 inline h-3 w-3" />
+      <div className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-rose-700">
+        <LogOut className="h-3 w-3" />
         Clock out {s.clockOut}
       </div>
     </div>
@@ -108,17 +146,17 @@ function ShiftRow({ s, days }: { s: BreakSchedule; days: string }) {
 function AltShiftRow({ alt }: { alt: AltShift }) {
   return (
     <div className="mt-2 px-4">
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-amber-900/70">
+      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {alt.days}
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Chip icon={<LogIn className="h-3.5 w-3.5" />} label="Clock in" value={alt.clockIn} />
-        <Chip icon={<Coffee className="h-3.5 w-3.5" />} label="Break 1" value={alt.break1} />
-        <Chip icon={<UtensilsCrossed className="h-3.5 w-3.5" />} label="Lunch" value={alt.lunch} />
-        <Chip icon={<Coffee className="h-3.5 w-3.5" />} label="Break 2" value={alt.break2} />
+        <Chip tone="in" icon={<LogIn className="h-3.5 w-3.5" />} label="Clock in" value={alt.clockIn} />
+        <Chip tone="break" icon={<Coffee className="h-3.5 w-3.5" />} label="Break 1" value={alt.break1} />
+        <Chip tone="lunch" icon={<UtensilsCrossed className="h-3.5 w-3.5" />} label="Lunch" value={alt.lunch} />
+        <Chip tone="break" icon={<Coffee className="h-3.5 w-3.5" />} label="Break 2" value={alt.break2} />
       </div>
-      <div className="mt-2 text-xs text-amber-900/60">
-        <LogOut className="mr-1 inline h-3 w-3" />
+      <div className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-rose-700">
+        <LogOut className="h-3 w-3" />
         Clock out {alt.clockOut}
       </div>
     </div>
@@ -126,18 +164,21 @@ function AltShiftRow({ alt }: { alt: AltShift }) {
 }
 
 function Chip({
+  tone,
   icon,
   label,
   value,
 }: {
+  tone: Tone;
   icon: React.ReactNode;
   label: string;
   value: string;
 }) {
+  const t = TONE[tone];
   return (
-    <div className="rounded-md border border-amber-200 bg-white px-2.5 py-1.5">
-      <div className="flex items-center gap-1 text-[11px] font-medium text-amber-900/70">
-        {icon}
+    <div className={`rounded-md border px-2.5 py-1.5 ${t.chip}`}>
+      <div className={`flex items-center gap-1 text-[11px] font-medium ${t.label}`}>
+        <span className={t.icon}>{icon}</span>
         {label}
       </div>
       <div className="mt-0.5 text-sm font-semibold text-[#0A1133]">{value}</div>
