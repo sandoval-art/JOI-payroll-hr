@@ -1,5 +1,12 @@
 # JOI Break & Lunch Schedule
 
+> ⚠️ **SUPERSEDED (2026-06-23).** The April 2-group matrix below is historical.
+> The live schedule is now a **per-employee** model from the June 17 2026 PDF
+> (3 lunch groups A/B/C, staggered 15-min break waves), stored in code at
+> **`src/lib/breakSchedules.ts`** and surfaced read-only on the Timeclock page
+> via `src/components/ScheduleBanner.tsx`. See the "June 2026 per-employee model"
+> section at the bottom of this file. The matrix below is kept only for history.
+
 **Source:** `docs/reference/break-schedule-source.pdf` (received 2026-04-22).
 **Purpose:** Authoritative break/lunch time matrix per campaign-shift variant. Consumed by Feature B2/B3 Phase 4 (carta/acta editor) for `horario_snapshot`.
 
@@ -189,3 +196,37 @@ Phase 4 builder decides; logging both options here so there's no re-discovery.
 - **Scoop Sales / Scoop Weekday / Scoop Weekend:** source PDF shows Group A only — confirm whether Group B exists or these campaigns run single-group.
 - **Scoop Weekday / Scoop Weekend:** no 3rd break in the matrix — confirm this is intentional (shorter shift?) vs. missing from source.
 - **HFB:** only 2 breaks + lunch (no 2nd break slot between first and lunch, no 3rd break) — confirm pattern.
+
+---
+
+## June 2026 per-employee model (current)
+
+**Source:** `JOI_Employee_Break_Schedules.pdf`, issued 2026-06-17 (one page per employee, 47 employees).
+**What changed vs. April:** moved from a 2-group (A/B) campaign-shift matrix to a
+**per-employee** schedule. Lunch now rotates across **three groups (A/B/C)** and the
+first/second breaks roll in staggered 15-minute waves (max 3 people off the floor at once).
+
+### Where the data lives
+- **`src/lib/breakSchedules.ts`** — typed lookup `BREAK_SCHEDULES` keyed by `employees.employee_id`,
+  plus `getBreakSchedule(employeeId)`. Each record: `campaign, unit, days, clockIn, clockOut,
+  break1, lunch, lunchGroup, break2`, with an optional `altShift` for employees who run a
+  different weekend shift (currently only **EMP-024**, Torro Underwriting Weekend).
+- **`src/components/ScheduleBanner.tsx`** — read-only banner rendered at the top of the
+  Timeclock page (`src/pages/Timeclock.tsx`). Looks up the signed-in agent's `employee_id`
+  and shows their clock-in/out, breaks, and lunch group.
+
+### Scope / limitations (intentional for v1)
+- **Display-only.** The banner does not change clock-in or break enforcement (the 60-min lunch
+  cap and 15-min break caps still come from generic logic + `shift_settings`). It only tells the
+  agent *when* they're scheduled.
+- **Not day-aware.** For dual-shift employees (EMP-024) the banner shows *both* shift rows rather
+  than auto-selecting today's. Per-day selection is a future enhancement.
+- **EMP-119** has no department/shift assigned, so no schedule is on file — the banner shows a
+  soft "check with HR" empty state.
+
+### How to change a schedule
+Edit `src/lib/breakSchedules.ts` and redeploy. When TLs need to edit schedules without a deploy,
+lift this same shape into an `employee_break_schedules` table (or `break_group`/`slot` columns on
+`employees`) and swap the banner's import for a query — the field names are already aligned. The
+fully auto-generated version (computing the staggered waves from department + group) is the most
+fragile piece and deserves its own scoped pass.
